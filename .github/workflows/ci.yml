@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.14'
+
+      - name: Install uv (installer)
+        run: |
+          # Use the official installer to ensure a consistent uv CLI
+          curl -sSf https://install.astral.sh | sh
+          # Ensure local bin is on PATH for the job
+          echo "::add-path::$HOME/.local/bin"
+
+      - name: Cache pip and uv
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/uv
+          key: ${{ runner.os }}-pip-uv-${{ hashFiles('**/pyproject.toml') }}
+
+      - name: Verify lockfile is up-to-date (or regenerate and fail)
+        run: |
+          # If the lockfile is out-of-date, regenerate it and fail the job so the
+          # developer can commit the updated uv.lock. This keeps CI authoritative.
+          if uv lock --check; then
+            echo "uv.lock is up-to-date"
+          else
+            echo "uv.lock is out-of-date; regenerating for debug output"
+            uv lock || true
+            echo "Regenerated uv.lock locally. Please commit the changes and re-run CI."
+            exit 1
+          fi
+
+      - name: Sync environment (install deps from lock)
+        run: |
+          # Use the locked file and install optional extras (dev) for CI
+          uv sync --locked --all-extras
+
+      - name: Run pre-commit checks
+        run: |
+          uv run -- pre-commit run --all-files
+
+      - name: Run ruff (lint)
+        run: |
+          uv run -- ruff check .
+
+      - name: Run mypy (type check)
+        run: |
+          uv run -- mypy src tests
+
+      - name: Run tests
+        run: |
+          uv run -- pytest -q

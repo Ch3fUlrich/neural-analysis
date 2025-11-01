@@ -1,0 +1,31 @@
+[project]
+name = "neural-analysis"
+version = "0.0.0"
+description = "Automated pipeline for building and testing neural analysis methods with reproducible environments"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [ { name = "maintainer", email = "you@example.com" } ]
+requires-python = ">=3.14"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-xdist",
+    "pytest-cov",
+    "coverage",
+    "mypy",
+    "ruff",
+    "pydocstyle",
+    "pre-commit",
+    "flake8",
+    "build",
+]
+
+[build-system]
+requires = ["hatchling>=1.14"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 88
+target-version = "py314"
