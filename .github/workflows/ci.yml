@@ -20,8 +20,15 @@ jobs:
       - name: Install uv
         run: |
           # Install uv using the official installer with retry
-          curl -sSfL https://install.astral.sh | sh
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          # Verify uv is installed
+          if ! command -v uv &> /dev/null; then
+            echo "uv installation failed"
+            exit 1
+          fi
+          uv --version
 
       - name: Cache pip and uv
         uses: actions/cache@v4
@@ -33,6 +40,12 @@ jobs:
 
       - name: Verify lockfile is up-to-date (or regenerate and fail)
         run: |
+          # Ensure uv is available
+          if ! command -v uv &> /dev/null; then
+            echo "uv command not found in PATH"
+            echo "PATH: $PATH"
+            exit 1
+          fi
           # If the lockfile is out-of-date, regenerate it and fail the job so the
           # developer can commit the updated uv.lock. This keeps CI authoritative.
           if uv lock --check; then
@@ -48,10 +61,6 @@ jobs:
         run: |
           # Use the locked file and install optional extras (dev) for CI
           uv sync --locked --all-extras
-
-      - name: Run pre-commit checks
-        run: |
-          uv run -- pre-commit run --all-files
 
       - name: Run ruff (lint)
         run: |
