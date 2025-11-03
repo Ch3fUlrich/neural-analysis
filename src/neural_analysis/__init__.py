@@ -1,6 +1,7 @@
-"""neural_analysis - small package placeholder
-"""
+"""neural_analysis - small package placeholder"""
+
 __version__ = "0.0.0"
+
 
 def hello() -> str:
     """Simple placeholder function used by tests.

@@ -3,9 +3,13 @@
 This module is intentionally tiny so CI/dev tooling can exercise linting,
 type-checking and unit tests.
 """
+
 from __future__ import annotations
 
-from typing import Sequence
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 def mean(values: Sequence[float]) -> float:
