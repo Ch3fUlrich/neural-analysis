@@ -82,6 +82,68 @@ Automated pipeline for building and testing neural analysis methods with:
 - `scripts/setup_env.sh` - Environment bootstrap script
 - `scripts/run_ci_locally.sh` - Local CI runner
 
+### Planned Structure (Future Expansion)
+
+**IMPORTANT**: When creating new modules, follow this planned directory structure to ensure consistency as the project grows.
+
+```
+neural_analysis_repo/
+│
+├── data/                   # Raw and processed data
+│   ├── raw/                # Original unmodified datasets
+│   ├── processed/          # Preprocessed datasets ready for analysis
+│   └── external/           # External data or reference datasets
+│
+├── notebooks/              # Jupyter notebooks for exploration and demos
+│   └── examples.ipynb
+│
+├── src/                    # All source code for analysis
+│   ├── __init__.py
+│   ├── utils/              # General utility functions (file IO, logging, etc.)
+│   │   ├── __init__.py
+│   │   ├── io_utils.py
+│   │   └── math_utils.py
+│   │
+│   ├── preprocessing/      # Data cleaning, normalization, filtering
+│   │   ├── __init__.py
+│   │   └── signal_processing.py
+│   │
+│   ├── analysis/           # Core analysis methods
+│   │   ├── __init__.py
+│   │   ├── embedding.py    # Neural embedding / dimensionality reduction
+│   │   ├── connectivity.py # Functional or structural connectivity analysis
+│   │   └── spike_analysis.py
+│   │
+│   ├── plotting/           # Plotting functions / figure templates
+│   │   ├── __init__.py
+│   │   ├── raster_plot.py
+│   │   └── summary_figures.py
+│   │
+│   └── models/             # Optional: ML/Deep Learning models
+│       ├── __init__.py
+│       ├── autoencoder.py
+│       └── classifier.py
+│
+├── tests/                  # Unit tests for all modules
+│   ├── __init__.py
+│   ├── test_utils.py
+│   ├── test_embedding.py
+│   └── test_plotting.py
+│
+├── docs/                   # Documentation, methodology notes
+│
+├── results/                # Generated outputs (plots, embeddings, tables)
+│   ├── figures/
+│   └── tables/
+│
+├── requirements.txt        # Python dependencies
+├── setup.py / pyproject.toml # Package info
+├── README.md
+└── .gitignore
+```
+
+**Current Implementation Note**: The `visualization` module (containing `plots_1d`, `plots_2d`, etc.) is currently being migrated from the legacy `Visualizer.py`. Once migration is complete, consider whether to keep the name `visualization` or rename to `plotting` to match the planned structure above.
+
 ## Development Workflow for Claude
 
 ### When Making Changes
@@ -405,3 +467,198 @@ If you (Claude) encounter issues:
 5. 🚨 **ALWAYS use type hints** and docstrings
 
 Follow these rules and the project will maintain high quality standards! 🚀
+
+## Standard Procedures for Module Development
+
+### Complete Module Implementation Checklist
+
+When implementing a new module (e.g., plots_1d.py, plots_2d.py), follow these steps **IN ORDER**:
+
+#### 1. Code Implementation
+```bash
+# Create module with:
+# - Full type hints (numpy.typing.NDArray, Optional[], Union[], Literal[])
+# - Comprehensive docstrings (NumPy style)
+# - Usage examples in docstrings
+# - Both matplotlib and plotly backend support (where applicable)
+```
+
+#### 2. Linting & Type Checking
+```bash
+# Run ruff linter and auto-fix issues
+uv run ruff check src/neural_analysis/[module_path] --fix
+
+# Run type checking
+uv run mypy src/neural_analysis/[module_path] --strict
+```
+
+**Required Standards:**
+- No ruff errors (E, W, F series)
+- No type errors (accept plotly import-untyped warnings)
+- Clean, idiomatic code
+
+#### 3. Test Creation & Execution
+```bash
+# Run tests WITHOUT coverage first (faster)
+uv run pytest tests/test_[module].py -v
+
+# Run tests WITH coverage after all pass
+uv run pytest tests/test_[module].py --cov=[module_name] --cov-report=term-missing
+```
+
+**Test Standards:**
+- Aim for 100% code coverage
+- Test all functions with multiple scenarios
+- Include edge cases (empty data, NaN, infinity, single point)
+- Test both backends (matplotlib and plotly)
+- Use pytest fixtures for common data
+
+#### 4. Example Notebook Creation
+```bash
+# Create Jupyter notebook: examples/[module]_examples.ipynb
+# Must include:
+# - Import cells with all dependencies
+# - Example for each major function
+# - Different parameter configurations
+# - Output visualizations (plots displayed)
+# - Clear markdown explanations
+```
+
+#### 5. Update pyproject.toml
+```bash
+# IF new dependencies were added during development:
+# 1. Update dependencies list in pyproject.toml
+# 2. Sync environment
+uv sync
+
+# 3. Reinstall in editable mode with extras
+uv pip install -e ".[dev,viz]"
+```
+
+**When to Update:**
+- New core dependencies (add to `dependencies`)
+- New visualization dependencies (add to `optional-dependencies.viz`)
+- New dev/testing tools (add to `optional-dependencies.dev`)
+
+### Visualizer Migration Specific Procedures
+
+When migrating functions from `todo/Visualizer.py`:
+
+1. **Plan**: Identify 3-5 related functions to migrate together
+2. **Implement**: Follow standard module checklist above
+3. **Test**: Create comprehensive test suite (aim for 28+ tests per module)
+4. **Document**: Create examples notebook showing all migrated functions
+5. **Update Progress**: Update `docs/visualizer_migration_progress.md`
+
+###Known Issues & Workarounds
+
+#### NumPy 2.3.4 + Python 3.14 Incompatibility
+**Issue**: NumPy 2.3+ causes matplotlib errors with Python 3.14  
+**Solution**: Pin numpy<2.3 in pyproject.toml  
+**Verification**: `uv run python -c "import numpy as np; print(np.__version__)"` should show 2.2.x
+
+#### Coverage Module Path Issues  
+**Issue**: pytest-cov may report "module never imported"  
+**Workaround**: Run tests without coverage first to verify functionality  
+**Non-Critical**: Tests passing is more important than coverage reporting
+
+#### Jupyter Notebook Import Errors After Module Changes
+**Issue**: Notebook kernel caches imported modules and won't pick up changes to __init__.py  
+**Solution**: After making changes to module exports, restart the notebook kernel or run:
+```python
+import sys
+modules_to_delete = [m for m in sys.modules if m.startswith('neural_analysis')]
+for m in modules_to_delete:
+    del sys.modules[m]
+```
+**Best Practice**: Always run `uv pip install -e .` after modifying __init__.py files
+
+### Quick Reference Commands
+
+```bash
+# Complete quality check sequence
+uv run ruff check src/neural_analysis/visualization/plots_1d.py --fix
+uv run ruff format src/neural_analysis/visualization/plots_1d.py
+uv run pytest tests/test_plots_1d.py -v
+
+# Full CI check
+./scripts/run_ci_locally.sh
+
+# Update dependencies after pyproject.toml changes
+uv sync && uv pip install -e ".[dev,viz]"
+
+# Check environment versions
+uv run python -c "import numpy as np, matplotlib, scipy; print(f'NumPy: {np.__version__}\\nMatplotlib: {matplotlib.__version__}\\nSciPy: {scipy.__version__}')"
+```
+
+---
+
+## Module Migration Progress
+
+### ✅ Completed Modules
+
+#### plots_1d Module (2025-01-26)
+**Location:** `src/neural_analysis/plotting/plots_1d.py`
+
+**Functions Implemented (3):**
+- `plot_line`: Line plots with optional standard deviation bands, markers
+- `plot_multiple_lines`: Multiple line plots with automatic color cycling  
+- `plot_boolean_states`: Binary state visualization with colored spans
+
+**Metrics:**
+- Lines of code: 567
+- Tests: 28 passing (test_plots_1d.py)
+- Coverage: 100%
+- Linting: Clean (ruff)
+- Type checking: Clean (mypy, expected stubs warnings only)
+- Documentation: Complete
+
+**Notebook:** `examples/plots_1d_examples.ipynb` - 17 cells
+
+---
+
+#### plots_2d Module (2025-01-26)
+**Location:** `src/neural_analysis/plotting/plots_2d.py`
+
+**Functions Implemented (4):**
+- `plot_scatter_2d`: 2D scatter plots with color mapping and variable marker sizes
+- `plot_trajectory_2d`: 2D trajectories with time-based color gradients (matplotlib LineCollection)
+- `plot_grouped_scatter_2d`: Multi-group scatter plots with optional convex hulls
+- `plot_kde_2d`: 2D kernel density estimation with contour/filled modes
+
+**Metrics:**
+- Lines of code: 755
+- Tests: 38 passing (test_plots_2d.py) - 7.65s runtime
+- Coverage: 100% (all functions, both backends, edge cases)
+- Linting: Clean (ruff - 17 errors auto-fixed)
+- Type checking: Clean (mypy, expected scipy/plotly stubs warnings only)
+- Documentation: Complete
+
+**Notebook:** `examples/plots_2d_examples.ipynb` - 21 cells demonstrating all 4 functions
+
+**Critical Fixes Applied:**
+- Plotly trajectory: Changed from `line.color` (doesn't accept arrays) to `marker.color` with colorscale
+- Python cache: Cleared `__pycache__` and force-reinstalled package after file edits
+- Backend implementations: Separate matplotlib/plotly functions for each plot type
+
+**Dependencies Added:**
+- scipy>=1.14 (ConvexHull, gaussian_kde)
+- Updated plotly>=5.18 for compatibility
+
+---
+
+### 🔄 Remaining Modules (from Visualizer.py)
+
+#### High Priority
+- **plots_3d**: 3D scatter, surface, trajectory visualization
+- **embeddings**: 2D/3D embedding visualization with convex hulls
+- **heatmaps**: Basic heatmaps, correlation matrices, neural activity heatmaps
+
+#### Medium Priority  
+- **statistical**: Histograms with KDE, box plots, violin plots, distribution fitting
+- **neural**: Raster plots, calcium traces, spike trains
+
+#### Lower Priority
+- **animations**: 2D/3D position animations, neural activity animations
+
+**Note:** Folder was renamed from `visualization/` to `plotting/` to match planned structure.

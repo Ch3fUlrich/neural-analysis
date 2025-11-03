@@ -10,7 +10,7 @@ This module provides functions for creating 1D visualizations including:
 All functions support both matplotlib and plotly backends.
 
 Example:
-    >>> from neural_analysis.visualization import plot_line, PlotConfig
+    >>> from neural_analysis.plotting import plot_line, PlotConfig
     >>> config = PlotConfig(title="My Data", xlabel="Time", ylabel="Value")
     >>> plot_line(data, config=config, backend='matplotlib')
 """

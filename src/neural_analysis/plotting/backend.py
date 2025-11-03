@@ -1,5 +1,5 @@
 """
-Backend selection and management for visualization package.
+Backend selection and management for the plotting package.
 
 This module provides a flexible backend system that allows switching between
 matplotlib and plotly for different visualization needs. Matplotlib is better
@@ -7,7 +7,7 @@ for static, publication-quality figures, while Plotly excels at interactive
 visualizations.
 
 Example:
-    >>> from neural_analysis.visualization import set_backend, get_backend
+    >>> from neural_analysis.plotting import set_backend, get_backend
     >>> set_backend('matplotlib')
     >>> current = get_backend()
     >>> print(current)

@@ -6,7 +6,18 @@ readme = "README.md"
 license = {text = "MIT"}
 authors = [ { name = "maintainer", email = "you@example.com" } ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "numpy>=1.24,<2.3", # Pin to avoid Python 3.14 incompatibility with NumPy 2.3+
+    "matplotlib>=3.7",
+    "scipy>=1.11",
+    "ipykernel>=6.29",
+    "pip>=24.0",
+    "plotly>=5.18",
+    "nbformat>=5.10",
+    "pandas>=2.0",
+    "h5py>=3.10",
+    "pot>=0.9", # Optimal Transport (import name: ot)
+]
 
 [project.optional-dependencies]
 dev = [
@@ -16,6 +27,12 @@ dev = [
     "mypy>=1.18",
     "ruff>=0.14",
     "pre-commit>=4.0",
+]
+viz = [
+    "plotly>=5.18",
+    "pandas>=2.0",
+    "seaborn>=0.13",
+    "scikit-learn>=1.3",
 ]
 
 [project.scripts]
@@ -46,7 +63,12 @@ select = [
     "TCH",    # flake8-type-checking
     "TID",    # flake8-tidy-imports
 ]
-ignore = []
+ignore = [
+    "W293",   # Blank line contains whitespace (autofixed by formatter)
+    "W291",   # Trailing whitespace (autofixed by formatter)
+    "C408",   # Unnecessary dict() call (plotly requires it for type safety)
+    "B905",   # zip() without strict (not needed for numpy arrays)
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101"]  # Allow assert in tests

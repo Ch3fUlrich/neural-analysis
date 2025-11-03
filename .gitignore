@@ -56,3 +56,7 @@ Thumbs.db
 
 # Project specific
 *.log
+
+# Tooling/auxiliary directories not tracked
+bin/
+**/.ipynb_checkpoints/

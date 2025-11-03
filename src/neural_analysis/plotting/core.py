@@ -1,14 +1,14 @@
 """
-Core utilities for visualization package.
+Core utilities for the plotting package.
 
-This module provides fundamental utilities used across all visualization functions:
+This module provides fundamental utilities used across all plotting functions:
 - PlotConfig: Configuration dataclass for plot parameters
 - Color utilities: Color generation, alpha calculation, RGBA conversion
 - Save utilities: Plot saving with various formats
 - Helper functions: Axis configuration, normalization, etc.
 
 Example:
-    >>> from neural_analysis.visualization.core import PlotConfig, calculate_alpha
+    >>> from neural_analysis.plotting.core import PlotConfig, calculate_alpha
     >>> config = PlotConfig(title="My Plot", figsize=(10, 5))
     >>> alpha_values = calculate_alpha([1, 2, 3, 4, 5])
 """
@@ -23,6 +23,7 @@ import matplotlib.cm as cm
 import numpy as np
 import numpy.typing as npt
 from .backend import BackendType
+from ..utils import normalize_01
 
 __all__ = [
     "PlotConfig",
@@ -547,60 +548,8 @@ def create_rgba_labels(
     return rgba_colors
 
 
-def normalize_01(
-    data: npt.NDArray,
-    axis: int | None = None,
-    min_val: float | None = None,
-    max_val: float | None = None,
-) -> npt.NDArray:
-    """
-    Normalize data to [0, 1] range.
-    
-    Parameters
-    ----------
-    data : ndarray
-        Data to normalize.
-    axis : int, optional
-        Axis along which to normalize. If None, normalizes entire array.
-    min_val : float, optional
-        Minimum value for normalization. If None, uses data minimum.
-    max_val : float, optional
-        Maximum value for normalization. If None, uses data maximum.
-        
-    Returns
-    -------
-    ndarray
-        Normalized data in [0, 1] range.
-        
-    Examples
-    --------
-    >>> data = np.array([1, 2, 3, 4, 5])
-    >>> normalized = normalize_01(data)
-    >>> print(normalized)
-    [0.  0.25 0.5 0.75 1. ]
-    
-    >>> # 2D normalization per column
-    >>> data_2d = np.array([[1, 10], [2, 20], [3, 30]])
-    >>> normalized = normalize_01(data_2d, axis=0)
-    """
-    data = np.asarray(data, dtype=float)
-    
-    # Determine min and max
-    if min_val is None:
-        min_val = np.min(data, axis=axis, keepdims=True)
-    if max_val is None:
-        max_val = np.max(data, axis=axis, keepdims=True)
-    
-    # Handle case where min == max
-    range_val = max_val - min_val
-    if isinstance(range_val, np.ndarray):
-        range_val = np.where(range_val == 0, 1, range_val)
-    elif range_val == 0:
-        range_val = 1
-    
-    normalized = (data - min_val) / range_val
-    
-    return np.clip(normalized, 0, 1)
+# normalize_01 is now imported from neural_analysis.utils.preprocessing
+# Legacy definition removed to avoid duplication
 
 
 def save_plot(
