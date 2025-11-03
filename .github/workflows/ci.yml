@@ -62,10 +62,6 @@ jobs:
           # Use the locked file and install optional extras (dev) for CI
           uv sync --locked --all-extras
 
-      - name: Run pre-commit checks
-        run: |
-          uv run -- pre-commit run --all-files
-
       - name: Run ruff (lint)
         run: |
           uv run -- ruff check .
