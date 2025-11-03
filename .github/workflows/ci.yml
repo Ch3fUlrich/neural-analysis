@@ -17,12 +17,11 @@ jobs:
         with:
           python-version: '3.14'
 
-      - name: Install uv (installer)
+      - name: Install uv
         run: |
-          # Use the official installer to ensure a consistent uv CLI
-          curl -sSf https://install.astral.sh | sh
-          # Ensure local bin is on PATH for the job
-          echo "::add-path::$HOME/.local/bin"
+          # Install uv using the official installer with retry
+          curl -sSfL https://install.astral.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Cache pip and uv
         uses: actions/cache@v4
