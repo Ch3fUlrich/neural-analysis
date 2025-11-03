@@ -20,8 +20,9 @@ jobs:
       - name: Install uv
         run: |
           # Install uv using the official installer with retry
-          curl -sSfL https://install.astral.sh | sh
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           # Verify uv is installed
           if ! command -v uv &> /dev/null; then
             echo "uv installation failed"
