@@ -22,6 +22,12 @@ jobs:
           # Install uv using the official installer with retry
           curl -sSfL https://install.astral.sh | sh
           echo "$HOME/.local/bin" >> $GITHUB_PATH
+          # Verify uv is installed
+          if ! command -v uv &> /dev/null; then
+            echo "uv installation failed"
+            exit 1
+          fi
+          uv --version
 
       - name: Cache pip and uv
         uses: actions/cache@v4
@@ -33,6 +39,12 @@ jobs:
 
       - name: Verify lockfile is up-to-date (or regenerate and fail)
         run: |
+          # Ensure uv is available
+          if ! command -v uv &> /dev/null; then
+            echo "uv command not found in PATH"
+            echo "PATH: $PATH"
+            exit 1
+          fi
           # If the lockfile is out-of-date, regenerate it and fail the job so the
           # developer can commit the updated uv.lock. This keeps CI authoritative.
           if uv lock --check; then
