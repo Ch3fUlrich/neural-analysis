@@ -12,64 +12,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
       - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.14'
+        run: uv python install 3.14
 
-      - name: Install uv
+      - name: Verify lockfile is up-to-date
+        run: uv lock --check
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-extras
+
+      - name: Run ruff (lint and format check)
         run: |
-          # Install uv using the official installer with retry
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          export PATH="$HOME/.cargo/bin:$PATH"
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-          # Verify uv is installed
-          if ! command -v uv &> /dev/null; then
-            echo "uv installation failed"
-            exit 1
-          fi
-          uv --version
-
-      - name: Cache pip and uv
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.cache/uv
-          key: ${{ runner.os }}-pip-uv-${{ hashFiles('**/pyproject.toml') }}
-
-      - name: Verify lockfile is up-to-date (or regenerate and fail)
-        run: |
-          # Ensure uv is available
-          if ! command -v uv &> /dev/null; then
-            echo "uv command not found in PATH"
-            echo "PATH: $PATH"
-            exit 1
-          fi
-          # If the lockfile is out-of-date, regenerate it and fail the job so the
-          # developer can commit the updated uv.lock. This keeps CI authoritative.
-          if uv lock --check; then
-            echo "uv.lock is up-to-date"
-          else
-            echo "uv.lock is out-of-date; regenerating for debug output"
-            uv lock || true
-            echo "Regenerated uv.lock locally. Please commit the changes and re-run CI."
-            exit 1
-          fi
-
-      - name: Sync environment (install deps from lock)
-        run: |
-          # Use the locked file and install optional extras (dev) for CI
-          uv sync --locked --all-extras
-
-      - name: Run ruff (lint)
-        run: |
-          uv run -- ruff check .
+          uv run ruff check .
+          uv run ruff format --check .
 
       - name: Run mypy (type check)
-        run: |
-          uv run -- mypy src tests
+        run: uv run mypy src tests
 
-      - name: Run tests
-        run: |
-          uv run -- pytest -q
+      - name: Run tests with coverage
+        run: uv run pytest --cov=src --cov-report=term-missing --cov-report=xml -v
+
+      - name: Upload coverage to Codecov (optional)
+        if: github.event_name == 'push'
+        uses: codecov/codecov-action@v4
+        continue-on-error: true
+        with:
+          file: ./coverage.xml

@@ -55,6 +55,46 @@ This repository provides an **automated pipeline for building and testing neural
 
 ## Development Workflow
 
+### Running CI Locally (Recommended Before Pushing)
+
+Before pushing changes, you can run the full CI pipeline locally using `act` to catch issues early:
+
+```bash
+# First time setup (install Docker and act)
+# On Ubuntu/WSL:
+sudo apt update && sudo apt install docker.io -y
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# Add your user to docker group (optional, to avoid sudo)
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Install act
+curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+
+# Run the local CI script
+chmod +x ./scripts/run_ci_locally.sh
+./scripts/run_ci_locally.sh
+```
+
+This will:
+- Run the exact same checks as GitHub Actions
+- Validate your changes before pushing
+- Save CI minutes and catch issues faster
+
+**Manual act usage:**
+```bash
+# Run specific workflow
+act -W .github/workflows/ci.yml
+
+# Run with verbose output
+act -W .github/workflows/ci.yml -v
+
+# Run specific job
+act -j test
+```
+
 ### Running Tests
 
 ```bash
