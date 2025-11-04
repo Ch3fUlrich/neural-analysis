@@ -40,6 +40,26 @@ from .plots_3d import (
     plot_scatter_3d,
     plot_trajectory_3d,
 )
+from .heatmaps import (
+    plot_heatmap,
+)
+from .grid_config import (
+    PlotSpec,
+    GridLayoutConfig,
+    ColorScheme,
+    PlotGrid,
+    plot_comparison_grid,
+    plot_grouped_comparison,
+    create_subplot_grid,
+    add_trace_to_subplot,
+)
+from .statistical_plots import (
+    plot_bar,
+    plot_violin,
+    plot_box,
+    plot_grouped_distributions,
+    plot_comparison_distributions,
+)
 
 __version__ = "0.1.0"
 __all__ = [
@@ -56,4 +76,18 @@ __all__ = [
     "plot_kde_2d",
     "plot_scatter_3d",
     "plot_trajectory_3d",
+    "plot_heatmap",
+    "create_subplot_grid",
+    "add_trace_to_subplot",
+    "PlotSpec",
+    "GridLayoutConfig",
+    "ColorScheme",
+    "PlotGrid",
+    "plot_comparison_grid",
+    "plot_grouped_comparison",
+    "plot_bar",
+    "plot_violin",
+    "plot_box",
+    "plot_grouped_distributions",
+    "plot_comparison_distributions",
 ]
