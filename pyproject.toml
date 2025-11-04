@@ -17,6 +17,7 @@ dependencies = [
     "pandas>=2.0",
     "h5py>=3.10",
     "pot>=0.9", # Optimal Transport (import name: ot)
+    "scikit-learn>=1.7.2",
 ]
 
 [project.optional-dependencies]

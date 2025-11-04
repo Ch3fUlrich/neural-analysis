@@ -23,14 +23,13 @@ import matplotlib.cm as cm
 import numpy as np
 import numpy.typing as npt
 from .backend import BackendType
-from ..utils import normalize_01
+from sklearn.preprocessing import minmax_scale
 
 __all__ = [
     "PlotConfig",
     "calculate_alpha",
     "generate_similar_colors",
     "create_rgba_labels",
-    "normalize_01",
     "save_plot",
     # Cross-backend helpers
     "resolve_colormap",
@@ -78,9 +77,18 @@ class PlotConfig:
     tight_layout : bool, default=True
         Whether to use tight layout
     save_path : Path or str, optional
-        Path to save the figure
+        Path to save the figure. If save_dir is provided, this is ignored.
     save_format : str, default='png'
-        Format for saving ('png', 'pdf', 'svg', etc.)
+        Format for saving ('png', 'pdf', 'svg', 'jpg', etc.)
+    save_dir : Path or str, optional
+        Directory where to save the figure. If provided, filename is generated
+        from plot_type and additional_save_title.
+    plot_type : str, optional
+        Type of plot (e.g., 'heatmap', 'scatter', 'line'). Used in generated filename.
+    additional_save_title : str, optional
+        Additional text to include in generated filename.
+    save_html : bool, default=True
+        For plotly plots, whether to also save HTML version alongside other formats.
     show : bool, default=True
         Whether to display the plot
     cmap : str, default='viridis'
@@ -99,6 +107,15 @@ class PlotConfig:
     ... )
     >>> # Use config in plotting function
     >>> plot_line(data, config=config)
+    
+    >>> # Save with generated filename
+    >>> config = PlotConfig(
+    ...     save_dir="output/figures",
+    ...     plot_type="scatter",
+    ...     additional_save_title="neuron_activity",
+    ...     save_format="png"
+    ... )
+    >>> # Will save as: output/figures/scatter_neuron_activity.png
     """
     
     title: str | None = None
@@ -115,6 +132,10 @@ class PlotConfig:
     tight_layout: bool = True
     save_path: str | Path | None = None
     save_format: str = 'png'
+    save_dir: str | Path | None = None
+    plot_type: str | None = None
+    additional_save_title: str | None = None
+    save_html: bool = True
     show: bool = True
     cmap: str = 'viridis'
     alpha: float = 0.8
@@ -123,6 +144,41 @@ class PlotConfig:
         """Validate and convert parameters after initialization."""
         if self.save_path is not None:
             self.save_path = Path(self.save_path)
+        if self.save_dir is not None:
+            self.save_dir = Path(self.save_dir)
+    
+    def get_save_path(self) -> Path | None:
+        """
+        Get the full save path for the plot.
+        
+        If save_path is set, returns it directly.
+        If save_dir is set, generates filename from plot_type and additional_save_title.
+        Otherwise returns None.
+        
+        Returns
+        -------
+        Path or None
+            Full path where plot should be saved, or None if no save requested.
+        """
+        if self.save_path is not None:
+            return self.save_path
+        
+        if self.save_dir is not None:
+            # Generate filename
+            parts = []
+            if self.plot_type:
+                parts.append(self.plot_type)
+            if self.additional_save_title:
+                parts.append(self.additional_save_title)
+            
+            if not parts:
+                # Default filename if nothing specified
+                parts = ["plot"]
+            
+            filename = "_".join(parts) + f".{self.save_format}"
+            return self.save_dir / filename
+        
+        return None
 
 
 # ---------------------------------------------
@@ -176,17 +232,15 @@ def resolve_colormap(cmap: str | None, backend: BackendType):
             except (KeyError, AttributeError):
                 continue
         
-        # Fallback for older matplotlib or unknown colormap
+        # Fallback: use viridis if colormap not found
+        warnings.warn(
+            f"Unknown colormap '{cmap}', using 'viridis' instead.", stacklevel=2
+        )
         try:
-            return cm.get_cmap(name)
-        except Exception:
-            warnings.warn(
-                f"Unknown colormap '{cmap}', using 'viridis' instead.", stacklevel=2
-            )
-            try:
-                return plt.colormaps["viridis"]
-            except AttributeError:
-                return cm.get_cmap("viridis")
+            return plt.colormaps["viridis"]
+        except AttributeError:
+            # Very old matplotlib versions
+            return plt.colormaps.get_cmap("viridis")
     else:
         # Plotly accepts canonical colorscale names (case-sensitive). Normalize
         # common matplotlib names to their Plotly equivalents; if not found, use
@@ -300,8 +354,9 @@ def finalize_plot_matplotlib(config: PlotConfig) -> None:
     This consolidates the common pattern of saving and showing matplotlib
     plots based on config settings.
     """
-    if config.save_path:
-        save_plot(config.save_path, format=config.save_format, dpi=config.dpi)
+    save_path = config.get_save_path()
+    if save_path:
+        save_plot(save_path, format=config.save_format, dpi=config.dpi)
     if config.show:
         plt.show()
 
@@ -310,13 +365,31 @@ def finalize_plot_plotly(fig, config: PlotConfig) -> None:
     """Handle save and show for plotly plots.
     
     This consolidates the common pattern of saving and showing plotly
-    plots based on config settings.
+    plots based on config settings. If save_html is True, also saves
+    an HTML version alongside the specified format.
     """
-    if config.save_path:
+    save_path = config.get_save_path()
+    if save_path:
+        # Save in the requested format
         if config.save_format == 'html':
-            fig.write_html(str(config.save_path))
+            fig.write_html(str(save_path))
         else:
-            fig.write_image(str(config.save_path), format=config.save_format)
+            # Save in requested format (png, jpg, pdf)
+            try:
+                fig.write_image(str(save_path), format=config.save_format)
+            except ValueError as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    f"Could not save plotly figure as {config.save_format}: {e}. "
+                    f"You may need to install kaleido: pip install kaleido"
+                )
+            
+            # Also save HTML if requested
+            if config.save_html:
+                html_path = save_path.with_suffix('.html')
+                fig.write_html(str(html_path))
+    
     if config.show:
         from IPython.display import HTML, display
         try:
@@ -523,7 +596,8 @@ def create_rgba_labels(
     (3, 4)
     """
     values = np.atleast_1d(values)
-    normalized_values = normalize_01(values, axis=0)
+    # Use sklearn's optimized min-max scaling
+    normalized_values = minmax_scale(values, axis=0)
     
     if values.ndim == 1:
         # Use matplotlib colormap for 1D
@@ -546,10 +620,6 @@ def create_rgba_labels(
         )
     
     return rgba_colors
-
-
-# normalize_01 is now imported from neural_analysis.utils.preprocessing
-# Legacy definition removed to avoid duplication
 
 
 def save_plot(
