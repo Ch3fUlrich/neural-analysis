@@ -4,9 +4,26 @@ This document provides critical instructions for Claude Sonnet (or any AI assist
 
 ## 🚨 CRITICAL RULES - NEVER VIOLATE
 
-### Rule 0: **ALWAYS USE PLOTGRID FOR PLOTTING**
-**All plotting in this package MUST use the PlotGrid system.**
+### Rule 0: **ALWAYS USE PLOTGRID FOR PLOTTING - NEVER USE RAW MATPLOTLIB/PYPLOT**
+**ALL plotting in this package MUST use the PlotGrid system defined in `grid_config.py`.**
 
+**🚫 FORBIDDEN: Direct matplotlib, pyplot, or plotly calls**
+```python
+# ❌ ABSOLUTELY FORBIDDEN - DO NOT USE
+import matplotlib.pyplot as plt
+plt.scatter(x, y)
+plt.plot(x, y)
+plt.bar(x, y)
+plt.figure()
+plt.show()
+
+# ❌ ALSO FORBIDDEN
+import plotly.graph_objects as go
+fig = go.Figure()
+fig.add_trace(go.Scatter(...))
+```
+
+**✅ REQUIRED: Use PlotGrid system**
 ```python
 # ✅ CORRECT: Use PlotGrid
 from neural_analysis.plotting import PlotGrid, PlotSpec, GridLayoutConfig
@@ -18,9 +35,9 @@ specs = [
 grid = PlotGrid(plot_specs=specs, layout=GridLayoutConfig(rows=1, cols=2))
 fig = grid.plot()
 
-# ❌ WRONG: Direct matplotlib/plotly calls
-import matplotlib.pyplot as plt
-plt.scatter(x, y)  # DON'T DO THIS
+# ✅ ALSO CORRECT: Use helper functions (they use PlotGrid internally)
+from neural_analysis.plotting import plot_bar, plot_violin, plot_line
+fig = plot_bar(data={'A': arr1, 'B': arr2})
 ```
 
 **Why PlotGrid?**
@@ -30,8 +47,11 @@ plt.scatter(x, y)  # DON'T DO THIS
 - Backend agnostic (matplotlib ↔ plotly)
 - Legend deduplication
 - Type-safe with Literal type hints
+- Unified API for all plot types
 
-**Helper Functions**: Convenience functions like `plot_bar()`, `plot_violin()` internally use PlotGrid.
+**Helper Functions**: Convenience functions like `plot_bar()`, `plot_violin()`, `plot_line()` internally use PlotGrid.
+
+**Exception**: Only matplotlib/pyplot usage allowed is for post-processing PlotGrid output (e.g., adjusting tick labels, adding annotations). Never create plots from scratch with pyplot.
 
 ### Rule 1: Always Run Local CI Before Pushing
 **NEVER push code without running and passing local CI checks first.**

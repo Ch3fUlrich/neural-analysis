@@ -362,6 +362,9 @@ def render_line_matplotlib(
     error_y: Optional[npt.NDArray] = None,
     alpha: float = 1.0,
     label: Optional[str] = None,
+    show_values: bool = False,
+    value_format: str = '.3f',
+    x_labels: Optional[list] = None,
     **kwargs
 ):
     """
@@ -378,13 +381,19 @@ def render_line_matplotlib(
     line_width : float, default=1.5
         Width of the line
     linestyle : str, default='-'
-        Line style ('-', '--', '-.', ':', etc.)
+        Line style ('-', '--', '-.', ':', etc.')
     error_y : ndarray, optional
         Error bar values for y-axis (creates shaded error band)
     alpha : float, default=1.0
         Opacity of the line (0-1)
     label : str, optional
         Label for legend
+    show_values : bool, default=False
+        Whether to show value labels on points
+    value_format : str, default='.3f'
+        Format string for value labels
+    x_labels : list, optional
+        Custom labels for x-axis ticks
     **kwargs
         Additional keyword arguments passed to ax.plot()
         
@@ -393,17 +402,13 @@ def render_line_matplotlib(
     list
         List of Line2D objects
     """
-    # Extract custom parameters that matplotlib doesn't support
+    # Extract custom parameters that matplotlib doesn't support directly
     false_color = kwargs.pop('false_color', None)
     true_label = kwargs.pop('true_label', None)
     false_label = kwargs.pop('false_label', None)
-    # Also pop parameters that are handled by function signature
-    kwargs.pop('marker', None)
-    kwargs.pop('marker_size', None)
-    kwargs.pop('line_width', None)
-    kwargs.pop('linestyle', None)
-    kwargs.pop('error_y', None)
-    kwargs.pop('alpha', None)
+    # Pop axis label parameters (handled by PlotConfig)
+    kwargs.pop('x_label', None)
+    kwargs.pop('y_label', None)
     
     # Handle 2D data with [x, y] columns
     if data.ndim == 2 and data.shape[1] == 2:
@@ -448,6 +453,19 @@ def render_line_matplotlib(
         alpha=alpha, label=label,
         **plot_kwargs
     )
+    
+    # Add value labels if requested
+    if show_values:
+        y_range = y.max() - y.min() if len(y) > 0 else 1
+        offset = y_range * 0.02
+        for xi, yi in zip(x, y):
+            ax.text(xi, yi + offset, f'{yi:{value_format}}', 
+                   ha='center', va='bottom', fontsize=9)
+    
+    # Set custom x-axis labels if provided
+    if x_labels is not None:
+        ax.set_xticks(x)
+        ax.set_xticklabels(x_labels)
     
     # Add error band if provided
     if error_y is not None:
@@ -809,6 +827,9 @@ def render_bar_matplotlib(
     orientation: str = 'v',
     error_y: Optional[npt.NDArray] = None,
     error_x: Optional[npt.NDArray] = None,
+    show_values: bool = False,
+    value_format: str = '.3f',
+    x_labels: Optional[list] = None,
     **kwargs
 ) -> Any:
     """
@@ -836,6 +857,12 @@ def render_bar_matplotlib(
         Error bar values for vertical bars
     error_x : ndarray, optional
         Error bar values for horizontal bars
+    show_values : bool, default=False
+        Whether to show value labels on bars
+    value_format : str, default='.3f'
+        Format string for value labels
+    x_labels : list, optional
+        Custom labels for x-axis ticks
     **kwargs
         Additional keyword arguments passed to ax.bar()
         
@@ -844,6 +871,10 @@ def render_bar_matplotlib(
     matplotlib.container.BarContainer
         The bar container
     """
+    # Pop custom parameters that matplotlib doesn't support directly
+    kwargs.pop('x_label', None)  # Will be handled by PlotConfig
+    kwargs.pop('y_label', None)  # Will be handled by PlotConfig
+    
     if x is None:
         x = np.arange(len(data))
     
@@ -851,11 +882,37 @@ def render_bar_matplotlib(
     bar_color = colors if colors is not None else color
     
     if orientation == 'h':
-        return ax.barh(x, data, color=bar_color, alpha=alpha, label=label, 
+        bars = ax.barh(x, data, color=bar_color, alpha=alpha, label=label, 
                       xerr=error_x, **kwargs)
+        
+        # Add value labels if requested
+        if show_values:
+            for i, (pos, val) in enumerate(zip(x, data)):
+                offset = max(data) * 0.02 if error_x is None else max(data) * 0.02 + (error_x[i] if hasattr(error_x, '__getitem__') else 0)
+                ax.text(val + offset, pos, f'{val:{value_format}}', 
+                       va='center', ha='left', fontsize=9)
+        
+        # Set custom y-axis labels if provided
+        if x_labels is not None:
+            ax.set_yticks(x)
+            ax.set_yticklabels(x_labels)
     else:
-        return ax.bar(x, data, color=bar_color, alpha=alpha, label=label,
+        bars = ax.bar(x, data, color=bar_color, alpha=alpha, label=label,
                      yerr=error_y, **kwargs)
+        
+        # Add value labels if requested
+        if show_values:
+            for i, (pos, val) in enumerate(zip(x, data)):
+                offset = max(data) * 0.02 if error_y is None else max(data) * 0.02 + (error_y[i] if hasattr(error_y, '__getitem__') else 0)
+                ax.text(pos, val + offset, f'{val:{value_format}}', 
+                       ha='center', va='bottom', fontsize=9)
+        
+        # Set custom x-axis labels if provided
+        if x_labels is not None:
+            ax.set_xticks(x)
+            ax.set_xticklabels(x_labels)
+    
+    return bars
 
 
 def render_bar_plotly(

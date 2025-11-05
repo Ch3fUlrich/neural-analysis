@@ -721,6 +721,11 @@ class PlotGrid:
             )
         
         elif spec.plot_type == 'line':
+            # Pop custom parameters that shouldn't be passed to matplotlib
+            x_label = spec.kwargs.pop('x_label', None)
+            y_label = spec.kwargs.pop('y_label', None)
+            grid_config = spec.kwargs.pop('grid', None)
+            
             renderers.render_line_matplotlib(
                 ax=ax,
                 data=spec.data,
@@ -732,8 +737,22 @@ class PlotGrid:
                 error_y=spec.error_y,
                 alpha=spec.alpha,
                 label=label_to_use,
+                show_values=spec.kwargs.pop('show_values', False),
+                value_format=spec.kwargs.pop('value_format', '.3f'),
+                x_labels=spec.kwargs.pop('x_labels', None),
                 **spec.kwargs
             )
+            
+            # Apply custom settings
+            if x_label:
+                ax.set_xlabel(x_label)
+            if y_label:
+                ax.set_ylabel(y_label)
+            if grid_config:
+                if isinstance(grid_config, dict):
+                    ax.grid(True, **grid_config)
+                else:
+                    ax.grid(grid_config)
         
         elif spec.plot_type == 'histogram':
             renderers.render_histogram_matplotlib(
@@ -778,6 +797,13 @@ class PlotGrid:
                 spec._legend_handle = result['legend_handle']
         
         elif spec.plot_type == 'bar':
+            # Pop custom parameters that shouldn't be passed to matplotlib
+            x_label = spec.kwargs.pop('x_label', None)
+            y_label = spec.kwargs.pop('y_label', None)
+            grid_config = spec.kwargs.pop('grid', None)
+            set_xticks = spec.kwargs.pop('set_xticks', None)
+            set_xticklabels = spec.kwargs.pop('set_xticklabels', None)
+            
             renderers.render_bar_matplotlib(
                 ax=ax,
                 data=spec.data,
@@ -789,8 +815,25 @@ class PlotGrid:
                 orientation=spec.kwargs.pop('orientation', 'v'),
                 error_y=spec.kwargs.pop('error_y', None),
                 error_x=spec.kwargs.pop('error_x', None),
+                show_values=spec.kwargs.pop('show_values', False),
+                value_format=spec.kwargs.pop('value_format', '.3f'),
+                x_labels=spec.kwargs.pop('x_labels', None),
                 **spec.kwargs
             )
+            
+            # Apply custom settings
+            if x_label:
+                ax.set_xlabel(x_label)
+            if y_label:
+                ax.set_ylabel(y_label)
+            if grid_config:
+                if isinstance(grid_config, dict):
+                    ax.grid(True, **grid_config)
+                else:
+                    ax.grid(grid_config)
+            if set_xticks is not None and set_xticklabels is not None:
+                ax.set_xticks(set_xticks)
+                ax.set_xticklabels(set_xticklabels)
         
         elif spec.plot_type == 'box':
             result = renderers.render_box_matplotlib(
@@ -959,6 +1002,19 @@ class PlotGrid:
         
         if spec.title:
             ax.set_title(spec.title)
+        
+        # Apply per-subplot settings from kwargs if provided
+        if 'x_label' in spec.kwargs:
+            ax.set_xlabel(spec.kwargs['x_label'])
+        if 'y_label' in spec.kwargs:
+            ax.set_ylabel(spec.kwargs['y_label'])
+        if 'grid' in spec.kwargs:
+            grid_val = spec.kwargs['grid']
+            if isinstance(grid_val, bool):
+                ax.grid(grid_val, alpha=0.3)
+            elif isinstance(grid_val, dict):
+                ax.grid(**grid_val)
+        
         # Note: Legend is now handled in the plotting loop for violin/box plots
         # For other plot types that use standard matplotlib labels, legend is still needed
         # but we skip it for violin/box since we handle those separately
