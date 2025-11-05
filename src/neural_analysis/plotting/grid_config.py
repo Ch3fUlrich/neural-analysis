@@ -5,20 +5,90 @@ This module provides a metadata-driven approach to creating complex
 multi-panel plots with minimal code. Instead of manually managing subplot
 positions and styling, users provide a structured configuration that
 specifies what to plot, where, and how.
+
+The PlotGrid system is the unified plotting interface that supports:
+- Basic plots: scatter, line, histogram, heatmap, bar, violin, box
+- Advanced 2D plots: trajectory (with time-gradient coloring), kde (contour density), 
+  grouped_scatter (with convex hulls)
+- 3D plots: scatter3d, trajectory3d (with time-gradient coloring)
+- Specialized plots: convex_hull (boundary rendering)
+
+All convenience functions in plots_2d.py and plots_3d.py can be replicated
+using PlotGrid with appropriate PlotSpec configurations. The PlotGrid system
+provides a consistent interface across all plot types and backends (matplotlib/plotly).
+
+Example Usage:
+    >>> # Simple trajectory with time coloring
+    >>> spec = PlotSpec(
+    ...     data={'x': x_data, 'y': y_data},
+    ...     plot_type='trajectory',
+    ...     color_by="time",
+    ...     show_points=True,
+    ...     cmap='viridis'
+    ... )
+    >>> grid = PlotGrid(plot_specs=[spec])
+    >>> fig = grid.plot()
+    
+    >>> # KDE density plot
+    >>> spec = PlotSpec(
+    ...     data={'x': x_data, 'y': y_data},
+    ...     plot_type='kde',
+    ...     fill=True,
+    ...     n_levels=15,
+    ...     show_points=True
+    ... )
+    >>> grid = PlotGrid(plot_specs=[spec])
+    >>> fig = grid.plot()
+    
+    >>> # Grouped scatter with convex hulls
+    >>> spec = PlotSpec(
+    ...     data={'Group A': (x1, y1), 'Group B': (x2, y2)},
+    ...     plot_type='grouped_scatter',
+    ...     show_hulls=True
+    ... )
+    >>> grid = PlotGrid(plot_specs=[spec])
+    >>> fig = grid.plot()
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Literal, Sequence
+from typing import Any, Literal, Sequence
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
-from pathlib import Path
 
-from .core import PlotConfig
+import matplotlib.pyplot as plt
+
+try:
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+    go = None
+    make_subplots = None
+
+from .core import PlotConfig, get_default_categorical_colors, resolve_colormap
+from .backend import BackendType, get_backend
+from . import renderers
+from .renderers import extract_xy_from_data, extract_xyz_from_data
+from neural_analysis.utils.trajectories import compute_colors
+from neural_analysis.utils.geometry import compute_kde_2d, compute_convex_hull
+from neural_analysis.plotting.renderers import (
+    render_trajectory_matplotlib,
+    render_kde_matplotlib,
+    render_convex_hull_matplotlib,
+    render_trajectory_plotly,
+    render_trajectory3d_matplotlib,
+    render_trajectory3d_plotly,
+    render_kde_plotly,
+    render_convex_hull_plotly,
+)
 
 
-PlotType = Literal['scatter', 'line', 'histogram', 'heatmap', 'scatter3d', 'violin', 'box', 'bar']
+PlotType = Literal['scatter', 'line', 'histogram', 'heatmap', 'scatter3d', 'violin', 'box', 'bar', 
+                   'trajectory', 'trajectory3d', 'kde', 'grouped_scatter', 'convex_hull', 'boolean_states']
 BackendType = Literal['matplotlib', 'plotly']
 
 @dataclass
@@ -32,14 +102,17 @@ class PlotSpec:
     ----------
     data : np.ndarray or pd.DataFrame or dict
         Data to plot. Format depends on plot_type:
-        - scatter: (n_samples, 2) or (n_samples, 3) array
+        - scatter: (n_samples, 2) or (n_samples, 3) array, or separate x,y arrays
         - line: (n_samples,) or (n_samples, n_lines) array
+        - trajectory: (n_samples, 2) or (n_samples, 3) array with time-based coloring
         - histogram/kde: (n_samples,) array
         - heatmap: (n_rows, n_cols) array
         - violin/box: (n_samples,) array or list of arrays
+        - grouped_scatter: dict mapping group names to (x, y) tuples
+        - convex_hull: (n_samples, 2) array for boundary computation
     plot_type : PlotType
-        Type of plot: 'scatter', 'line', 'histogram', 'heatmap', 
-        'scatter3d', 'violin', 'box', 'bar'
+        Type of plot: 'scatter', 'line', 'trajectory', 'trajectory3d', 'histogram', 
+        'kde', 'heatmap', 'scatter3d', 'violin', 'box', 'bar', 'grouped_scatter', 'convex_hull'
     subplot_position : int, optional
         Which subplot this trace belongs to (0-indexed).
         If None, each spec gets its own subplot.
@@ -57,10 +130,47 @@ class PlotSpec:
         Size of markers (for scatter plots)
     line_width : float, optional
         Width of lines (for line plots)
+    linestyle : str, optional
+        Line style. For matplotlib: '-', '--', '-.', ':', etc.
+        For plotly: 'solid', 'dash', 'dot', 'dashdot', etc.
+    error_y : np.ndarray, optional
+        Error bar values for y-axis (for line plots with error bands)
     alpha : float, optional
         Transparency (0-1)
+    
+    # Advanced features for specialized plots
+    color_by : Literal["time"] | None, optional
+        Coloring strategy for plots. Currently supports:
+        - "time": Color trajectory segments by time progression
+        - None: Use default coloring (default)
+        Future support planned for: "speed", "direction", etc.
+    show_points : bool, optional
+        For trajectory plots: show scatter points along trajectory
+    cmap : str, optional
+        Colormap name (e.g., 'viridis', 'plasma', 'Blues')
+    colorbar : bool, optional
+        Whether to show colorbar for color-mapped plots
+    colorbar_label : str, optional
+        Label for colorbar
+    colors : np.ndarray or list, optional
+        Array of color values or list of colors for grouped data
+    sizes : np.ndarray or float, optional
+        Array of sizes or single size value
+    show_hulls : bool, optional
+        For grouped_scatter: show convex hulls around groups
+    hull_alpha : float, optional
+        For grouped_scatter: transparency for hull fill (0-1)
+    fill : bool, optional
+        For kde plots: fill contours
+    n_levels : int, optional
+        For kde plots: number of contour levels
+    bandwidth : float, optional
+        For kde plots: KDE bandwidth parameter
+    equal_aspect : bool, optional
+        Whether to use equal aspect ratio
+    
     kwargs : dict, optional
-        Additional plot-specific arguments
+        Additional plot-specific arguments passed to underlying renderers
     """
     data: np.ndarray | pd.DataFrame | dict
     plot_type: PlotType
@@ -71,7 +181,31 @@ class PlotSpec:
     marker: str | None = None
     marker_size: float | None = None
     line_width: float | None = None
+    linestyle: str | None = None
+    error_y: npt.NDArray | None = None
     alpha: float = 0.7
+    
+    # Advanced features
+    color_by: Literal["time"] | None = None
+    show_points: bool = False
+    cmap: str | None = None
+    colorbar: bool = False
+    colorbar_label: str | None = None
+    colors: np.ndarray | list | None = None
+    sizes: np.ndarray | float | None = None
+    show_hulls: bool = False
+    hull_alpha: float | None = None
+    fill: bool = True
+    n_levels: int = 10
+    bandwidth: float | None = None
+    equal_aspect: bool = False
+    
+    # Boolean states parameters
+    true_color: str | None = None
+    false_color: str | None = None
+    true_label: str | None = None
+    false_label: str | None = None
+    
     kwargs: dict[str, Any] = field(default_factory=dict)
 
 
@@ -411,8 +545,6 @@ class PlotGrid:
         matplotlib.figure.Figure or plotly.graph_objects.Figure
             The generated figure
         """
-        from .backend import get_backend, BackendType
-        
         # Group specs by subplot position
         if any(spec.subplot_position is not None for spec in self.plot_specs):
             # Group by explicit positions
@@ -441,8 +573,20 @@ class PlotGrid:
         else:
             subplot_titles = self.layout.subplot_titles
         
-        # Create the grid
-        backend_type = get_backend() if self.backend is None else BackendType(self.backend)
+        # Create the grid - determine backend string for later comparison
+        backend_enum = get_backend() if self.backend is None else self.backend
+        # Convert to string value if it's an enum
+        if hasattr(backend_enum, 'value'):
+            backend_str = backend_enum.value
+        else:
+            backend_str = backend_enum
+        
+        # Check if any specs are 3D to set projection
+        needs_3d = any(
+            spec.plot_type in ('scatter3d', 'trajectory3d')
+            for group in subplot_groups 
+            for spec in group
+        )
         
         result = create_subplot_grid(
             rows=rows,
@@ -451,16 +595,19 @@ class PlotGrid:
             subplot_titles=subplot_titles,
             shared_xaxes=self.layout.shared_xaxes,
             shared_yaxes=self.layout.shared_yaxes,
-            backend=self.backend,
+            backend=backend_str,
+            projection='3d' if needs_3d else None,
+            specs=[[{'type': 'scene'}] * cols] * rows if needs_3d and backend_str == 'plotly' else None,
         )
         
-        if backend_type == BackendType.MATPLOTLIB:
+        if backend_str == 'matplotlib':
             fig, axes = result
             # Flatten axes for easier indexing
             axes_flat = [ax for row in axes for ax in row] if isinstance(axes[0], list) else axes
             
-            # Track which labels have been shown per subplot
+            # Track which labels have been shown per subplot and which axes have titles
             legend_tracker = {}
+            axes_with_titles = set()
             
             # Plot each group of specs
             for i, spec_group in enumerate(subplot_groups):
@@ -470,8 +617,31 @@ class PlotGrid:
                 legend_tracker[i] = set()
                 
                 for spec in spec_group:
+                    if spec.title:
+                        axes_with_titles.add(i)
                     self._plot_spec_matplotlib(spec, ax, legend_tracker[i])
             
+            # Apply PlotConfig settings to axes after plotting
+            if self.config:
+                for i, ax in enumerate(axes_flat):
+                    # Only set title if PlotConfig has one, this is a single subplot, 
+                    # and no spec has already set a title
+                    if self.config.title and n_subplots == 1 and i not in axes_with_titles:
+                        ax.set_title(self.config.title)
+                    if self.config.xlabel:
+                        ax.set_xlabel(self.config.xlabel)
+                    if self.config.ylabel:
+                        ax.set_ylabel(self.config.ylabel)
+                    if self.config.xlim:
+                        ax.set_xlim(self.config.xlim)
+                    if self.config.ylim:
+                        ax.set_ylim(self.config.ylim)
+                    if self.config.grid:
+                        ax.grid(self.config.grid)
+            
+            # For single subplot, return just the axes; for multiple return (fig, axes)
+            if n_subplots == 1:
+                return axes_flat[0]
             return fig, axes
         else:
             fig = result
@@ -488,14 +658,10 @@ class PlotGrid:
                     trace = self._plot_spec_plotly(spec, legend_tracker[i])
                     if trace is not None:
                         add_trace_to_subplot(fig, trace, row=row, col=col)
-            
             return fig
     
     def _plot_spec_matplotlib(self, spec: PlotSpec, ax, legend_tracker: set):
         """Plot a PlotSpec using matplotlib with renderer functions."""
-        import matplotlib.pyplot as plt
-        from . import renderers
-        
         if ax is None:
             ax = plt.gca()
         
@@ -517,12 +683,29 @@ class PlotGrid:
                 **spec.kwargs
             )
         
+        elif spec.plot_type == 'scatter3d':
+            # 3D scatter plot - ax must be a 3D axis
+            renderers.render_scatter_matplotlib(
+                ax=ax,
+                data=spec.data,
+                color=spec.color,
+                marker=spec.marker or 'o',
+                marker_size=spec.marker_size,
+                alpha=spec.alpha,
+                label=label_to_use,
+                **spec.kwargs
+            )
+        
         elif spec.plot_type == 'line':
             renderers.render_line_matplotlib(
                 ax=ax,
                 data=spec.data,
                 color=spec.color,
                 line_width=spec.line_width or 1.5,
+                linestyle=spec.linestyle or '-',
+                marker=spec.marker,
+                marker_size=spec.marker_size,
+                error_y=spec.error_y,
                 alpha=spec.alpha,
                 label=label_to_use,
                 **spec.kwargs
@@ -544,6 +727,7 @@ class PlotGrid:
                 ax=ax,
                 data=spec.data,
                 cmap=spec.kwargs.pop('cmap', 'viridis'),
+                colorbar_label=spec.colorbar_label,
                 alpha=spec.alpha,
                 **spec.kwargs
             )
@@ -573,6 +757,155 @@ class PlotGrid:
                 **spec.kwargs
             )
         
+        elif spec.plot_type == 'trajectory':
+            # 2D trajectory with time-based coloring
+            # Extract x, y from data
+            x, y = extract_xy_from_data(spec.data)
+            
+            # Compute colors if requested
+            colors = compute_colors(len(x), color_by=spec.color_by) if spec.color_by else None
+            
+            # Render trajectory using renderer (segments calculated internally)
+            render_trajectory_matplotlib(
+                ax=ax,
+                x=x,
+                y=y,
+                colors=colors,
+                cmap=spec.cmap or 'viridis',
+                linewidth=spec.line_width or 1.0,
+                alpha=spec.alpha,
+                show_points=spec.show_points,
+                point_color=spec.color or "black",
+                point_size=spec.marker_size or 10,
+                colorbar=spec.colorbar,
+                colorbar_label=spec.colorbar_label or 'Time' if spec.color_by else None,
+                label=label_to_use,
+            )
+            
+            if spec.equal_aspect:
+                ax.set_aspect('equal', adjustable='box')
+        
+        elif spec.plot_type == 'trajectory3d':
+            # 3D trajectory with time-based coloring
+            # Extract x, y, z from data
+            x, y, z = extract_xyz_from_data(spec.data)
+            
+            # Compute colors if requested
+            colors = compute_colors(len(x), color_by=spec.color_by) if spec.color_by else None
+            
+            # Render trajectory using renderer (segments calculated internally)
+            render_trajectory3d_matplotlib(
+                ax=ax,
+                x=x,
+                y=y,
+                z=z,
+                colors=colors,
+                cmap=spec.cmap or 'viridis',
+                linewidth=spec.line_width or 2.0,
+                alpha=spec.alpha,
+                show_points=spec.show_points,
+                point_size=spec.marker_size or 10,
+                colorbar=spec.colorbar,
+                colorbar_label=spec.colorbar_label or 'Time' if spec.color_by else None,
+                label=label_to_use,
+            )
+        
+        elif spec.plot_type == 'kde':
+            # 2D KDE contour plot
+            # Extract x, y from data
+            x, y = extract_xy_from_data(spec.data)
+            
+            # Calculate KDE using utility function
+            xi, yi, zi = compute_kde_2d(
+                x, y, 
+                bandwidth=spec.bandwidth,
+                grid_size=100,
+                expand_fraction=0.1
+            )
+            
+            # Render using renderer
+            render_kde_matplotlib(
+                ax=ax,
+                xi=xi,
+                yi=yi,
+                zi=zi,
+                fill=spec.fill,
+                n_levels=spec.n_levels,
+                cmap=spec.cmap or 'Blues',
+                alpha=spec.alpha,
+                colorbar=spec.colorbar,
+                colorbar_label=spec.colorbar_label,
+                label=label_to_use,
+            )
+            
+            # Show points if requested
+            if spec.show_points:
+                ax.scatter(x, y, c='black', s=spec.marker_size or 5, 
+                          alpha=0.3, zorder=3)
+        
+        elif spec.plot_type == 'grouped_scatter':
+            # Grouped scatter with optional convex hulls
+            if not isinstance(spec.data, dict):
+                raise ValueError("grouped_scatter data must be dict mapping group names to (x,y) tuples")
+            
+            colors = spec.colors or get_default_categorical_colors(len(spec.data))
+            
+            for idx, (name, (x, y)) in enumerate(spec.data.items()):
+                color = colors[idx % len(colors)]
+                ax.scatter(x, y, s=spec.marker_size or 20, alpha=spec.alpha, 
+                          label=name, color=color)
+                
+                # Add convex hull if requested
+                if spec.show_hulls and len(x) >= 3:
+                    result = compute_convex_hull(x, y)
+                    if result is not None:
+                        hull_x, hull_y = result
+                        render_convex_hull_matplotlib(
+                            ax=ax,
+                            hull_x=hull_x,
+                            hull_y=hull_y,
+                            color=color,
+                            linewidth=1,
+                            alpha=spec.hull_alpha or 0.2,
+                            fill=True,
+                            fill_alpha=spec.hull_alpha or 0.2,
+                        )
+        
+        elif spec.plot_type == 'convex_hull':
+            # Just draw convex hull boundary
+            x, y = extract_xy_from_data(spec.data)
+            
+            if len(x) >= 3:
+                hull_x, hull_y = compute_convex_hull(x, y)
+                if hull_x is not None and hull_y is not None:
+                    render_convex_hull_matplotlib(
+                        ax=ax,
+                        hull_x=hull_x,
+                        hull_y=hull_y,
+                        color=spec.color or 'blue',
+                        linewidth=spec.line_width or 1,
+                        alpha=spec.alpha,
+                        fill=spec.fill,
+                        fill_alpha=0.2,
+                        label=label_to_use,
+                    )
+        
+        elif spec.plot_type == 'boolean_states':
+            # Render boolean states as filled regions
+            x, states = extract_xy_from_data(spec.data)
+            states = states.astype(bool)
+            
+            renderers.render_boolean_states_matplotlib(
+                ax=ax,
+                x=x,
+                states=states,
+                true_color=spec.true_color or '#2ca02c',
+                false_color=spec.false_color or '#d62728',
+                true_label=spec.true_label or 'True',
+                false_label=spec.false_label or 'False',
+                alpha=spec.alpha,
+            )
+        
         if spec.title:
             ax.set_title(spec.title)
         if legend_tracker:  # Only show legend if there are labeled items
@@ -580,11 +913,7 @@ class PlotGrid:
     
     def _plot_spec_plotly(self, spec: PlotSpec, legend_tracker: set):
         """Plot a PlotSpec using plotly with renderer functions (returns trace)."""
-        from . import renderers
-        
-        try:
-            import plotly.graph_objects as go
-        except ImportError:
+        if not PLOTLY_AVAILABLE:
             raise ValueError("Plotly backend requested but plotly is not installed")
         
         # Determine if we should show this label in legend
@@ -596,11 +925,16 @@ class PlotGrid:
             return renderers.render_scatter_plotly(
                 data=spec.data,
                 color=spec.color,
+                colors=spec.colors,
+                cmap=spec.cmap,
                 marker=spec.marker or 'circle',
                 marker_size=spec.marker_size,
+                sizes=spec.sizes,
                 alpha=spec.alpha,
                 label=spec.label,
                 showlegend=show_legend,
+                colorbar=spec.colorbar,
+                colorbar_label=spec.colorbar_label,
                 **spec.kwargs
             )
         
@@ -608,10 +942,15 @@ class PlotGrid:
             return renderers.render_scatter3d_plotly(
                 data=spec.data,
                 color=spec.color,
+                colors=spec.colors,
+                cmap=spec.cmap,
                 marker_size=spec.marker_size,
+                sizes=spec.sizes,
                 alpha=spec.alpha,
                 label=spec.label,
                 showlegend=show_legend,
+                colorbar=spec.colorbar,
+                colorbar_label=spec.colorbar_label,
                 **spec.kwargs
             )
         
@@ -620,6 +959,8 @@ class PlotGrid:
                 data=spec.data,
                 color=spec.color,
                 line_width=spec.line_width,
+                linestyle=spec.linestyle,
+                error_y=spec.error_y,
                 alpha=spec.alpha,
                 label=spec.label,
                 showlegend=show_legend,
@@ -642,6 +983,7 @@ class PlotGrid:
                 data=spec.data,
                 cmap=spec.kwargs.pop('cmap', None),
                 colorscale=spec.kwargs.pop('colorscale', None),
+                colorbar_label=spec.colorbar_label,
                 **spec.kwargs
             )
         
@@ -690,6 +1032,171 @@ class PlotGrid:
                 notched=notched,
                 **plot_kwargs
             )
+        
+        elif spec.plot_type == 'trajectory':
+            # 2D trajectory with time-based coloring
+            # Extract x, y from data
+            x, y = extract_xy_from_data(spec.data)
+            
+            # Compute colors if needed
+            colors = compute_colors(len(x), color_by=spec.color_by) if spec.color_by else None
+            
+            # Render using renderer
+            trace = render_trajectory_plotly(
+                x=x,
+                y=y,
+                colors=colors,
+                cmap=spec.cmap or 'Viridis',
+                linewidth=spec.line_width or 1.0,
+                alpha=spec.alpha,
+                show_points=spec.show_points,
+                point_size=spec.marker_size or 10,
+                colorbar=spec.colorbar,
+                colorbar_label=spec.colorbar_label or 'Time' if spec.color_by else None,
+                label=spec.label,
+                showlegend=show_legend,
+            )
+            
+            return trace
+        
+        elif spec.plot_type == 'trajectory3d':
+            # 3D trajectory with time-based coloring
+            # Extract x, y, z from data
+            x, y, z = extract_xyz_from_data(spec.data)
+            
+            # Compute colors if needed
+            colors = compute_colors(len(x), color_by=spec.color_by) if spec.color_by else None
+            
+            # Render using renderer
+            trace = render_trajectory3d_plotly(
+                x=x,
+                y=y,
+                z=z,
+                colors=colors,
+                cmap=spec.cmap or 'Viridis',
+                linewidth=spec.line_width or 2.0,
+                alpha=spec.alpha,
+                show_points=spec.show_points,
+                point_size=spec.marker_size or 10,
+                colorbar=spec.colorbar,
+                colorbar_label=spec.colorbar_label or 'Time' if spec.color_by else None,
+                label=spec.label,
+                showlegend=show_legend,
+            )
+            
+            return trace
+        
+        elif spec.plot_type == 'kde':
+            # 2D KDE contour plot
+            # Extract x, y from data
+            x, y = extract_xy_from_data(spec.data)
+            
+            # Calculate KDE using utility function
+            xi, yi, zi = compute_kde_2d(
+                x, y,
+                bandwidth=spec.bandwidth,
+                grid_size=100,
+                expand_fraction=0.1
+            )
+            
+            # Render using renderer
+            trace = render_kde_plotly(
+                xi=xi,
+                yi=yi,
+                zi=zi,
+                fill=spec.fill,
+                n_levels=spec.n_levels,
+                cmap=spec.cmap or 'Blues',
+                alpha=spec.alpha,
+                colorbar=spec.colorbar,
+                colorbar_label=spec.colorbar_label,
+                label=spec.label,
+                showlegend=show_legend,
+            )
+            
+            return trace
+        
+        elif spec.plot_type == 'grouped_scatter':
+            # Grouped scatter - return multiple traces (we'll need to handle this specially)
+            if not isinstance(spec.data, dict):
+                raise ValueError("grouped_scatter data must be dict mapping group names to (x,y) tuples")
+            
+            colors = spec.colors or get_default_categorical_colors(len(spec.data))
+            
+            # Return list of traces (one per group)
+            traces = []
+            for idx, (name, (x, y)) in enumerate(spec.data.items()):
+                color = colors[idx % len(colors)]
+                trace = go.Scatter(
+                    x=x,
+                    y=y,
+                    mode='markers',
+                    marker=dict(size=spec.marker_size or 20, color=color, opacity=spec.alpha),
+                    name=name,
+                    showlegend=True,
+                )
+                traces.append(trace)
+                
+                # Add convex hull if requested
+                if spec.show_hulls and len(x) >= 3:
+                    hull_x, hull_y = compute_convex_hull(x, y)
+                    if hull_x is not None and hull_y is not None:
+                        hull_trace = render_convex_hull_plotly(
+                            hull_x=hull_x,
+                            hull_y=hull_y,
+                            color=color,
+                            linewidth=1,
+                            alpha=0.3,
+                            fill=spec.fill if hasattr(spec, 'fill') else False,
+                            fill_alpha=0.1,
+                            showlegend=False,
+                        )
+                        traces.append(hull_trace)
+            
+            # Return first trace (others will be ignored for now - needs refactoring)
+            return traces[0] if traces else None
+        
+        elif spec.plot_type == 'convex_hull':
+            # Just draw convex hull boundary
+            x, y = extract_xy_from_data(spec.data)
+            
+            if len(x) >= 3:
+                hull_x, hull_y = compute_convex_hull(x, y)
+                if hull_x is not None and hull_y is not None:
+                    trace = render_convex_hull_plotly(
+                        hull_x=hull_x,
+                        hull_y=hull_y,
+                        color=spec.color or 'blue',
+                        linewidth=spec.line_width or 1,
+                        alpha=spec.alpha,
+                        fill=spec.fill,
+                        fill_alpha=0.2,
+                        label=spec.label,
+                        showlegend=show_legend,
+                    )
+                    return trace
+                else:
+                    print("Warning: Could not compute convex hull")
+                    return None
+            else:
+                return None
+        
+        elif spec.plot_type == 'boolean_states':
+            # Render boolean states as filled regions
+            x, states = extract_xy_from_data(spec.data)
+            states = states.astype(bool)
+            
+            traces = renderers.render_boolean_states_plotly(
+                x=x,
+                states=states,
+                true_color=spec.true_color or '#2ca02c',
+                false_color=spec.false_color or '#d62728',
+                true_label=spec.true_label or 'True',
+                false_label=spec.false_label or 'False',
+                alpha=spec.alpha,
+            )
+            # Return first trace (multiple traces need special handling)
+            return traces[0] if traces else None
         
         else:
             raise ValueError(f"Unsupported plot type: {spec.plot_type}")
@@ -836,6 +1343,7 @@ def create_subplot_grid(
     horizontal_spacing: float | None = None,
     specs: list[list[dict[str, Any]]] | None = None,
     backend: Literal["matplotlib", "plotly"] | None = None,
+    projection: str | None = None,
 ):
     """
     Create a multi-panel subplot grid.
@@ -872,24 +1380,15 @@ def create_subplot_grid(
         For matplotlib: tuple of (figure, list of axes).
         For plotly: figure object with subplot structure.
     """
-    import matplotlib.pyplot as plt
-    from .backend import BackendType, get_backend
-    
-    try:
-        import plotly.graph_objects as go
-        from plotly.subplots import make_subplots
-        PLOTLY_AVAILABLE = True
-    except ImportError:
-        PLOTLY_AVAILABLE = False
-    
     if config is None:
         config = PlotConfig()
 
-    backend_type = get_backend() if backend is None else BackendType(backend)
+    # Get backend - just use string directly, don't try to instantiate Literal type
+    backend_str = get_backend() if backend is None else backend
 
-    if backend_type == BackendType.MATPLOTLIB:
+    if backend_str == 'matplotlib':
         return _create_subplot_grid_matplotlib(
-            rows, cols, config, subplot_titles, shared_xaxes, shared_yaxes, plt
+            rows, cols, config, subplot_titles, shared_xaxes, shared_yaxes, plt, projection
         )
     else:
         if not PLOTLY_AVAILABLE:
@@ -908,12 +1407,18 @@ def _create_subplot_grid_matplotlib(
     shared_xaxes: bool | str,
     shared_yaxes: bool | str,
     plt,
+    projection: str | None = None,
 ):
     """Matplotlib implementation of subplot grid."""
     # Convert shared axes parameters
     sharex = "all" if shared_xaxes is True else (shared_xaxes if isinstance(shared_xaxes, str) else False)
     sharey = "all" if shared_yaxes is True else (shared_yaxes if isinstance(shared_yaxes, str) else False)
 
+    # Set up subplot_kw for 3D projection if needed
+    subplot_kw = {}
+    if projection:
+        subplot_kw['projection'] = projection
+    
     fig, axes = plt.subplots(
         rows,
         cols,
@@ -922,6 +1427,7 @@ def _create_subplot_grid_matplotlib(
         sharex=sharex if sharex != "rows" and sharex != "columns" else False,
         sharey=sharey if sharey != "rows" and sharey != "columns" else False,
         squeeze=False,
+        subplot_kw=subplot_kw,
     )
 
     # Flatten axes array for easier indexing
@@ -932,8 +1438,9 @@ def _create_subplot_grid_matplotlib(
         for i, (ax, title) in enumerate(zip(axes_flat, subplot_titles)):
             ax.set_title(title, fontsize=12)
 
-    # Apply overall title
-    if config.title:
+    # Apply overall title - only use suptitle for multiple subplots
+    # For single subplot, title will be set on the axis itself
+    if config.title and (rows * cols > 1):
         fig.suptitle(config.title, fontsize=14)
 
     plt.tight_layout()
@@ -987,7 +1494,7 @@ def _create_subplot_grid_plotly(
     return fig
 
 
-def add_trace_to_subplot(fig, trace, row: int, col: int):
+def add_trace_to_subplot(fig, trace, row: int, col: int) -> None:
     """
     Add a trace to a specific subplot in a plotly figure.
     
@@ -1009,9 +1516,7 @@ def add_trace_to_subplot(fig, trace, row: int, col: int):
     plotly.graph_objects.Figure
         Updated figure with trace added.
     """
-    try:
-        import plotly.graph_objects as go
-    except ImportError:
+    if not PLOTLY_AVAILABLE:
         raise ValueError("Plotly is not installed")
 
     if not isinstance(fig, go.Figure):
