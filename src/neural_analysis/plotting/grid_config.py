@@ -734,6 +734,8 @@ class PlotGrid:
         
         elif spec.plot_type == 'violin':
             # Enhanced violin plot with box and points
+            # Remove plotly-specific parameters
+            spec.kwargs.pop('meanline', None)
             renderers.render_violin_matplotlib(
                 ax=ax,
                 data=spec.data,

@@ -1,10 +1,13 @@
 """
 Three-dimensional plotting functions for neural data visualization.
 
-This module provides functions for creating 3D visualizations including:
+This module provides convenience functions for creating 3D visualizations including:
 - 3D scatter plots with color mapping
 - 3D trajectory/line plots
 - 3D embeddings with optional convex hulls
+
+All functions in this module use the PlotGrid system internally to ensure
+consistent behavior and eliminate code duplication.
 
 Functions support both matplotlib and plotly backends for flexibility between
 static publication-quality figures and interactive exploratory visualizations.
@@ -15,16 +18,9 @@ import matplotlib.pyplot as plt
 from typing import Literal
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
-from .backend import BackendType, get_backend
-from .core import (
-    PlotConfig,
-    resolve_colormap,
-    apply_layout_matplotlib,
-    apply_layout_plotly_3d,
-    create_rgba_labels,
-    finalize_plot_matplotlib,
-    finalize_plot_plotly,
-)
+from .backend import BackendType
+from .core import PlotConfig
+from .grid_config import PlotGrid, PlotSpec
 
 # Optional imports
 try:
@@ -37,6 +33,7 @@ __all__ = [
     "plot_scatter_3d",
     "plot_trajectory_3d",
 ]
+
 
 
 def plot_scatter_3d(
@@ -86,132 +83,35 @@ def plot_scatter_3d(
             f"x, y, z must have same length, got {len(x)}, {len(y)}, {len(z)}"
         )
     
-    # Default config
     if config is None:
         config = PlotConfig()
     
-    # Determine backend
-    backend_type = get_backend() if backend is None else BackendType(backend)
+    # Prepare data as (n, 3) array
+    data = np.column_stack([x, y, z])
     
-    if backend_type == BackendType.MATPLOTLIB:
-        return _plot_scatter_3d_matplotlib(
-            x, y, z, config, colors, sizes, alpha, cmap, colorbar, colorbar_label, marker
-        )
-    else:
-        if not PLOTLY_AVAILABLE:
-            raise ValueError("Plotly backend requested but plotly is not installed")
-        return _plot_scatter_3d_plotly(
-            x, y, z, config, colors, sizes, alpha, cmap, colorbar_label, marker
-        )
-
-
-def _plot_scatter_3d_matplotlib(
-    x: np.ndarray,
-    y: np.ndarray,
-    z: np.ndarray,
-    config: PlotConfig,
-    colors: np.ndarray | str | None,
-    sizes: np.ndarray | float,
-    alpha: float,
-    cmap: str,
-    colorbar: bool,
-    colorbar_label: str | None,
-    marker: str,
-) -> plt.Axes:
-    """Matplotlib implementation of 3D scatter plot."""
-    fig = plt.figure(figsize=config.figsize)
-    ax = fig.add_subplot(111, projection='3d')
+    # Create PlotSpec
+    spec = PlotSpec(
+        data=data,
+        plot_type='scatter3d',
+        color=colors if isinstance(colors, str) else None,
+        colors=colors if isinstance(colors, np.ndarray) else None,
+        marker=marker,
+        marker_size=sizes if isinstance(sizes, (int, float)) else None,
+        sizes=sizes if isinstance(sizes, np.ndarray) else None,
+        alpha=alpha,
+        cmap=cmap,
+        colorbar=colorbar,
+        colorbar_label=colorbar_label,
+    )
     
-    # Determine color parameter and whether to use colormap
-    if colors is None:
-        color_param = 'C0'
-        use_cmap = False
-    elif isinstance(colors, str):
-        color_param = colors
-        use_cmap = False
-    else:
-        color_param = colors
-        use_cmap = True
+    # Create PlotGrid and plot
+    grid = PlotGrid(
+        plot_specs=[spec],
+        config=config,
+        backend=backend,
+    )
     
-    # Create scatter
-    if use_cmap:
-        mpl_cmap = resolve_colormap(cmap, BackendType.MATPLOTLIB)
-        scatter = ax.scatter(
-            x, y, z, c=color_param, s=sizes, alpha=alpha, cmap=mpl_cmap, marker=marker
-        )
-    else:
-        scatter = ax.scatter(
-            x, y, z, c=color_param, s=sizes, alpha=alpha, marker=marker
-        )
-    
-    # Add colorbar if requested and colors is an array
-    if colorbar and use_cmap:
-        cbar = plt.colorbar(scatter, ax=ax, shrink=0.8, pad=0.1)
-        if colorbar_label:
-            cbar.set_label(colorbar_label)
-    
-    # Apply layout configuration
-    apply_layout_matplotlib(ax, config)
-    
-    # Set 3D-specific background styling
-    ax.xaxis.pane.fill = False
-    ax.yaxis.pane.fill = False
-    ax.zaxis.pane.fill = False
-    ax.xaxis.pane.set_edgecolor('w')
-    ax.yaxis.pane.set_edgecolor('w')
-    ax.zaxis.pane.set_edgecolor('w')
-    
-    finalize_plot_matplotlib(config)
-    
-    return ax
-
-
-def _plot_scatter_3d_plotly(
-    x: np.ndarray,
-    y: np.ndarray,
-    z: np.ndarray,
-    config: PlotConfig,
-    colors: np.ndarray | str | None,
-    sizes: np.ndarray | float,
-    alpha: float,
-    cmap: str,
-    colorbar_label: str | None,
-    marker: str,
-) -> go.Figure:
-    """Plotly implementation of 3D scatter plot."""
-    # Prepare marker dict
-    marker_dict = {
-        'size': sizes if isinstance(sizes, (int, float)) else sizes.tolist(),
-        'opacity': alpha,
-    }
-    
-    # Handle colors
-    if colors is not None:
-        if isinstance(colors, str):
-            marker_dict['color'] = colors
-        else:
-            marker_dict['color'] = colors.tolist()
-            marker_dict['colorscale'] = resolve_colormap(cmap, BackendType.PLOTLY)
-            if colorbar_label:
-                marker_dict['colorbar'] = {'title': colorbar_label}
-    
-    # Create figure
-    fig = go.Figure()
-    
-    fig.add_trace(go.Scatter3d(
-        x=x,
-        y=y,
-        z=z,
-        mode='markers',
-        marker=marker_dict,
-    ))
-    
-    # Apply layout
-    apply_layout_plotly_3d(fig, config)
-    
-    finalize_plot_plotly(fig, config)
-    
-    return fig
+    return grid.plot()
 
 
 def plot_trajectory_3d(
@@ -219,7 +119,7 @@ def plot_trajectory_3d(
     y: np.ndarray,
     z: np.ndarray,
     config: PlotConfig | None = None,
-    color_by_time: bool = True,
+    color_by: Literal["time"] | None = "time",
     cmap: str = "viridis",
     linewidth: float = 2.0,
     show_points: bool = True,
@@ -235,7 +135,7 @@ def plot_trajectory_3d(
         y: Y coordinates
         z: Z coordinates
         config: Plot configuration
-        color_by_time: Color line segments by time progression
+        color_by: Coloring strategy. Use "time" for time progression, or None for solid color
         cmap: Colormap for time coloring
         linewidth: Width of trajectory line
         show_points: Whether to show scatter points
@@ -262,125 +162,26 @@ def plot_trajectory_3d(
     if config is None:
         config = PlotConfig()
     
-    backend_type = get_backend() if backend is None else BackendType(backend)
+    # Prepare data as (n, 3) array or dict
+    data = {'x': x, 'y': y, 'z': z}
     
-    if backend_type == BackendType.MATPLOTLIB:
-        return _plot_trajectory_3d_matplotlib(
-            x, y, z, config, color_by_time, cmap, linewidth, show_points, point_size, alpha
-        )
-    else:
-        if not PLOTLY_AVAILABLE:
-            raise ValueError("Plotly backend requested but plotly is not installed")
-        return _plot_trajectory_3d_plotly(
-            x, y, z, config, color_by_time, cmap, linewidth, show_points, point_size, alpha
-        )
-
-
-def _plot_trajectory_3d_matplotlib(
-    x: np.ndarray,
-    y: np.ndarray,
-    z: np.ndarray,
-    config: PlotConfig,
-    color_by_time: bool,
-    cmap: str,
-    linewidth: float,
-    show_points: bool,
-    point_size: float,
-    alpha: float,
-) -> plt.Axes:
-    """Matplotlib implementation of 3D trajectory plot."""
-    fig = plt.figure(figsize=config.figsize)
-    ax = fig.add_subplot(111, projection='3d')
+    # Create PlotSpec
+    spec = PlotSpec(
+        data=data,
+        plot_type='trajectory3d',
+        color_by=color_by,
+        cmap=cmap,
+        line_width=linewidth,
+        show_points=show_points,
+        marker_size=point_size,
+        alpha=alpha,
+    )
     
-    if color_by_time:
-        # Create line with color gradient
-        from mpl_toolkits.mplot3d.art3d import Line3DCollection
-        
-        points = np.array([x, y, z]).T.reshape(-1, 1, 3)
-        segments = np.concatenate([points[:-1], points[1:]], axis=1)
-        
-        # Create colors for each segment
-        colors = np.linspace(0, 1, len(x))
-        mpl_cmap = resolve_colormap(cmap, BackendType.MATPLOTLIB)
-        
-        lc = Line3DCollection(segments, cmap=mpl_cmap, linewidths=linewidth, alpha=alpha)
-        lc.set_array(colors)
-        ax.add_collection3d(lc)
-        
-        # Add colorbar
-        plt.colorbar(lc, ax=ax, label='Time', shrink=0.8, pad=0.1)
-    else:
-        # Simple line plot
-        ax.plot(x, y, z, linewidth=linewidth, alpha=alpha)
+    # Create PlotGrid and plot
+    grid = PlotGrid(
+        plot_specs=[spec],
+        config=config,
+        backend=backend,
+    )
     
-    # Add scatter points if requested
-    if show_points:
-        if color_by_time:
-            colors_scatter = np.arange(len(x))
-            mpl_cmap = resolve_colormap(cmap, BackendType.MATPLOTLIB)
-            ax.scatter(x, y, z, c=colors_scatter, s=point_size, cmap=mpl_cmap, alpha=alpha)
-        else:
-            ax.scatter(x, y, z, s=point_size, alpha=alpha)
-    
-    # Apply layout configuration
-    apply_layout_matplotlib(ax, config)
-    
-    # Set 3D-specific background styling
-    ax.xaxis.pane.fill = False
-    ax.yaxis.pane.fill = False
-    ax.zaxis.pane.fill = False
-    ax.xaxis.pane.set_edgecolor('w')
-    ax.yaxis.pane.set_edgecolor('w')
-    ax.zaxis.pane.set_edgecolor('w')
-    
-    finalize_plot_matplotlib(config)
-    
-    return ax
-
-
-def _plot_trajectory_3d_plotly(
-    x: np.ndarray,
-    y: np.ndarray,
-    z: np.ndarray,
-    config: PlotConfig,
-    color_by_time: bool,
-    cmap: str,
-    linewidth: float,
-    show_points: bool,
-    point_size: float,
-    alpha: float,
-) -> go.Figure:
-    """Plotly implementation of 3D trajectory plot."""
-    fig = go.Figure()
-    
-    # Prepare marker and line properties
-    marker_dict = {'size': point_size, 'opacity': alpha}
-    line_dict = {'width': linewidth}
-    
-    if color_by_time:
-        colors = np.arange(len(x))
-        marker_dict['color'] = colors.tolist()
-        marker_dict['colorscale'] = resolve_colormap(cmap, BackendType.PLOTLY)
-        marker_dict['showscale'] = True
-        marker_dict['colorbar'] = {'title': 'Time'}
-        line_dict['color'] = colors.tolist()
-        line_dict['colorscale'] = resolve_colormap(cmap, BackendType.PLOTLY)
-    
-    mode = 'lines+markers' if show_points else 'lines'
-    
-    fig.add_trace(go.Scatter3d(
-        x=x,
-        y=y,
-        z=z,
-        mode=mode,
-        line=line_dict,
-        marker=marker_dict if show_points else {},
-        opacity=alpha,
-    ))
-    
-    # Apply layout
-    apply_layout_plotly_3d(fig, config)
-    
-    finalize_plot_plotly(fig, config)
-    
-    return fig
+    return grid.plot()

@@ -68,23 +68,20 @@ def plot_line(
     
     # Prepare 2D data [x, y]
     line_data = np.column_stack([x, data])
-    
-    # Build kwargs
-    line_kwargs = {'linewidth': linewidth, 'linestyle': linestyle}
-    if marker is not None:
-        line_kwargs['marker'] = marker
-        line_kwargs['markersize'] = markersize
-    if std is not None:
-        line_kwargs['error_y'] = std
-    
-    # Create spec
+
+    # Create spec with direct parameter assignment
     spec = PlotSpec(
         data=line_data,
         plot_type='line',
         color=color,
         label=label,
         subplot_position=0,
-        **line_kwargs
+        line_width=linewidth,
+        linestyle=linestyle,
+        marker=marker,
+        marker_size=markersize,
+        error_y=std,
+        alpha=1.0,
     )
     
     # Create grid
@@ -154,7 +151,7 @@ def plot_multiple_lines(
             color=color_map.get(label),
             label=label,
             subplot_position=0,
-            linewidth=linewidth,
+            line_width=linewidth,
             linestyle=linestyle,
             alpha=alpha,
         )
@@ -175,6 +172,9 @@ def plot_boolean_states(
     x: npt.NDArray | None = None,
     config: PlotConfig | None = None,
     true_color: str = '#2ca02c',
+    false_color: str = '#d62728',
+    true_label: str = 'True',
+    false_label: str = 'False',
     alpha: float = 0.3,
     backend: Literal["matplotlib", "plotly"] | None = None,
 ) -> Any:
@@ -191,6 +191,12 @@ def plot_boolean_states(
         Plot configuration.
     true_color : str
         Color for True regions.
+    false_color : str
+        Color for False regions.
+    true_label : str
+        Label for True regions in legend.
+    false_label : str
+        Label for False regions in legend.
     alpha : float
         Transparency.
     backend : {'matplotlib', 'plotly'}, optional
@@ -205,18 +211,43 @@ def plot_boolean_states(
     if x is None:
         x = np.arange(len(states))
     
+    # Prepare 2D data [x, states_numeric] for PlotSpec
     states_numeric = states.astype(float)
     line_data = np.column_stack([x, states_numeric])
     
+    # Set ylim to (0, 1) for boolean plots if not already set
+    if config is None:
+        config = PlotConfig(ylim=(0, 1))
+    elif config.ylim is None:
+        # Create a new config with ylim set
+        config = PlotConfig(
+            title=config.title,
+            xlabel=config.xlabel,
+            ylabel=config.ylabel,
+            xlim=config.xlim,
+            ylim=(0, 1),  # Force ylim for boolean plots
+            grid=config.grid,
+            figsize=config.figsize,
+            dpi=config.dpi,
+            show=config.show,
+            legend=config.legend,
+            cmap=config.cmap,
+            alpha=config.alpha,
+        )
+    
+    # Create PlotSpec for boolean states
     spec = PlotSpec(
         data=line_data,
-        plot_type='line',
-        color=true_color,
+        plot_type='boolean_states',
         subplot_position=0,
         alpha=alpha,
-        linewidth=0,
+        true_color=true_color,
+        false_color=false_color,
+        true_label=true_label,
+        false_label=false_label,
     )
     
+    # Create grid
     grid = PlotGrid(
         plot_specs=[spec],
         layout=GridLayoutConfig(rows=1, cols=1),

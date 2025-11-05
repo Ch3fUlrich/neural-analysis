@@ -4,23 +4,18 @@ This module provides functions for creating 2D scatter plots, trajectory visuali
 KDE density plots, and grouped scatter plots with optional convex hulls.
 Functions support both matplotlib and plotly backends for flexibility between
 static publication-quality figures and interactive exploratory visualizations.
+
+All functions in this module use the PlotGrid system internally for consistent
+behavior and code reuse.
 """
 
 from typing import Dict, List, Tuple, Optional, Literal
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.spatial import ConvexHull
-from scipy.stats import gaussian_kde
+
 from .backend import BackendType, get_backend
-from .core import (
-    PlotConfig,
-    resolve_colormap,
-    apply_layout_matplotlib,
-    apply_layout_plotly,
-    get_default_categorical_colors,
-    finalize_plot_matplotlib,
-    finalize_plot_plotly,
-)
+from .core import PlotConfig
+from .grid_config import PlotGrid, PlotSpec
 
 # Optional imports
 try:
@@ -51,6 +46,9 @@ def plot_scatter_2d(
     """
     Create a 2D scatter plot.
     
+    This is a convenience function for creating simple scatter plots.
+    For multi-panel layouts, use PlotGrid with PlotSpec directly.
+    
     Args:
         x: X coordinates (1D array)
         y: Y coordinates (1D array)
@@ -73,6 +71,12 @@ def plot_scatter_2d(
         >>> y = np.random.randn(100)
         >>> plot_scatter_2d(x, y, PlotConfig(title="Random Points"))
     """
+    # Validate backend if provided
+    if backend is not None and backend not in ("matplotlib", "plotly"):
+        raise ValueError(
+            f"Invalid backend '{backend}'. Must be 'matplotlib' or 'plotly'"
+        )
+    
     # Input validation
     if len(x) != len(y):
         raise ValueError(f"x and y must have same length, got {len(x)} and {len(y)}")
@@ -81,112 +85,38 @@ def plot_scatter_2d(
     if config is None:
         config = PlotConfig()
     
-    # Determine backend
-    backend_type = get_backend() if backend is None else BackendType(backend)
+    # Prepare data as (n, 2) array for PlotGrid
+    data = np.column_stack([x, y])
     
-    if backend_type == BackendType.MATPLOTLIB:
-        return _plot_scatter_2d_matplotlib(
-            x, y, config, colors, sizes, alpha, cmap, colorbar, colorbar_label
-        )
-    else:
-        if not PLOTLY_AVAILABLE:
-            raise ValueError("Plotly backend requested but plotly is not installed")
-        return _plot_scatter_2d_plotly(
-            x, y, config, colors, sizes, alpha, cmap, colorbar_label
-        )
+    # Create PlotSpec for scatter plot
+    spec = PlotSpec(
+        data=data,
+        plot_type='scatter',
+        color=colors if isinstance(colors, str) else None,
+        colors=colors if isinstance(colors, np.ndarray) else None,
+        marker_size=sizes if isinstance(sizes, (int, float)) else None,
+        sizes=sizes if isinstance(sizes, np.ndarray) else None,
+        alpha=alpha,
+        cmap=cmap,
+        colorbar=colorbar,
+        colorbar_label=colorbar_label,
+    )
+    
+    # Create PlotGrid and plot
+    grid = PlotGrid(
+        plot_specs=[spec],
+        config=config,
+        backend=backend,
+    )
+    
+    return grid.plot()
 
-def _plot_scatter_2d_matplotlib(
-    x: np.ndarray,
-    y: np.ndarray,
-    config: PlotConfig,
-    colors: np.ndarray | str | None,
-    sizes: np.ndarray | float,
-    alpha: float,
-    cmap: str,
-    colorbar: bool,
-    colorbar_label: str | None,
-) -> plt.Axes:
-    """Matplotlib implementation of 2D scatter plot."""
-    fig, ax = plt.subplots(figsize=config.figsize)
-    
-    # Determine color parameter and whether to use colormap
-    if colors is None:
-        color_param = 'C0'  # Default matplotlib color
-        use_cmap = False
-    elif isinstance(colors, str):
-        color_param = colors
-        use_cmap = False
-    else:
-        color_param = colors
-        use_cmap = True
-    
-    # Create scatter (only pass cmap if using array colors)
-    if use_cmap:
-        mpl_cmap = resolve_colormap(cmap, BackendType.MATPLOTLIB)
-        scatter = ax.scatter(x, y, c=color_param, s=sizes, alpha=alpha, cmap=mpl_cmap)
-    else:
-        scatter = ax.scatter(x, y, c=color_param, s=sizes, alpha=alpha)
-    
-    # Add colorbar if requested and colors is an array
-    if colorbar and use_cmap:
-        cbar = plt.colorbar(scatter, ax=ax)
-        if colorbar_label:
-            cbar.set_label(colorbar_label)
-    
-    # Apply configuration consistently
-    apply_layout_matplotlib(ax, config)
-    
-    finalize_plot_matplotlib(config)
-    
-    return ax
-
-def _plot_scatter_2d_plotly(
-    x: np.ndarray,
-    y: np.ndarray,
-    config: PlotConfig,
-    colors: np.ndarray | str | None,
-    sizes: np.ndarray | float,
-    alpha: float,
-    cmap: str,
-    colorbar_label: str | None,
-) -> go.Figure:
-    """Plotly implementation of 2D scatter plot."""
-    # Prepare marker dict
-    marker_dict = {
-        'size': sizes if isinstance(sizes, (int, float)) else sizes.tolist(),
-        'opacity': alpha,
-    }
-    
-    # Handle colors
-    if colors is not None:
-        if isinstance(colors, str):
-            marker_dict['color'] = colors
-        else:
-            marker_dict['color'] = colors.tolist()
-            marker_dict['colorscale'] = resolve_colormap(cmap, BackendType.PLOTLY)
-            if colorbar_label:
-                marker_dict['colorbar'] = {'title': colorbar_label}
-    
-    # Create figure
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=x,
-        y=y,
-        mode='markers',
-        marker=marker_dict,
-    ))
-    
-    # Apply common layout (titles, labels, limits, grid, size)
-    apply_layout_plotly(fig, config)
-    
-    finalize_plot_plotly(fig, config)
-    return fig
 
 def plot_trajectory_2d(
     x: np.ndarray,
     y: np.ndarray,
     config: PlotConfig | None = None,
-    color_by_time: bool = True,
+    color_by: Literal["time"] | None = "time",
     cmap: str = "viridis",
     linewidth: float = 1.0,
     show_points: bool = True,
@@ -201,7 +131,7 @@ def plot_trajectory_2d(
         x: X coordinates  
         y: Y coordinates
         config: Plot configuration
-        color_by_time: Color line segments by time progression
+        color_by: Coloring strategy. Use "time" for time progression, or None for solid color
         cmap: Colormap for time coloring
         linewidth: Width of trajectory line
         show_points: Whether to show scatter points
@@ -225,131 +155,50 @@ def plot_trajectory_2d(
     if config is None:
         config = PlotConfig()
     
-    backend_type = get_backend() if backend is None else BackendType(backend)
+    # Create PlotSpec for trajectory plot
+    spec = PlotSpec(
+        data={'x': x, 'y': y},
+        plot_type='trajectory',
+        color_by=color_by,
+        cmap=cmap,
+        line_width=linewidth,
+        show_points=show_points,
+        marker_size=point_size,
+        alpha=alpha,
+        equal_aspect=True,
+    )
     
-    if backend_type == BackendType.MATPLOTLIB:
-        return _plot_trajectory_2d_matplotlib(
-            x, y, config, color_by_time, cmap, linewidth, show_points, point_size, alpha
-        )
-    else:
-        if not PLOTLY_AVAILABLE:
-            raise ValueError("Plotly backend requested but plotly is not installed")
-        return _plot_trajectory_2d_plotly(
-            x, y, config, color_by_time, cmap, linewidth, show_points, point_size, alpha
-        )
+    # Create PlotGrid and plot
+    grid = PlotGrid(
+        plot_specs=[spec],
+        config=config,
+        backend=backend,
+    )
+    
+    return grid.plot()
 
-def _plot_trajectory_2d_matplotlib(
-    x: np.ndarray,
-    y: np.ndarray,
-    config: PlotConfig,
-    color_by_time: bool,
-    cmap: str,
-    linewidth: float,
-    show_points: bool,
-    point_size: float,
-    alpha: float,
-) -> plt.Axes:
-    """Matplotlib implementation of 2D trajectory plot."""
-    fig, ax = plt.subplots(figsize=config.figsize)
-    
-    if color_by_time:
-        # Create line collection with color gradient
-        from matplotlib.collections import LineCollection
-        points = np.array([x, y]).T.reshape(-1, 1, 2)
-        segments = np.concatenate([points[:-1], points[1:]], axis=1)
-        
-        norm = plt.Normalize(0, len(x))
-        lc = LineCollection(
-            segments,
-            cmap=resolve_colormap(cmap, BackendType.MATPLOTLIB),
-            norm=norm,
-            linewidth=linewidth,
-            alpha=alpha,
-        )
-        lc.set_array(np.arange(len(x)))
-        ax.add_collection(lc)
-        
-        # Add colorbar
-        plt.colorbar(lc, ax=ax, label='Time')
-    else:
-        # Simple line plot
-        ax.plot(x, y, linewidth=linewidth, alpha=alpha)
-    
-    # Add scatter points if requested
-    if show_points:
-        if color_by_time:
-            colors = np.arange(len(x))
-            mpl_cmap = resolve_colormap(cmap, BackendType.MATPLOTLIB)
-            ax.scatter(x, y, c=colors, s=point_size, cmap=mpl_cmap, alpha=alpha, zorder=3)
-        else:
-            ax.scatter(x, y, s=point_size, alpha=alpha, zorder=3)
-    
-    # Apply configuration
-    apply_layout_matplotlib(ax, config)
-    ax.set_aspect('equal', adjustable='box')
-    
-    finalize_plot_matplotlib(config)
-    
-    return ax
-
-def _plot_trajectory_2d_plotly(
-    x: np.ndarray,
-    y: np.ndarray,
-    config: PlotConfig,
-    color_by_time: bool,
-    cmap: str,
-    linewidth: float,
-    show_points: bool,
-    point_size: float,
-    alpha: float,
-) -> go.Figure:
-    """Plotly implementation of 2D trajectory plot."""
-    fig = go.Figure()
-    
-    # Prepare marker and line properties
-    marker_dict = {'size': point_size, 'opacity': alpha}
-    if color_by_time:
-        marker_dict['color'] = np.arange(len(x)).tolist()
-        marker_dict['colorscale'] = resolve_colormap(cmap, BackendType.PLOTLY)
-    
-    mode = 'lines+markers' if show_points else 'lines'
-    
-    fig.add_trace(go.Scatter(
-        x=x,
-        y=y,
-        mode=mode,
-        line=dict(width=linewidth),
-        marker=marker_dict if show_points else {},
-        opacity=alpha,
-    ))
-    
-    # Apply common layout and set equal aspect
-    apply_layout_plotly(fig, config)
-    fig.update_layout(yaxis=dict(scaleanchor='x'))
-    
-    finalize_plot_plotly(fig, config)
-    
-    return fig
 
 def plot_grouped_scatter_2d(
-    group_data: Dict[str, Tuple[np.ndarray, np.ndarray]],
+    group_data: dict[str, tuple[np.ndarray, np.ndarray]],
     config: PlotConfig | None = None,
-    show_hulls: bool = False,
-    alpha: float = 0.6,
+    show_hulls: bool = True,
+    hull_alpha: float = 0.2,
     point_size: float = 20,
-    colors: List[str] | None = None,
+    point_alpha: float = 0.7,
+    colors: list[str] | None = None,
     backend: Literal["matplotlib", "plotly"] | None = None,
 ) -> plt.Axes | go.Figure:
     """
-    Plot grouped 2D scatter data with optional convex hulls.
+    Plot grouped scatter data with optional convex hulls.
     
     Args:
         group_data: Dictionary mapping group names to (x, y) tuples
         config: Plot configuration
         show_hulls: Whether to show convex hulls around groups
-        alpha: Transparency level
+        hull_alpha: Transparency for hull fill
         point_size: Size of scatter points
-        colors: List of colors for groups (auto-generated if None)
+        point_alpha: Transparency for points
+        colors: Optional list of colors for groups
         backend: Backend to use
     
     Returns:
@@ -357,319 +206,42 @@ def plot_grouped_scatter_2d(
         
     Example:
         >>> groups = {
-        ...     'A': (np.random.randn(50), np.random.randn(50)),
-        ...     'B': (np.random.randn(50) + 3, np.random.randn(50) + 3),
+        ...     'Group A': (np.random.randn(50), np.random.randn(50)),
+        ...     'Group B': (np.random.randn(50) + 2, np.random.randn(50) + 2),
         ... }
         >>> plot_grouped_scatter_2d(groups, PlotConfig(title="Grouped Data"))
     """
+    if config is None:
+        config = PlotConfig()
+    
+    # Validate input
     if not group_data:
         raise ValueError("group_data cannot be empty")
     
-    # Validate all groups have matching x,y lengths
     for name, (x, y) in group_data.items():
         if len(x) != len(y):
-            raise ValueError(f"Group '{name}': x and y must have same length")
+            raise ValueError(f"x and y must have same length for group '{name}'")
     
-    if config is None:
-        config = PlotConfig()
+    # Create PlotSpec for grouped scatter plot
+    spec = PlotSpec(
+        data=group_data,
+        plot_type='grouped_scatter',
+        show_hulls=show_hulls,
+        hull_alpha=hull_alpha,
+        marker_size=point_size,
+        alpha=point_alpha,
+        colors=colors,
+        equal_aspect=True,
+    )
     
-    backend_type = get_backend() if backend is None else BackendType(backend)
+    # Create PlotGrid and plot
+    grid = PlotGrid(
+        plot_specs=[spec],
+        config=config,
+        backend=backend,
+    )
     
-    if backend_type == BackendType.MATPLOTLIB:
-        return _plot_grouped_scatter_2d_matplotlib(
-            group_data, config, show_hulls, alpha, point_size, colors
-        )
-    else:
-        if not PLOTLY_AVAILABLE:
-            raise ValueError("Plotly backend requested but plotly is not installed")
-        return _plot_grouped_scatter_2d_plotly(
-            group_data, config, show_hulls, alpha, point_size, colors
-        )
-
-def _plot_grouped_scatter_2d_matplotlib(
-    group_data: Dict[str, Tuple[np.ndarray, np.ndarray]],
-    config: PlotConfig,
-    show_hulls: bool,
-    alpha: float,
-    point_size: float,
-    colors: List[str] | None,
-) -> plt.Axes:
-    """Matplotlib implementation of grouped 2D scatter plot."""
-    fig, ax = plt.subplots(figsize=config.figsize)
-    
-    if colors is None:
-        colors = get_default_categorical_colors(len(group_data))
-    
-    for i, (name, (x, y)) in enumerate(group_data.items()):
-        color = colors[i % len(colors)]
-        ax.scatter(x, y, s=point_size, alpha=alpha, label=name, color=color)
-        if show_hulls and len(x) >= 3:
-            points = np.column_stack((x, y))
-            hull = ConvexHull(points)
-            ax.fill(points[hull.vertices, 0], points[hull.vertices, 1], color=color, alpha=0.2)
-    
-    apply_layout_matplotlib(ax, config)
-    if len(group_data) > 1:
-        ax.legend()
-    finalize_plot_matplotlib(config)
-    return ax
-
-def _plot_grouped_scatter_2d_plotly(
-    group_data: Dict[str, Tuple[np.ndarray, np.ndarray]],
-    config: PlotConfig,
-    show_hulls: bool,
-    alpha: float,
-    point_size: float,
-    colors: List[str] | None,
-) -> go.Figure:
-    """Plotly implementation of grouped 2D scatter plot."""
-    fig = go.Figure()
-    
-    if colors is None:
-        colors = get_default_categorical_colors(len(group_data))
-    
-    for i, (name, (x, y)) in enumerate(group_data.items()):
-        color = colors[i % len(colors)]
-        fig.add_trace(go.Scatter(
-            x=x, y=y, mode='markers', marker=dict(size=point_size, opacity=alpha, color=color), name=name
-        ))
-        if show_hulls and len(x) >= 3:
-            points = np.column_stack((x, y))
-            hull = ConvexHull(points)
-            hull_x = points[hull.vertices, 0].tolist()
-            hull_y = points[hull.vertices, 1].tolist()
-            hull_x.append(hull_x[0])
-            hull_y.append(hull_y[0])
-            fig.add_trace(go.Scatter(
-                x=hull_x, y=hull_y, mode='lines', fill='toself', fillcolor=color, opacity=0.2, line=dict(color=color, width=1), showlegend=False
-            ))
-    
-    apply_layout_plotly(fig, config)
-    finalize_plot_plotly(fig, config)
-    return fig
-
-def plot_kde_2d(
-    x: np.ndarray,
-    y: np.ndarray,
-    config: PlotConfig | None = None,
-    cmap: str = 'viridis',
-    alpha: float = 0.7,
-    colorbar: bool = True,
-    levels: int = 10,
-    bandwidth: float | None = None,
-    backend: Literal["matplotlib", "plotly"] | None = None,
-) -> plt.Axes | go.Figure:
-    """
-    Plot 2D kernel density estimation.
-    
-    Parameters
-    ----------
-    x : ndarray
-        X-coordinates of data points.
-    y : ndarray
-        Y-coordinates of data points.
-    config : PlotConfig, optional
-        Plot configuration.
-    cmap : str
-        Colormap name.
-    alpha : float
-        Transparency.
-    colorbar : bool
-        Whether to show colorbar.
-    levels : int
-        Number of contour levels.
-    bandwidth : float, optional
-        KDE bandwidth. If None, uses Scott's rule.
-    backend : {'matplotlib', 'plotly'}, optional
-        Backend to use.
-    
-    Returns
-    -------
-    Figure object from the backend.
-    """
-    if len(x) != len(y):
-        raise ValueError(f"x and y must have same length, got {len(x)} and {len(y)}")
-    
-    if config is None:
-        config = PlotConfig()
-    
-    # Compute KDE
-    values = np.vstack([x, y])
-    kernel = gaussian_kde(values, bw_method=bandwidth)
-    
-    # Create grid for evaluation
-    x_min, x_max = x.min(), x.max()
-    y_min, y_max = y.min(), y.max()
-    x_range = x_max - x_min
-    y_range = y_max - y_min
-    xi = np.linspace(x_min - 0.1 * x_range, x_max + 0.1 * x_range, 100)
-    yi = np.linspace(y_min - 0.1 * y_range, y_max + 0.1 * y_range, 100)
-    xi_grid, yi_grid = np.meshgrid(xi, yi)
-    
-    # Evaluate KDE
-    coords = np.vstack([xi_grid.ravel(), yi_grid.ravel()])
-    zi = kernel(coords).reshape(xi_grid.shape)
-    
-    backend_type = get_backend() if backend is None else BackendType(backend)
-    
-    if backend_type == BackendType.MATPLOTLIB:
-        return _plot_kde_2d_matplotlib(xi, yi, zi, config, cmap, alpha, colorbar, levels)
-    else:
-        if not PLOTLY_AVAILABLE:
-            raise ValueError("Plotly backend requested but plotly is not installed")
-        return _plot_kde_2d_plotly(xi, yi, zi, config, cmap, alpha, colorbar, levels)
-
-def _plot_kde_2d_matplotlib(
-    xi: np.ndarray,
-    yi: np.ndarray,
-    zi: np.ndarray,
-    config: PlotConfig,
-    cmap: str,
-    alpha: float,
-    colorbar: bool,
-    levels: int,
-) -> plt.Axes:
-    """Matplotlib implementation of 2D KDE plot."""
-    fig, ax = plt.subplots(figsize=config.figsize)
-    mpl_cmap = resolve_colormap(cmap, BackendType.MATPLOTLIB)
-    cont = ax.contourf(xi, yi, zi, levels=levels, cmap=mpl_cmap, alpha=alpha)
-    if colorbar:
-        plt.colorbar(cont, ax=ax, label='Density')
-    apply_layout_matplotlib(ax, config)
-    finalize_plot_matplotlib(config)
-    return ax
-
-def _plot_kde_2d_plotly(
-    xi: np.ndarray,
-    yi: np.ndarray,
-    zi: np.ndarray,
-    config: PlotConfig,
-    cmap: str,
-    alpha: float,
-    colorbar: bool,
-    levels: int,
-) -> go.Figure:
-    """Plotly implementation of 2D KDE plot."""
-    fig = go.Figure()
-    colorscale = resolve_colormap(cmap, BackendType.PLOTLY)
-    fig.add_trace(go.Contour(
-        z=zi,
-        x=xi,
-        y=yi,
-        colorscale=colorscale,
-        opacity=alpha,
-        showscale=colorbar,
-        contours=dict(
-            coloring='fill',
-            showlines=False,
-            start=zi.min(),
-            end=zi.max(),
-            size=(zi.max() - zi.min()) / (levels - 1) if levels > 1 else zi.max() - zi.min(),
-        ),
-    ))
-    apply_layout_plotly(fig, config)
-    finalize_plot_plotly(fig, config)
-    return fig
-
-
-def _plot_grouped_scatter_2d_matplotlib(
-    group_data: Dict[str, Tuple[np.ndarray, np.ndarray]],
-    config: PlotConfig,
-    show_hulls: bool,
-    alpha: float,
-    point_size: float,
-    colors: List[str] | None,
-) -> plt.Axes:
-    """Matplotlib implementation of grouped scatter plot."""
-    fig, ax = plt.subplots(figsize=config.figsize)
-    
-    # Generate colors if not provided (use shared palette)
-    if colors is None:
-        colors = get_default_categorical_colors(len(group_data))
-    
-    # Plot each group
-    for idx, (name, (x, y)) in enumerate(group_data.items()):
-        color = colors[idx % len(colors)]
-        ax.scatter(x, y, c=[color], s=point_size, alpha=alpha, label=name)
-        
-        # Add convex hull if requested and enough points
-        if show_hulls and len(x) >= 3:
-            try:
-                points = np.column_stack([x, y])
-                hull = ConvexHull(points)
-                # Plot hull
-                for simplex in hull.simplices:
-                    ax.plot(points[simplex, 0], points[simplex, 1], 
-                           color=color, alpha=0.3, linewidth=1)
-            except Exception:
-                # Skip hull if computation fails (e.g., collinear points)
-                pass
-    
-    # Apply configuration consistently
-    apply_layout_matplotlib(ax, config)
-    ax.legend()
-    
-    finalize_plot_matplotlib(config)
-    
-    return ax
-
-
-def _plot_grouped_scatter_2d_plotly(
-    group_data: Dict[str, Tuple[np.ndarray, np.ndarray]],
-    config: PlotConfig,
-    show_hulls: bool,
-    alpha: float,
-    point_size: float,
-    colors: List[str] | None,
-) -> go.Figure:
-    """Plotly implementation of grouped scatter plot."""
-    fig = go.Figure()
-    
-    # Generate colors if not provided (use shared palette)
-    if colors is None:
-        colors = get_default_categorical_colors(len(group_data))
-    
-    # Plot each group
-    for idx, (name, (x, y)) in enumerate(group_data.items()):
-        color = colors[idx % len(colors)]
-        
-        # Add scatter trace
-        fig.add_trace(go.Scatter(
-            x=x,
-            y=y,
-            mode='markers',
-            name=name,
-            marker=dict(size=point_size, color=color, opacity=alpha),
-        ))
-        
-        # Add convex hull if requested
-        if show_hulls and len(x) >= 3:
-            try:
-                points = np.column_stack([x, y])
-                hull = ConvexHull(points)
-                # Get hull vertices
-                hull_points = points[hull.vertices]
-                # Close the hull
-                hull_x = np.append(hull_points[:, 0], hull_points[0, 0])
-                hull_y = np.append(hull_points[:, 1], hull_points[0, 1])
-                
-                fig.add_trace(go.Scatter(
-                    x=hull_x,
-                    y=hull_y,
-                    mode='lines',
-                    line=dict(color=color, width=1),
-                    showlegend=False,
-                    opacity=0.3,
-                ))
-            except Exception:
-                pass
-    
-    # Apply configuration consistently
-    apply_layout_plotly(fig, config)
-    
-    finalize_plot_plotly(fig, config)
-    
-    return fig
+    return grid.plot()
 
 
 def plot_kde_2d(
@@ -682,6 +254,7 @@ def plot_kde_2d(
     alpha: float = 0.6,
     show_points: bool = False,
     point_size: float = 5,
+    bandwidth: float | None = None,
     backend: Literal["matplotlib", "plotly"] | None = None,
 ) -> plt.Axes | go.Figure:
     """
@@ -697,6 +270,7 @@ def plot_kde_2d(
         alpha: Transparency level
         show_points: Whether to show underlying scatter points
         point_size: Size of scatter points if shown
+        bandwidth: KDE bandwidth (bw_method). If None, uses Scott's rule
         backend: Backend to use
         
     Returns:
@@ -716,129 +290,24 @@ def plot_kde_2d(
     if config is None:
         config = PlotConfig()
     
-    backend_type = get_backend() if backend is None else BackendType(backend)
+    # Create PlotSpec for KDE plot
+    spec = PlotSpec(
+        data={'x': x, 'y': y},
+        plot_type='kde',
+        n_levels=n_levels,
+        cmap=cmap,
+        fill=fill,
+        alpha=alpha,
+        show_points=show_points,
+        marker_size=point_size,
+        bandwidth=bandwidth,
+    )
     
-    if backend_type == BackendType.MATPLOTLIB:
-        return _plot_kde_2d_matplotlib(
-            x, y, config, n_levels, cmap, fill, alpha, show_points, point_size
-        )
-    else:
-        if not PLOTLY_AVAILABLE:
-            raise ValueError("Plotly backend requested but plotly is not installed")
-        return _plot_kde_2d_plotly(
-            x, y, config, n_levels, cmap, fill, alpha, show_points, point_size
-        )
-
-
-def _plot_kde_2d_matplotlib(
-    x: np.ndarray,
-    y: np.ndarray,
-    config: PlotConfig,
-    n_levels: int,
-    cmap: str,
-    fill: bool,
-    alpha: float,
-    show_points: bool,
-    point_size: float,
-) -> plt.Axes:
-    """Matplotlib implementation of 2D KDE plot."""
-    fig, ax = plt.subplots(figsize=config.figsize)
+    # Create PlotGrid and plot
+    grid = PlotGrid(
+        plot_specs=[spec],
+        config=config,
+        backend=backend,
+    )
     
-    # Calculate KDE
-    values = np.vstack([x, y])
-    kernel = gaussian_kde(values)
-    
-    # Create grid for evaluation
-    x_min, x_max = x.min(), x.max()
-    y_min, y_max = y.min(), y.max()
-    x_range = x_max - x_min
-    y_range = y_max - y_min
-    
-    xi = np.linspace(x_min - 0.1 * x_range, x_max + 0.1 * x_range, 100)
-    yi = np.linspace(y_min - 0.1 * y_range, y_max + 0.1 * y_range, 100)
-    xi_grid, yi_grid = np.meshgrid(xi, yi)
-    
-    # Evaluate KDE on grid
-    zi = kernel(np.vstack([xi_grid.flatten(), yi_grid.flatten()]))
-    zi = zi.reshape(xi_grid.shape)
-    
-    # Plot contours
-    mpl_cmap = resolve_colormap(cmap, BackendType.MATPLOTLIB)
-    if fill:
-        ax.contourf(xi_grid, yi_grid, zi, levels=n_levels, cmap=mpl_cmap, alpha=alpha)
-    else:
-        ax.contour(xi_grid, yi_grid, zi, levels=n_levels, cmap=mpl_cmap, alpha=alpha)
-    
-    # Show points if requested
-    if show_points:
-        ax.scatter(x, y, c='black', s=point_size, alpha=0.3, zorder=3)
-    
-    # Apply configuration consistently
-    apply_layout_matplotlib(ax, config)
-    
-    finalize_plot_matplotlib(config)
-    
-    return ax
-
-
-def _plot_kde_2d_plotly(
-    x: np.ndarray,
-    y: np.ndarray,
-    config: PlotConfig,
-    n_levels: int,
-    cmap: str,
-    fill: bool,
-    alpha: float,
-    show_points: bool,
-    point_size: float,
-) -> go.Figure:
-    """Plotly implementation of 2D KDE plot."""
-    # Calculate KDE
-    values = np.vstack([x, y])
-    kernel = gaussian_kde(values)
-    
-    # Create grid
-    x_min, x_max = x.min(), x.max()
-    y_min, y_max = y.min(), y.max()
-    x_range = x_max - x_min
-    y_range = y_max - y_min
-    
-    xi = np.linspace(x_min - 0.1 * x_range, x_max + 0.1 * x_range, 100)
-    yi = np.linspace(y_min - 0.1 * y_range, y_max + 0.1 * y_range, 100)
-    xi_grid, yi_grid = np.meshgrid(xi, yi)
-    
-    # Evaluate KDE
-    zi = kernel(np.vstack([xi_grid.flatten(), yi_grid.flatten()]))
-    zi = zi.reshape(xi_grid.shape)
-    
-    fig = go.Figure()
-    
-    # Add contour
-    fig.add_trace(go.Contour(
-        x=xi,
-        y=yi,
-        z=zi,
-        colorscale=resolve_colormap(cmap, BackendType.PLOTLY),
-        ncontours=n_levels,
-        opacity=alpha,
-        contours=dict(
-            coloring='fill' if fill else 'lines',
-        ),
-    ))
-    
-    # Show points if requested
-    if show_points:
-        fig.add_trace(go.Scatter(
-            x=x,
-            y=y,
-            mode='markers',
-            marker=dict(size=point_size, color='black', opacity=0.3),
-            showlegend=False,
-        ))
-    
-    # Apply configuration consistently
-    apply_layout_plotly(fig, config)
-    
-    finalize_plot_plotly(fig, config)
-    
-    return fig
+    return grid.plot()

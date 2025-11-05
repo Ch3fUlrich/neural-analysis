@@ -18,6 +18,7 @@ dependencies = [
     "h5py>=3.10",
     "pot>=0.9", # Optimal Transport (import name: ot)
     "scikit-learn>=1.7.2",
+    "numba>=0.59",  # JIT compiler for fast parallel similarity computations
 ]
 
 [project.optional-dependencies]

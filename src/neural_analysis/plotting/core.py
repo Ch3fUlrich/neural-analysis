@@ -214,7 +214,7 @@ _PLOTLY_CMAP_ALIASES: dict[str, str] = {
 }
 
 
-def resolve_colormap(cmap: str | None, backend: BackendType):
+def resolve_colormap(cmap: str | None, backend: BackendType) -> str:
     """Return a backend-appropriate colormap identifier.
 
     For matplotlib this returns a valid colormap object (or name accepted by
@@ -601,7 +601,7 @@ def create_rgba_labels(
     
     if values.ndim == 1:
         # Use matplotlib colormap for 1D
-        cmap_obj = plt.cm.get_cmap(cmap)
+        cmap_obj = plt.colormaps.get_cmap(cmap)
         rgba_colors = np.array([cmap_obj(x) for x in normalized_values])
         rgba_colors[:, 3] = alpha  # Set alpha channel
         

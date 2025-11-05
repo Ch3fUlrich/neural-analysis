@@ -903,6 +903,9 @@ def render_violin_matplotlib(
     
     result = {}
     
+    # Filter out plotly-specific parameters from kwargs
+    violin_kwargs = {k: v for k, v in kwargs.items() if k not in ['meanline']}
+    
     # Add box plot on the left side if requested
     if showbox:
         # Shift box plot slightly to the left
@@ -913,7 +916,7 @@ def render_violin_matplotlib(
             widths=0.15,
             patch_artist=True,
             showfliers=False,
-            **kwargs
+            **violin_kwargs
         )
         # Apply color to box
         if color:
@@ -928,7 +931,7 @@ def render_violin_matplotlib(
         positions=positions,
         showmeans=showmeans,
         showmedians=showmedians,
-        **kwargs
+        **violin_kwargs
     )
     
     # Apply color to violin parts

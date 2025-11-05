@@ -158,7 +158,7 @@ class TestPlotTrajectory2D:
         set_backend("matplotlib")
         x, y = trajectory_data
         ax = plot_trajectory_2d(
-            x, y, color_by_time=True, config=PlotConfig(show=False)
+            x, y, color_by="time", config=PlotConfig(show=False)
         )
         assert isinstance(ax, plt.Axes)
         plt.close()
@@ -186,7 +186,7 @@ class TestPlotTrajectory2D:
         set_backend("matplotlib")
         x, y = trajectory_data
         ax = plot_trajectory_2d(
-            x, y, color_by_time=False, config=PlotConfig(show=False)
+            x, y, color_by=None, config=PlotConfig(show=False)
         )
         assert isinstance(ax, plt.Axes)
         plt.close()

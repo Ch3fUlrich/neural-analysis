@@ -3,22 +3,45 @@
 This module provides functions for comparing probability distributions using
 various statistical metrics. It includes both pairwise comparisons and
 group-based comparisons with optional outlier filtering.
+
+All distance computations delegate to the distance module to avoid code duplication.
 """
 
 from __future__ import annotations
 
 from typing import Literal
+import logging
 
 import numpy as np
 import numpy.typing as npt
-from scipy.stats import wasserstein_distance, ks_2samp, entropy
-from scipy.spatial.distance import cdist
 
-from .distance import euclidean_distance, mahalanobis_distance, cosine_similarity
+from .distance import (
+    euclidean_distance,
+    mahalanobis_distance,
+    cosine_similarity,
+    wasserstein_distance_multi,
+    kolmogorov_smirnov_distance,
+    jensen_shannon_divergence,
+    distribution_distance,
+)
+
+try:
+    from ..utils.logging import log_calls, get_logger  # type: ignore
+except ImportError:
+    def log_calls(**kwargs):  # type: ignore
+        def decorator(func):  # type: ignore
+            return func
+        return decorator
+    def get_logger(name: str):  # type: ignore
+        return logging.getLogger(name)
+
+# Module logger
+logger = get_logger(__name__)
 
 __all__ = ["compare_distributions", "compare_distribution_groups"]
 
 
+@log_calls(level=logging.DEBUG)
 def compare_distributions(
     points1: npt.ArrayLike,
     points2: npt.ArrayLike,
@@ -72,6 +95,7 @@ def compare_distributions(
     p2 = np.asarray(points2)
 
     if p1.size == 0 or p2.size == 0:
+        logger.warning("Empty distribution provided, returning NaN")
         return np.nan
 
     if p1.ndim == 1:
@@ -84,48 +108,41 @@ def compare_distributions(
             f"Feature dimension mismatch: {p1.shape[1]} vs {p2.shape[1]}"
         )
 
-    if metric == "wasserstein":
-        # Sum Wasserstein distance over all features
-        distances = [
-            wasserstein_distance(p1[:, i], p2[:, i]) for i in range(p1.shape[1])
-        ]
-        return float(np.sum(distances))
+    logger.info(
+        f"Comparing distributions with metric='{metric}': "
+        f"p1.shape={p1.shape}, p2.shape={p2.shape}"
+    )
 
-    elif metric == "kolmogorov-smirnov":
-        # Max K-S statistic over dimensions
-        ks_stats = [ks_2samp(p1[:, i], p2[:, i]).statistic for i in range(p1.shape[1])]
-        return float(np.max(ks_stats))
+    # Use match/case for cleaner metric dispatch
+    match metric:
+        case "wasserstein":
+            result = wasserstein_distance_multi(p1, p2)
+        case "kolmogorov-smirnov":
+            result = kolmogorov_smirnov_distance(p1, p2)
+        case "jensen-shannon":
+            result = jensen_shannon_divergence(p1, p2)
+        case "euclidean":
+            result = float(euclidean_distance(np.mean(p1, axis=0), np.mean(p2, axis=0)))
+        case "mahalanobis":
+            # Mahalanobis between distribution centroids with pooled covariance
+            mean1 = np.mean(p1, axis=0)
+            mean2 = np.mean(p2, axis=0)
+            cov1 = np.cov(p1, rowvar=False)
+            cov2 = np.cov(p2, rowvar=False)
+            pooled_cov = 0.5 * (cov1 + cov2) + np.eye(p1.shape[1]) * 1e-6  # regularize
+            result = float(mahalanobis_distance(mean1, mean2, cov=pooled_cov))
+        case "cosine":
+            v1 = np.mean(p1, axis=0)
+            v2 = np.mean(p2, axis=0)
+            result = float(cosine_similarity(v1, v2))
+        case _:
+            raise ValueError(
+                f"Unknown metric '{metric}'. Choose from: wasserstein, "
+                "kolmogorov-smirnov, jensen-shannon, euclidean, mahalanobis, cosine."
+            )
 
-    elif metric == "jensen-shannon":
-        # Jensen-Shannon divergence via histograms
-        hist1, hist2 = _points_to_histogram(p1, p2)
-        m = 0.5 * (hist1 + hist2)
-        js_div = 0.5 * (entropy(hist1, m) + entropy(hist2, m))
-        return float(js_div)
-
-    elif metric == "euclidean":
-        return float(euclidean_distance(np.mean(p1, axis=0), np.mean(p2, axis=0)))
-
-    elif metric == "mahalanobis":
-        # Mahalanobis between distribution centroids
-        mean1 = np.mean(p1, axis=0)
-        mean2 = np.mean(p2, axis=0)
-        # Use pooled covariance
-        cov1 = np.cov(p1, rowvar=False)
-        cov2 = np.cov(p2, rowvar=False)
-        pooled_cov = 0.5 * (cov1 + cov2) + np.eye(p1.shape[1]) * 1e-6  # regularize
-        return float(mahalanobis_distance(mean1, mean2, cov=pooled_cov))
-
-    elif metric == "cosine":
-        v1 = np.mean(p1, axis=0)
-        v2 = np.mean(p2, axis=0)
-        return float(cosine_similarity(v1, v2))
-
-    else:
-        raise ValueError(
-            f"Unknown metric '{metric}'. Choose from: wasserstein, "
-            "kolmogorov-smirnov, jensen-shannon, euclidean, mahalanobis, cosine."
-        )
+    logger.info(f"Distribution comparison result: {result:.6f}")
+    return result
 
 
 def compare_distribution_groups(
@@ -169,79 +186,51 @@ def compare_distribution_groups(
     n_groups = len(group_vectors)
     group_names = list(group_vectors.keys())
 
-    if compare_type == "inside":
-        # Within-group variability
-        means = np.zeros(n_groups)
-        stds = np.zeros(n_groups)
+    logger.info(
+        f"Comparing {n_groups} groups with compare_type='{compare_type}', metric='{metric}'"
+    )
 
-        for idx, (name, points) in enumerate(group_vectors.items()):
-            # Pairwise distances within the group
-            if len(points) < 2:
-                means[idx] = 0.0
-                stds[idx] = 0.0
-                continue
+    # Use match/case for cleaner dispatch
+    match compare_type:
+        case "inside":
+            # Within-group variability using new distance.py functions
+            means = np.zeros(n_groups)
+            stds = np.zeros(n_groups)
 
-            # Compute pairwise for first few dimensions if high-dim
-            pairwise_dists = []
-            for i in range(len(points)):
-                for j in range(i + 1, len(points)):
-                    dist = compare_distributions(
-                        points[i : i + 1], points[j : j + 1], metric=metric
-                    )
-                    pairwise_dists.append(dist)
+            for idx, (name, points) in enumerate(group_vectors.items()):
+                if len(points) < 2:
+                    logger.debug(f"Group '{name}' has <2 points, skipping")
+                    means[idx] = 0.0
+                    stds[idx] = 0.0
+                    continue
 
-            means[idx] = np.mean(pairwise_dists) if pairwise_dists else 0.0
-            stds[idx] = np.std(pairwise_dists) if pairwise_dists else 0.0
+                # Use unified distribution_distance from distance.py
+                stats = distribution_distance(
+                    points, mode="within", metric=metric, summary="all"  # type: ignore
+                )
+                means[idx] = stats["mean"]  # type: ignore
+                stds[idx] = stats["std"]  # type: ignore
 
-        return {"mean": means, "std": stds}
+            logger.info(f"Within-group statistics computed: mean={means}, std={stds}")
+            return {"mean": means, "std": stds}
 
-    elif compare_type == "between":
-        # Between-group distances
-        similarities = {}
-        for i, (name_i, group_i) in enumerate(group_vectors.items()):
-            dists_to_all = np.zeros(n_groups)
-            for j, (name_j, group_j) in enumerate(group_vectors.items()):
-                dist = compare_distributions(group_i, group_j, metric=metric)
-                dists_to_all[j] = dist
-            similarities[name_i] = dists_to_all
+        case "between":
+            # Between-group distances
+            similarities = {}
+            for i, (name_i, group_i) in enumerate(group_vectors.items()):
+                dists_to_all = np.zeros(n_groups)
+                for j, (name_j, group_j) in enumerate(group_vectors.items()):
+                    dist = compare_distributions(group_i, group_j, metric=metric)  # type: ignore
+                    dists_to_all[j] = dist
+                similarities[name_i] = dists_to_all
+                logger.debug(
+                    f"Group '{name_i}' distances to all: {dists_to_all}"
+                )
 
-        return similarities
+            logger.info(f"Between-group distances computed for {n_groups} groups")
+            return similarities
 
-    else:
-        raise ValueError(
-            f"Unknown compare_type '{compare_type}'. Choose 'inside' or 'between'."
-        )
-
-
-def _points_to_histogram(
-    points1: npt.NDArray, points2: npt.NDArray, bins: int = 50
-) -> tuple[npt.NDArray, npt.NDArray]:
-    """Convert point clouds to normalized histograms for comparison.
-
-    Parameters
-    ----------
-    points1, points2 : ndarray
-        Point distributions (n_samples, n_features).
-    bins : int, default=50
-        Number of bins per dimension.
-
-    Returns
-    -------
-    hist1, hist2 : ndarray
-        Flattened, normalized histograms.
-    """
-    # Determine common bin edges
-    all_data = np.vstack([points1, points2])
-    ranges = [(all_data[:, i].min(), all_data[:, i].max()) for i in range(all_data.shape[1])]
-
-    # Compute multi-dimensional histograms
-    hist1, _ = np.histogramdd(points1, bins=bins, range=ranges)
-    hist2, _ = np.histogramdd(points2, bins=bins, range=ranges)
-
-    # Flatten and normalize
-    hist1 = hist1.ravel() + 1e-10  # avoid zeros
-    hist2 = hist2.ravel() + 1e-10
-    hist1 /= hist1.sum()
-    hist2 /= hist2.sum()
-
-    return hist1, hist2
+        case _:
+            raise ValueError(
+                f"Unknown compare_type '{compare_type}'. Choose 'inside' or 'between'."
+            )

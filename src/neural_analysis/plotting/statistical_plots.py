@@ -194,10 +194,11 @@ def plot_violin(
     for label, color in zip(labels, colors):
         # For plotly, map showmeans/showmedians to meanline
         plot_kwargs = dict(kwargs)
-        if showmeans:
+        if backend == 'plotly' and showmeans:
             plot_kwargs['meanline'] = {'visible': True}
-        # Remove matplotlib-specific params
-        plot_kwargs.pop('showmedians', None)
+        # Remove matplotlib-specific params for plotly
+        if backend == 'plotly':
+            plot_kwargs.pop('showmedians', None)
         
         spec = PlotSpec(
             data=data_dict[label],

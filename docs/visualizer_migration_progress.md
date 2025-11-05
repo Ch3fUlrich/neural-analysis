@@ -57,7 +57,6 @@ Implemented essential utilities:
   - `calculate_alpha()`: Map values to alpha transparency
   - `generate_similar_colors()`: Create color variations
   - `create_rgba_labels()`: Convert values to RGBA colors
-  - `normalize_01()`: Normalize data to [0, 1] range
   
 - **File utilities**:
   - `save_plot()`: Save figures with various formats

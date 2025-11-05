@@ -22,7 +22,22 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping, Tuple, Union
 
 import json
+import logging
 import numpy as np
+
+try:
+    from .logging import log_calls, get_logger  # type: ignore
+except ImportError:
+    # Fallback no-op decorator if logging module unavailable
+    def log_calls(**kwargs):  # type: ignore
+        def decorator(func):  # type: ignore
+            return func
+        return decorator
+    def get_logger(name: str):  # type: ignore
+        return logging.getLogger(name)
+
+# Module logger
+logger = get_logger(__name__)
 
 try:
     import pandas as pd  # Optional, used when available
@@ -119,6 +134,7 @@ def _resolve_npy_npz_path(path: Union[str, Path]) -> Path:
     return p
 
 
+@log_calls(level=logging.DEBUG)
 def save_array(
     path: Union[str, Path],
     data: Union[np.ndarray, Mapping[str, np.ndarray]],
@@ -131,34 +147,50 @@ def save_array(
     Returns the path to the saved file.
     """
     p = Path(path)
+    
     if isinstance(data, Mapping):
         if p.suffix != ".npz":
             p = p.with_suffix(".npz")
+        logger.info(f"Saving {len(data)} arrays to NPZ: {p}")
         _ensure_parent_dir(p)
         if p.exists() and not allow_overwrite:
             raise ValueError(f"File already exists: {p}")
         np.savez(p, **{k: np.asarray(v) for k, v in data.items()})
+        logger.info(f"Successfully saved {len(data)} arrays to {p}")
         return p
     else:
+        arr = np.asarray(data)
         if p.suffix != ".npy":
             p = p.with_suffix(".npy")
+        logger.info(f"Saving array with shape {arr.shape} to NPY: {p}")
         _ensure_parent_dir(p)
         if p.exists() and not allow_overwrite:
             raise ValueError(f"File already exists: {p}")
-        np.save(p, np.asarray(data))
+        np.save(p, arr)
+        logger.info(f"Successfully saved array to {p}")
         return p
 
 
+@log_calls(level=logging.DEBUG)
 def load_array(path: Union[str, Path]) -> Union[np.ndarray, Dict[str, np.ndarray], None]:
     """Load an array or dict of arrays from .npy/.npz. Returns None if missing."""
     p = _resolve_npy_npz_path(path)
+    
     if not p.exists():
+        logger.warning(f"File not found: {p}")
         return None
+    
+    logger.info(f"Loading array(s) from {p}")
+    
     if p.suffix == ".npz":
         with np.load(p, allow_pickle=False) as data:
-            return {k: data[k] for k in data.files}
+            result = {k: data[k] for k in data.files}
+            logger.info(f"Loaded {len(result)} arrays from NPZ: {p}")
+            return result
     else:
-        return np.load(p, allow_pickle=False)
+        arr = np.load(p, allow_pickle=False)
+        logger.info(f"Loaded array with shape {arr.shape} from NPY: {p}")
+        return arr
 
 
 def update_array(path: Union[str, Path], new_data: Mapping[str, np.ndarray]) -> Path:
@@ -189,6 +221,7 @@ def _write_attrs(f, attrs: Mapping[str, Jsonable] | None) -> None:
             f.attrs[k] = json.dumps(str(v))
 
 
+@log_calls(level=logging.DEBUG)
 def save_hdf5(
     path: Union[str, Path],
     data: Any,
@@ -206,19 +239,29 @@ def save_hdf5(
     _ensure_parent_dir(path)
     import h5py  # local import to avoid hard dependency at import time
 
+    is_dataframe = HAS_PANDAS and "DataFrame" in type(data).__name__
+    data_type = "DataFrame" if is_dataframe else "array"
+    
+    logger.info(
+        f"Saving {data_type} to HDF5: {path}, mode='{mode}', "
+        f"compression='{compression}', has_labels={labels is not None}, has_attrs={attrs is not None}"
+    )
+
     with h5py.File(path, mode) as f:
         _write_attrs(f, attrs)
 
-        if HAS_PANDAS and "DataFrame" in type(data).__name__:
+        if is_dataframe:
             grp = f.create_group("data") if "data" not in f else f["data"]
             for key in list(grp.keys()):
                 del grp[key]
             _save_dataframe(grp, data, compression, compression_opts)  # type: ignore[arg-type]
+            logger.info(f"Saved DataFrame with shape {data.shape} to {path}")  # type: ignore
         else:
             arr = np.asarray(data)
             if "data" in f:
                 del f["data"]
             f.create_dataset("data", data=arr, compression=compression, compression_opts=compression_opts)
+            logger.info(f"Saved array with shape {arr.shape} to {path}")
 
         if labels is not None:
             lbl = np.asarray(labels)
@@ -227,8 +270,10 @@ def save_hdf5(
             if "labels" in f:
                 del f["labels"]
             f.create_dataset("labels", data=lbl)
+            logger.info(f"Saved labels with shape {lbl.shape} to {path}")
 
 
+@log_calls(level=logging.DEBUG)
 def load_hdf5(
     path: Union[str, Path],
     *,
@@ -245,8 +290,12 @@ def load_hdf5(
     provided item pairs.
     """
     p = Path(path)
+    
     if not p.exists():
+        logger.warning(f"HDF5 file not found: {p}")
         return (None, []) if not return_attrs else ((None, []), {})
+
+    logger.info(f"Loading HDF5 from {p}, filter_pairs={filter_pairs is not None}, return_attrs={return_attrs}")
 
     import h5py  # local import
 
@@ -272,6 +321,9 @@ def load_hdf5(
                 else:
                     attrs_out[k] = v
 
+        if attrs_out:
+            logger.debug(f"Loaded {len(attrs_out)} attributes from {p}")
+
         # data
         if "data" in f:
             obj = f["data"]
@@ -279,19 +331,24 @@ def load_hdf5(
                 # Group: likely a DataFrame stored via columns_data
                 if HAS_PANDAS and all(k in obj.keys() for k in ("columns", "index")):
                     df = _load_dataframe(obj)  # type: ignore[assignment]
+                    logger.info(f"Loaded DataFrame with shape {df.shape} from {p}")  # type: ignore
                     if filter_pairs is not None and HAS_PANDAS and set(["item_i", "item_j"]).issubset(df.columns):
                         wanted = set(filter_pairs)
                         pairs = list(zip(df["item_i"].tolist(), df["item_j"].tolist()))
                         mask = np.array([pair in wanted for pair in pairs])
-                        df = df.loc[mask].reset_index(drop=True)
+                        n_before = len(df)  # type: ignore
+                        df = df[mask].reset_index(drop=True)  # type: ignore
+                        logger.info(f"Filtered DataFrame from {n_before} to {len(df)} rows using {len(filter_pairs)} pairs")  # type: ignore
                     data_out = df
                 else:
                     # Unsupported group layout -> load children as dict of arrays
                     child = {k: obj[k][...] for k in obj.keys()}
+                    logger.debug(f"Loaded group as dict with {len(child)} entries")
                     data_out = child
             else:
                 # Dataset: read array
                 data_out = obj[...]
+                logger.info(f"Loaded array with shape {data_out.shape} from {p}")
 
         # labels
         if "labels" in f:
@@ -300,7 +357,10 @@ def load_hdf5(
                 labels_out = [x.decode("utf-8") for x in lbl]
             else:
                 labels_out = lbl
+            logger.debug(f"Loaded labels with shape {np.asarray(labels_out).shape}")
 
+    logger.info(f"Successfully loaded HDF5 from {p}")
+    
     if return_attrs:
         return (data_out, labels_out), attrs_out
     return data_out, labels_out

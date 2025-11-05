@@ -9,7 +9,16 @@ from __future__ import annotations
 import logging
 from typing import Type
 
+try:
+    from .logging import get_logger
+except ImportError:
+    def get_logger(name: str):  # type: ignore
+        return logging.getLogger(name)
+
 __all__ = ["do_critical"]
+
+# Module logger
+logger = get_logger(__name__)
 
 
 def do_critical(exc: Type[BaseException], message: str) -> None:
@@ -22,6 +31,5 @@ def do_critical(exc: Type[BaseException], message: str) -> None:
     message : str
         The message to log and raise with the exception.
     """
-    logger = logging.getLogger("neural_analysis")
     logger.critical(message)
     raise exc(message)

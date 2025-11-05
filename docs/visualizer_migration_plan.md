@@ -217,7 +217,6 @@ Since the file uses `from Helper import *`, we need to identify which helper fun
 - `force_equal_dimensions()` - Dimension matching
 - `range_to_times_xlables_xpos()` - Time label generation
 - `values_to_groups()` - Value grouping
-- `normalize_01()` - Normalization to [0,1]
 - `is_rgba()` - RGBA format check
 - `global_logger` - Logging utility
 - `do_critical()` - Critical error handling

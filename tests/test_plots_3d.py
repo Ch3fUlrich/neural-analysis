@@ -85,7 +85,7 @@ class TestPlotTrajectory3D:
         config = PlotConfig(show=False)
         ax = plot_trajectory_3d(
             x, y, z,
-            color_by_time=True,
+            color_by="time",
             cmap='plasma',
             config=config,
             backend='matplotlib'
