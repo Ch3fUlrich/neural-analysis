@@ -798,13 +798,76 @@ def render_heatmap_plotly(
 # Bar Plots
 # ============================================================================
 
+def render_bar_matplotlib(
+    ax,
+    data: npt.NDArray,
+    x: Optional[npt.NDArray] = None,
+    color: Optional[str] = None,
+    colors: Optional[list] = None,
+    alpha: float = 0.7,
+    label: Optional[str] = None,
+    orientation: str = 'v',
+    error_y: Optional[npt.NDArray] = None,
+    error_x: Optional[npt.NDArray] = None,
+    **kwargs
+) -> Any:
+    """
+    Render a bar plot using matplotlib.
+    
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        The axes to plot on
+    data : ndarray
+        1D array of bar heights
+    x : ndarray, optional
+        X-axis positions
+    color : str, optional
+        Single bar color (used if colors is None)
+    colors : list, optional
+        List of colors for each bar
+    alpha : float, default=0.7
+        Opacity of bars (0-1)
+    label : str, optional
+        Label for legend
+    orientation : {'v', 'h'}, default='v'
+        Vertical or horizontal bars
+    error_y : ndarray, optional
+        Error bar values for vertical bars
+    error_x : ndarray, optional
+        Error bar values for horizontal bars
+    **kwargs
+        Additional keyword arguments passed to ax.bar()
+        
+    Returns
+    -------
+    matplotlib.container.BarContainer
+        The bar container
+    """
+    if x is None:
+        x = np.arange(len(data))
+    
+    # Use colors array if provided, otherwise single color
+    bar_color = colors if colors is not None else color
+    
+    if orientation == 'h':
+        return ax.barh(x, data, color=bar_color, alpha=alpha, label=label, 
+                      xerr=error_x, **kwargs)
+    else:
+        return ax.bar(x, data, color=bar_color, alpha=alpha, label=label,
+                     yerr=error_y, **kwargs)
+
+
 def render_bar_plotly(
     data: npt.NDArray,
     x: Optional[npt.NDArray] = None,
     color: Optional[str] = None,
+    colors: Optional[list] = None,
     alpha: float = 0.7,
     label: Optional[str] = None,
     showlegend: bool = True,
+    error_y: Optional[npt.NDArray] = None,
+    error_x: Optional[npt.NDArray] = None,
     **kwargs
 ) -> go.Bar:
     """
@@ -817,13 +880,19 @@ def render_bar_plotly(
     x : ndarray, optional
         X-axis positions
     color : str, optional
-        Bar color
+        Single bar color (used if colors is None)
+    colors : list, optional
+        List of colors for each bar
     alpha : float, default=0.7
         Opacity of bars (0-1)
     label : str, optional
         Label for legend
     showlegend : bool, default=True
         Whether to show this trace in the legend
+    error_y : ndarray, optional
+        Error bar values for y-axis
+    error_x : ndarray, optional
+        Error bar values for x-axis
     **kwargs
         Additional keyword arguments passed to go.Bar()
         
@@ -835,13 +904,28 @@ def render_bar_plotly(
     if not PLOTLY_AVAILABLE:
         raise ImportError("Plotly is required for this function")
     
+    # Use colors array if provided, otherwise single color
+    bar_color = colors if colors is not None else color
+    
+    # Build marker dict
+    marker_dict = {'color': bar_color, 'opacity': alpha}
+    
+    # Build error bars
+    error_y_dict = None
+    error_x_dict = None
+    if error_y is not None:
+        error_y_dict = dict(type='data', array=error_y, visible=True)
+    if error_x is not None:
+        error_x_dict = dict(type='data', array=error_x, visible=True)
+    
     return go.Bar(
         x=x,
         y=data if data.ndim == 1 else data[:, 0],
-        marker=dict(color=color),
-        opacity=alpha,
+        marker=marker_dict,
         name=label or '',
         showlegend=showlegend,
+        error_y=error_y_dict,
+        error_x=error_x_dict,
         **kwargs
     )
 
@@ -853,6 +937,7 @@ def render_bar_plotly(
 def render_violin_matplotlib(
     ax,
     data: npt.NDArray,
+    position: int = 1,
     color: Optional[str] = None,
     alpha: float = 0.7,
     showmeans: bool = True,
@@ -863,14 +948,16 @@ def render_violin_matplotlib(
     **kwargs
 ):
     """
-    Render a violin plot with optional box plot and points using matplotlib.
+    Render a half violin plot (right side) with points on the left using matplotlib.
     
     Parameters
     ----------
     ax : matplotlib.axes.Axes
         Axes to plot on
     data : ndarray
-        1D or 2D array of values
+        1D array of values
+    position : int, default=1
+        X-axis position for this violin
     color : str, optional
         Violin color
     alpha : float, default=0.7
@@ -880,9 +967,9 @@ def render_violin_matplotlib(
     showmedians : bool, default=True
         Show median line
     showbox : bool, default=True
-        Show box plot on the left side
+        Show box plot (not used in half-violin implementation)
     showpoints : bool, default=True
-        Show individual data points
+        Show individual data points on the left side
     label : str, optional
         Label for legend
     **kwargs
@@ -893,66 +980,103 @@ def render_violin_matplotlib(
     dict
         Dictionary with violin plot components
     """
-    # Ensure data is in list format for violinplot
-    if data.ndim == 1:
-        data_list = [data]
-        positions = [1]
-    else:
-        data_list = [data[:, i] for i in range(data.shape[1])]
-        positions = list(range(1, data.shape[1] + 1))
+    import numpy as np
     
     result = {}
     
     # Filter out plotly-specific parameters from kwargs
     violin_kwargs = {k: v for k, v in kwargs.items() if k not in ['meanline']}
     
-    # Add box plot on the left side if requested
-    if showbox:
-        # Shift box plot slightly to the left
-        box_positions = [p - 0.2 for p in positions]
-        bp = ax.boxplot(
-            data_list,
-            positions=box_positions,
-            widths=0.15,
-            patch_artist=True,
-            showfliers=False,
-            **violin_kwargs
-        )
-        # Apply color to box
-        if color:
-            for patch in bp['boxes']:
-                patch.set_facecolor(color)
-                patch.set_alpha(alpha * 0.5)
-        result['box'] = bp
-    
-    # Create violin plot
+    # Create violin plot with minimal extras (we'll customize the body)
     parts = ax.violinplot(
-        data_list,
-        positions=positions,
-        showmeans=showmeans,
-        showmedians=showmedians,
+        [data],
+        positions=[position],
+        showmeans=False,  # We'll draw this ourselves if needed
+        showmedians=False,  # We'll draw this ourselves if needed
+        showextrema=False,  # Don't show whiskers
+        widths=0.6,
         **violin_kwargs
     )
     
-    # Apply color to violin parts
-    if color:
-        for pc in parts['bodies']:
+    # Modify violin to show only right half
+    for pc in parts['bodies']:
+        # Get the vertices of the violin
+        verts = pc.get_paths()[0].vertices.copy()
+        
+        # Keep only the right half (x >= position)
+        # The violin path is symmetric, so we filter and reconstruct
+        right_mask = verts[:, 0] >= position
+        right_verts = verts[right_mask]
+        
+        # Sort by y to ensure proper ordering
+        sorted_indices = np.argsort(right_verts[:, 1])
+        right_verts = right_verts[sorted_indices]
+        
+        # Get y range
+        y_min = right_verts[:, 1].min()
+        y_max = right_verts[:, 1].max()
+        
+        # Create straight left edge along the centerline
+        # We build: bottom point -> all right side points (sorted by y) -> top point -> close
+        new_verts = np.vstack([
+            [[position, y_min]],  # Bottom of centerline
+            right_verts,           # Right side curve
+            [[position, y_max]],  # Top of centerline
+            [[position, y_min]]   # Close path
+        ])
+        
+        # Update the path
+        from matplotlib.path import Path
+        pc.get_paths()[0] = Path(new_verts)
+        
+        # Apply styling
+        if color:
             pc.set_facecolor(color)
+            pc.set_edgecolor('black')
             pc.set_alpha(alpha)
+            pc.set_linewidth(1)
+    
+    # Manually draw statistics if requested (similar to matplotlib example)
+    if showbox or showmeans or showmedians:
+        quartile1 = np.percentile(data, 25)
+        median = np.percentile(data, 50)
+        quartile3 = np.percentile(data, 75)
+        mean = np.mean(data)
+        
+        # Draw box (quartile lines) at the centerline
+        if showbox:
+            # Vertical line from Q1 to Q3
+            ax.vlines(position, quartile1, quartile3, color='k', linestyle='-', lw=5, zorder=4)
+        
+        # Draw median
+        if showmedians:
+            ax.scatter([position], [median], marker='o', color='white', s=30, zorder=5, edgecolors='black', linewidths=1.5)
+        
+        # Draw mean
+        if showmeans:
+            ax.scatter([position], [mean], marker='D', color='red', s=30, zorder=5, edgecolors='darkred', linewidths=1)
     
     result['violin'] = parts
     
-    # Add individual points if requested
+    # Add individual points on the left side if requested
     if showpoints:
-        import numpy as np
-        for i, (pos, d) in enumerate(zip(positions, data_list)):
-            # Add jitter to x positions
-            x_jitter = np.random.normal(pos + 0.15, 0.04, size=len(d))
-            ax.scatter(x_jitter, d, alpha=alpha * 0.3, s=10, color=color or 'black')
+        # Add jitter to x positions on the LEFT side
+        x_jitter = np.random.normal(position - 0.1, 0.05, size=len(data))
+        scatter = ax.scatter(
+            x_jitter, data, 
+            alpha=alpha * 0.6, 
+            s=15, 
+            color=color or 'black',
+            zorder=3
+        )
+        result['points'] = scatter
     
     # Add legend entry
     if label:
-        ax.plot([], [], color=color, label=label, linewidth=10)
+        from matplotlib.patches import Patch
+        legend_patch = Patch(facecolor=color or 'C0', alpha=alpha, label=label)
+        # Store for later legend creation
+        result['legend_handle'] = legend_patch
     
     return result
 
@@ -969,7 +1093,7 @@ def render_violin_plotly(
     **kwargs
 ) -> go.Violin:
     """
-    Render a violin plot with optional box plot and points using plotly.
+    Render a half violin plot (right side) with points on the left using plotly.
     
     Parameters
     ----------
@@ -984,7 +1108,7 @@ def render_violin_plotly(
     showbox : bool, default=True
         Show box plot inside violin
     showpoints : bool, default=True
-        Show individual data points
+        Show individual data points on the left
     label : str, optional
         Label for legend
     showlegend : bool, default=True
@@ -1000,16 +1124,24 @@ def render_violin_plotly(
     if not PLOTLY_AVAILABLE:
         raise ImportError("Plotly is required for this function")
     
-    # Handle meanline configuration
+    # Handle meanline configuration - make it more visible
     if meanline is None:
-        meanline = {'visible': True}
+        meanline = {'visible': True, 'color': color or 'black', 'width': 2}
     elif isinstance(meanline, bool):
-        meanline = {'visible': meanline}
+        meanline = {'visible': meanline, 'color': color or 'black', 'width': 2}
+    elif isinstance(meanline, dict):
+        # Enhance existing meanline config
+        if 'visible' not in meanline:
+            meanline['visible'] = True
+        if 'width' not in meanline:
+            meanline['width'] = 2
+        if 'color' not in meanline:
+            meanline['color'] = color or 'black'
     
-    # Configure points display
+    # Configure points display on the LEFT side
     if showpoints:
         points = 'all'
-        pointpos = 0.5  # Position points to the right
+        pointpos = -0.8  # Position points to the left (negative = left side)
         jitter = 0.3
     else:
         points = False
@@ -1024,9 +1156,16 @@ def render_violin_plotly(
         showlegend=showlegend,
         meanline=meanline,
         box_visible=showbox,
+        box=dict(
+            visible=showbox,
+            fillcolor='rgba(255, 255, 255, 0.5)',  # Semi-transparent white so inner lines are visible
+            line=dict(color=color or 'black', width=2),  # Thicker outline
+            width=0.3  # Increased box width from default (~0.15)
+        ) if showbox else None,
         points=points,
         pointpos=pointpos,
         jitter=jitter,
+        side='positive',  # Show only RIGHT half of violin
         **kwargs
     )
 
@@ -1038,21 +1177,25 @@ def render_violin_plotly(
 def render_box_matplotlib(
     ax,
     data: npt.NDArray,
+    position: int = 1,
     color: Optional[str] = None,
     alpha: float = 0.7,
     label: Optional[str] = None,
     notch: bool = False,
+    showpoints: bool = True,
     **kwargs
 ):
     """
-    Render a box plot using matplotlib.
+    Render a box plot with sample points using matplotlib.
     
     Parameters
     ----------
     ax : matplotlib.axes.Axes
         Axes to plot on
     data : ndarray
-        1D or 2D array of values
+        1D array of values
+    position : int, default=1
+        X-axis position for this box plot
     color : str, optional
         Box color
     alpha : float, default=0.7
@@ -1061,6 +1204,8 @@ def render_box_matplotlib(
         Label for legend
     notch : bool, default=False
         Whether to show notches
+    showpoints : bool, default=True
+        Whether to show individual sample points
     **kwargs
         Additional keyword arguments passed to ax.boxplot()
         
@@ -1069,17 +1214,16 @@ def render_box_matplotlib(
     dict
         Dictionary with box plot components
     """
-    # Ensure data is in list format
-    if data.ndim == 1:
-        data_list = [data]
-    else:
-        data_list = [data[:, i] for i in range(data.shape[1])]
+    import numpy as np
     
+    # Create box plot
     bp = ax.boxplot(
-        data_list,
-        labels=[label] if label and data.ndim == 1 else None,
+        [data],
+        positions=[position],
+        widths=0.5,
         patch_artist=True,
         notch=notch,
+        showfliers=False,  # Don't show outliers as we'll show all points
         **kwargs
     )
     
@@ -1088,6 +1232,30 @@ def render_box_matplotlib(
         for patch in bp['boxes']:
             patch.set_facecolor(color)
             patch.set_alpha(alpha)
+        # Also color the whiskers, caps, and medians
+        for element in ['whiskers', 'caps', 'medians']:
+            for item in bp[element]:
+                item.set_color(color)
+                item.set_alpha(alpha)
+    
+    # Add individual sample points if requested
+    if showpoints:
+        # Add jitter to x positions
+        x_jitter = np.random.normal(position, 0.08, size=len(data))
+        scatter = ax.scatter(
+            x_jitter, data,
+            alpha=alpha * 0.4,
+            s=15,
+            color=color or 'black',
+            zorder=3
+        )
+        bp['points'] = scatter
+    
+    # Add legend entry
+    if label:
+        from matplotlib.patches import Patch
+        legend_patch = Patch(facecolor=color or 'C0', alpha=alpha, label=label)
+        bp['legend_handle'] = legend_patch
     
     return bp
 
@@ -1099,10 +1267,11 @@ def render_box_plotly(
     label: Optional[str] = None,
     showlegend: bool = True,
     notched: bool = False,
+    showpoints: bool = True,
     **kwargs
 ) -> go.Box:
     """
-    Render a box plot using plotly.
+    Render a box plot with sample points using plotly.
     
     Parameters
     ----------
@@ -1118,6 +1287,8 @@ def render_box_plotly(
         Whether to show this trace in the legend
     notched : bool, default=False
         Whether to show notches
+    showpoints : bool, default=True
+        Whether to show individual sample points
     **kwargs
         Additional keyword arguments passed to go.Box()
         
@@ -1129,6 +1300,16 @@ def render_box_plotly(
     if not PLOTLY_AVAILABLE:
         raise ImportError("Plotly is required for this function")
     
+    # Configure points display
+    if showpoints:
+        boxpoints = 'all'  # Show all points
+        jitter = 0.3
+        pointpos = 0  # Center the points over the box
+    else:
+        boxpoints = False
+        jitter = 0
+        pointpos = 0
+    
     return go.Box(
         y=data,
         name=label or '',
@@ -1136,6 +1317,9 @@ def render_box_plotly(
         opacity=alpha,
         showlegend=showlegend,
         notched=notched,
+        boxpoints=boxpoints,
+        jitter=jitter,
+        pointpos=pointpos,
         **kwargs
     )
 
