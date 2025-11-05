@@ -83,39 +83,47 @@ def plot_bar(
         data_dict = data
         labels = list(data_dict.keys())
     
-    # Compute means for bars
-    means = [np.mean(data_dict[label]) for label in labels]
+    # Compute means and stds for bars
+    means = np.array([np.mean(data_dict[label]) for label in labels])
+    stds = np.array([np.std(data_dict[label], ddof=1) for label in labels])
     x_positions = np.arange(len(labels))
     
     # Set default colors
     if colors is None:
         colors = [DEFAULT_COLORS[i % len(DEFAULT_COLORS)] for i in range(len(labels))]
     
-    # Create specs
-    specs = []
-    for i, (label, mean, color) in enumerate(zip(labels, means, colors)):
-        if orientation == 'v':
-            spec = PlotSpec(
-                data=np.array([mean]),
-                plot_type='bar',
-                label=label,
-                color=color,
-                subplot_position=0,
-                kwargs={'x': [i], **kwargs}
-            )
-        else:  # horizontal
-            spec = PlotSpec(
-                data=np.array([mean]),
-                plot_type='bar',
-                label=label,
-                color=color,
-                subplot_position=0,
-                kwargs={'orientation': 'h', 'x': [mean], 'y': [i], **kwargs}
-            )
-        specs.append(spec)
+    # Create a single bar spec with all data
+    if orientation == 'v':
+        spec = PlotSpec(
+            data=means,
+            plot_type='bar',
+            color=None,  # Will use multiple colors
+            subplot_position=0,
+            kwargs={
+                'x': x_positions,
+                'error_y': stds if 'error_y' not in kwargs else kwargs.pop('error_y'),
+                'colors': colors,  # Pass colors as array
+                **kwargs
+            }
+        )
+    else:  # horizontal
+        spec = PlotSpec(
+            data=means,
+            plot_type='bar',
+            color=None,
+            subplot_position=0,
+            kwargs={
+                'orientation': 'h',
+                'x': means,
+                'y': x_positions,
+                'error_x': stds if 'error_x' not in kwargs else kwargs.pop('error_x'),
+                'colors': colors,
+                **kwargs
+            }
+        )
     
     grid = PlotGrid(
-        plot_specs=specs,
+        plot_specs=[spec],
         config=config or PlotConfig(title="Bar Plot Comparison"),
         layout=GridLayoutConfig(rows=1, cols=1),
         backend=backend,
@@ -123,9 +131,26 @@ def plot_bar(
     
     result = grid.plot()
     
-    # Update axes labels for plotly
+    # Update axes labels
     if backend == 'plotly' or (backend is None and hasattr(result, 'update_xaxes')):
-        result.update_xaxes(tickvals=x_positions, ticktext=labels)
+        if orientation == 'v':
+            result.update_xaxes(tickvals=x_positions, ticktext=labels)
+        else:
+            result.update_yaxes(tickvals=x_positions, ticktext=labels)
+    else:  # matplotlib
+        # Check if result is a Figure or Axes
+        import matplotlib.pyplot as plt
+        if isinstance(result, plt.Figure):
+            ax = result.axes[0]
+        else:
+            ax = result  # It's already an Axes object
+        
+        if orientation == 'v':
+            ax.set_xticks(x_positions)
+            ax.set_xticklabels(labels)
+        else:
+            ax.set_yticks(x_positions)
+            ax.set_yticklabels(labels)
     
     return result
 
@@ -367,7 +392,7 @@ def plot_grouped_distributions(
                 title=group,
                 label=condition,
                 color=colors[cond_idx % len(colors)],
-                **kwargs
+                kwargs=kwargs
             )
             specs.append(spec)
     
@@ -431,23 +456,49 @@ def plot_comparison_distributions(
     """
     groups = list(data.keys())
     
-    # Set default colors
-    if colors is None:
-        colors = [DEFAULT_COLORS[i % len(DEFAULT_COLORS)] for i in range(len(groups))]
-    
     # Create specs (each group gets its own subplot)
     specs = []
-    for idx, (group, color) in enumerate(zip(groups, colors)):
-        spec = PlotSpec(
-            data=data[group],
-            plot_type=plot_type,
-            subplot_position=idx,
-            title=group,
-            label=group,
-            color=color,
-            **kwargs
-        )
-        specs.append(spec)
+    
+    # Check if data values are nested dicts (multiple conditions per group)
+    first_value = next(iter(data.values()))
+    is_nested = isinstance(first_value, dict)
+    
+    if is_nested:
+        # Nested dict: {group: {condition: data}}
+        # Each group gets multiple traces in one subplot
+        conditions = list(first_value.keys())
+        if colors is None:
+            colors = [DEFAULT_COLORS[i % len(DEFAULT_COLORS)] for i in range(len(conditions))]
+        
+        for group_idx, group in enumerate(groups):
+            for cond_idx, condition in enumerate(conditions):
+                spec = PlotSpec(
+                    data=data[group][condition],
+                    plot_type=plot_type,
+                    subplot_position=group_idx,
+                    title=group,
+                    label=condition,
+                    color=colors[cond_idx % len(colors)],
+                    kwargs=kwargs
+                )
+                specs.append(spec)
+    else:
+        # Simple dict: {group: data}
+        # Each group gets its own subplot
+        if colors is None:
+            colors = [DEFAULT_COLORS[i % len(DEFAULT_COLORS)] for i in range(len(groups))]
+        
+        for idx, (group, color) in enumerate(zip(groups, colors)):
+            spec = PlotSpec(
+                data=data[group],
+                plot_type=plot_type,
+                subplot_position=idx,
+                title=group,
+                label=group,
+                color=color,
+                kwargs=kwargs
+            )
+            specs.append(spec)
     
     grid = PlotGrid(
         plot_specs=specs,
