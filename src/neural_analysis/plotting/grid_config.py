@@ -616,10 +616,34 @@ class PlotGrid:
                 ax = axes_flat[i]
                 legend_tracker[i] = set()
                 
+                # Assign positions to violin/box plots within this subplot
+                position = 1
                 for spec in spec_group:
+                    if spec.plot_type in ['violin', 'box'] and 'position' not in spec.kwargs:
+                        spec.kwargs['position'] = position
+                        position += 1
+                    
                     if spec.title:
                         axes_with_titles.add(i)
                     self._plot_spec_matplotlib(spec, ax, legend_tracker[i])
+                
+                # Create legend from stored handles if we have any
+                handles = []
+                labels = []
+                for spec in spec_group:
+                    if hasattr(spec, '_legend_handle'):
+                        handles.append(spec._legend_handle)
+                        labels.append(spec.label)
+                if handles:
+                    ax.legend(handles, labels)
+                
+                # Set x-axis labels for violin/box plots
+                violin_box_specs = [s for s in spec_group if s.plot_type in ['violin', 'box']]
+                if violin_box_specs:
+                    positions = [s.kwargs.get('position', 1) for s in violin_box_specs]
+                    labels_list = [s.label for s in violin_box_specs]
+                    ax.set_xticks(positions)
+                    ax.set_xticklabels(labels_list)
             
             # Apply PlotConfig settings to axes after plotting
             if self.config:
@@ -736,9 +760,10 @@ class PlotGrid:
             # Enhanced violin plot with box and points
             # Remove plotly-specific parameters
             spec.kwargs.pop('meanline', None)
-            renderers.render_violin_matplotlib(
+            result = renderers.render_violin_matplotlib(
                 ax=ax,
                 data=spec.data,
+                position=spec.kwargs.pop('position', 1),
                 color=spec.color,
                 alpha=spec.alpha,
                 showmeans=spec.kwargs.pop('showmeans', True),
@@ -748,16 +773,40 @@ class PlotGrid:
                 label=label_to_use,
                 **spec.kwargs
             )
+            # Store legend handle for later
+            if 'legend_handle' in result:
+                spec._legend_handle = result['legend_handle']
         
-        elif spec.plot_type == 'box':
-            renderers.render_box_matplotlib(
+        elif spec.plot_type == 'bar':
+            renderers.render_bar_matplotlib(
                 ax=ax,
                 data=spec.data,
+                x=spec.kwargs.pop('x', None),
+                color=spec.color,
+                colors=spec.kwargs.pop('colors', None),
+                alpha=spec.alpha,
+                label=label_to_use,
+                orientation=spec.kwargs.pop('orientation', 'v'),
+                error_y=spec.kwargs.pop('error_y', None),
+                error_x=spec.kwargs.pop('error_x', None),
+                **spec.kwargs
+            )
+        
+        elif spec.plot_type == 'box':
+            result = renderers.render_box_matplotlib(
+                ax=ax,
+                data=spec.data,
+                position=spec.kwargs.pop('position', 1),
                 color=spec.color,
                 alpha=spec.alpha,
                 label=label_to_use,
+                notch=spec.kwargs.pop('notch', False),
+                showpoints=spec.kwargs.pop('showpoints', True),
                 **spec.kwargs
             )
+            # Store legend handle for later
+            if 'legend_handle' in result:
+                spec._legend_handle = result['legend_handle']
         
         elif spec.plot_type == 'trajectory':
             # 2D trajectory with time-based coloring
@@ -910,8 +959,14 @@ class PlotGrid:
         
         if spec.title:
             ax.set_title(spec.title)
-        if legend_tracker:  # Only show legend if there are labeled items
-            ax.legend()
+        # Note: Legend is now handled in the plotting loop for violin/box plots
+        # For other plot types that use standard matplotlib labels, legend is still needed
+        # but we skip it for violin/box since we handle those separately
+        if legend_tracker and spec.plot_type not in ['violin', 'box']:
+            # Check if there are actually any legend entries before calling legend()
+            handles, labels = ax.get_legend_handles_labels()
+            if handles:
+                ax.legend()
     
     def _plot_spec_plotly(self, spec: PlotSpec, legend_tracker: set):
         """Plot a PlotSpec using plotly with renderer functions (returns trace)."""
@@ -994,16 +1049,27 @@ class PlotGrid:
                 data=spec.data,
                 x=spec.kwargs.pop('x', None),
                 color=spec.color,
+                colors=spec.kwargs.pop('colors', None),
                 alpha=spec.alpha,
                 label=spec.label,
                 showlegend=show_legend,
+                error_y=spec.kwargs.pop('error_y', None),
+                error_x=spec.kwargs.pop('error_x', None),
                 **spec.kwargs
             )
         
         elif spec.plot_type == 'violin':
             # Enhanced violin plot with box and points
-            meanline = spec.kwargs.pop('meanline', {})
-            if isinstance(meanline, bool):
+            # Convert matplotlib-style 'showmeans' to plotly's 'meanline'
+            # Make a copy to avoid mutating the original
+            plot_kwargs = dict(spec.kwargs)
+            showmeans = plot_kwargs.pop('showmeans', None)
+            meanline = plot_kwargs.pop('meanline', {})
+            
+            if showmeans is not None:
+                # If showmeans is explicitly set, use it to control meanline
+                meanline = {'visible': showmeans}
+            elif isinstance(meanline, bool):
                 meanline = {'visible': meanline}
             elif not isinstance(meanline, dict):
                 meanline = {'visible': True}
@@ -1013,11 +1079,11 @@ class PlotGrid:
                 color=spec.color,
                 alpha=spec.alpha,
                 meanline=meanline,
-                showbox=spec.kwargs.pop('showbox', True),
-                showpoints=spec.kwargs.pop('showpoints', True),
+                showbox=plot_kwargs.pop('showbox', True),
+                showpoints=plot_kwargs.pop('showpoints', True),
                 label=spec.label,
                 showlegend=show_legend,
-                **spec.kwargs
+                **plot_kwargs
             )
         
         elif spec.plot_type == 'box':
