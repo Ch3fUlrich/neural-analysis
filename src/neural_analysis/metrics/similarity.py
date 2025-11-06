@@ -22,7 +22,7 @@ from typing import Literal
 
 import numpy as np
 import numpy.typing as npt
-from scipy.stats import spearmanr, kendalltau
+from scipy.stats import kendalltau, spearmanr
 
 # Optional numba acceleration
 try:
@@ -421,7 +421,7 @@ def _plot_similarity_matrix(
     """
     try:
         # Lazy import to avoid circular dependency
-        from neural_analysis.plotting import plot_heatmap, PlotConfig
+        from neural_analysis.plotting import PlotConfig, plot_heatmap
     except ImportError:
         logger.warning("Could not import plotting functions. Skipping visualization.")
         return

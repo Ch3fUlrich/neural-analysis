@@ -89,7 +89,6 @@ from neural_analysis.plotting.renderers import (
 
 PlotType = Literal['scatter', 'line', 'histogram', 'heatmap', 'scatter3d', 'violin', 'box', 'bar', 
                    'trajectory', 'trajectory3d', 'kde', 'grouped_scatter', 'convex_hull', 'boolean_states']
-BackendType = Literal['matplotlib', 'plotly']
 
 @dataclass
 class PlotSpec:

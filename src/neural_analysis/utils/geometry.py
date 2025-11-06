@@ -5,11 +5,11 @@ This module provides functions for computing geometric properties and
 transformations, such as convex hulls, density estimates, and spatial statistics.
 """
 
+
 import numpy as np
-from typing import Tuple
 
 
-def compute_convex_hull(x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray] | None:
+def compute_convex_hull(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray] | None:
     """
     Compute the convex hull boundary points for 2D data.
     
@@ -67,7 +67,7 @@ def compute_kde_2d(
     bandwidth: float | None = None,
     grid_size: int = 100,
     expand_fraction: float = 0.1,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Compute 2D kernel density estimation on a grid.
     

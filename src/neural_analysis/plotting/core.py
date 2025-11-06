@@ -19,11 +19,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import numpy as np
 import numpy.typing as npt
-from .backend import BackendType
 from sklearn.preprocessing import minmax_scale
+
+from .backend import BackendType
 
 __all__ = [
     "PlotConfig",

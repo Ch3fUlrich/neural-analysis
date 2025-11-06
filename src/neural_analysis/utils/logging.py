@@ -18,13 +18,14 @@ Best practices:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
 import os
 import sys
 import time
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, Mapping, Any
+from typing import Any
 
 __all__ = [
     "configure_logging",
@@ -162,10 +163,7 @@ def log_kv(prefix: str, mapping: Mapping[str, Any] | Iterable[tuple[str, Any]], 
         Log level to use.
     """
     log = get_logger("kv")
-    if isinstance(mapping, Mapping):
-        items = mapping.items()
-    else:
-        items = mapping
+    items = mapping.items() if isinstance(mapping, Mapping) else mapping
     msg = prefix + ": " + ", ".join(f"{k}={v!r}" for k, v in items)
     log.log(level, msg)
 

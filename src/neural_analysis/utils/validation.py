@@ -7,7 +7,6 @@ critical checks throughout the codebase.
 from __future__ import annotations
 
 import logging
-from typing import Type
 
 try:
     from .logging import get_logger
@@ -21,7 +20,7 @@ __all__ = ["do_critical"]
 logger = get_logger(__name__)
 
 
-def do_critical(exc: Type[BaseException], message: str) -> None:
+def do_critical(exc: type[BaseException], message: str) -> None:
     """Log a critical error and raise the provided exception type.
 
     Parameters

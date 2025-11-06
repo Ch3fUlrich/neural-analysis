@@ -18,15 +18,16 @@ Notes:
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Dict, Iterable, Mapping, Tuple, Union
-
 import json
 import logging
+from collections.abc import Iterable, Mapping
+from pathlib import Path
+from typing import Any, Union
+
 import numpy as np
 
 try:
-    from .logging import log_calls, get_logger  # type: ignore
+    from .logging import get_logger, log_calls  # type: ignore
 except ImportError:
     # Fallback no-op decorator if logging module unavailable
     def log_calls(**kwargs):  # type: ignore
@@ -47,10 +48,10 @@ except Exception:  # pragma: no cover - optional dependency
 
 
 Jsonable = Union[str, int, float, bool, None, Mapping[str, "Jsonable"], Iterable["Jsonable"]]
-DatasetDict = Dict[str, Any]
+DatasetDict = dict[str, Any]
 
 
-def _ensure_parent_dir(path: Union[str, Path]) -> None:
+def _ensure_parent_dir(path: str | Path) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
 
 
@@ -63,7 +64,7 @@ def _from_bytes_array(values: np.ndarray) -> list[str]:
     return [v.decode("utf-8") if isinstance(v, (bytes, bytearray)) else str(v) for v in values.tolist()]
 
 
-def _save_dataframe(group, df: "pd.DataFrame", compression: str, compression_opts: int) -> None:  # type: ignore[name-defined]
+def _save_dataframe(group, df: pd.DataFrame, compression: str, compression_opts: int) -> None:  # type: ignore[name-defined]
     group.create_dataset("index_is_numeric", data=np.array([df.index.inferred_type != "string"]))
 
     # Save index
@@ -86,7 +87,7 @@ def _save_dataframe(group, df: "pd.DataFrame", compression: str, compression_opt
         cols_grp.create_dataset(col, data=arr, compression=compression, compression_opts=compression_opts)
 
 
-def _load_dataframe(group) -> "pd.DataFrame":  # type: ignore[name-defined]
+def _load_dataframe(group) -> pd.DataFrame:  # type: ignore[name-defined]
     columns = _from_bytes_array(group["columns"][...])
     index_is_numeric = bool(group["index_is_numeric"][0]) if "index_is_numeric" in group else False
     if index_is_numeric:
@@ -94,8 +95,8 @@ def _load_dataframe(group) -> "pd.DataFrame":  # type: ignore[name-defined]
     else:
         index = _from_bytes_array(group["index"][...])
     # Restore columns and per-column data
-    cols_grp = group["columns_data"] if "columns_data" in group else None
-    data_dict: Dict[str, Any] = {}
+    cols_grp = group.get("columns_data", None)
+    data_dict: dict[str, Any] = {}
     if cols_grp is not None:
         for col in columns:
             arr = cols_grp[col][...]
@@ -122,7 +123,7 @@ def _load_dataframe(group) -> "pd.DataFrame":  # type: ignore[name-defined]
 # NumPy I/O (NPY/NPZ)
 # ============================================================================
 
-def _resolve_npy_npz_path(path: Union[str, Path]) -> Path:
+def _resolve_npy_npz_path(path: str | Path) -> Path:
     p = Path(path)
     if p.suffix in {".npy", ".npz"}:
         return p
@@ -136,8 +137,8 @@ def _resolve_npy_npz_path(path: Union[str, Path]) -> Path:
 
 @log_calls(level=logging.DEBUG)
 def save_array(
-    path: Union[str, Path],
-    data: Union[np.ndarray, Mapping[str, np.ndarray]],
+    path: str | Path,
+    data: np.ndarray | Mapping[str, np.ndarray],
     *,
     allow_overwrite: bool = True,
 ) -> Path:
@@ -172,7 +173,7 @@ def save_array(
 
 
 @log_calls(level=logging.DEBUG)
-def load_array(path: Union[str, Path]) -> Union[np.ndarray, Dict[str, np.ndarray], None]:
+def load_array(path: str | Path) -> np.ndarray | dict[str, np.ndarray] | None:
     """Load an array or dict of arrays from .npy/.npz. Returns None if missing."""
     p = _resolve_npy_npz_path(path)
     
@@ -193,13 +194,13 @@ def load_array(path: Union[str, Path]) -> Union[np.ndarray, Dict[str, np.ndarray
         return arr
 
 
-def update_array(path: Union[str, Path], new_data: Mapping[str, np.ndarray]) -> Path:
+def update_array(path: str | Path, new_data: Mapping[str, np.ndarray]) -> Path:
     """Update or create an .npz file by merging in new arrays."""
     p = Path(path)
     if p.suffix != ".npz":
         p = p.with_suffix(".npz")
     _ensure_parent_dir(p)
-    merged: Dict[str, np.ndarray] = {}
+    merged: dict[str, np.ndarray] = {}
     if p.exists():
         with np.load(p, allow_pickle=False) as data:
             merged.update({k: data[k] for k in data.files})
@@ -223,7 +224,7 @@ def _write_attrs(f, attrs: Mapping[str, Jsonable] | None) -> None:
 
 @log_calls(level=logging.DEBUG)
 def save_hdf5(
-    path: Union[str, Path],
+    path: str | Path,
     data: Any,
     *,
     labels: Any | None = None,
@@ -275,9 +276,9 @@ def save_hdf5(
 
 @log_calls(level=logging.DEBUG)
 def load_hdf5(
-    path: Union[str, Path],
+    path: str | Path,
     *,
-    filter_pairs: Iterable[Tuple[Any, Any]] | None = None,
+    filter_pairs: Iterable[tuple[Any, Any]] | None = None,
     return_attrs: bool = False,
 ):
     """Load previously saved HDF5 content.
@@ -301,7 +302,7 @@ def load_hdf5(
 
     data_out: Any = None
     labels_out: Any = []
-    attrs_out: Dict[str, Jsonable] = {}
+    attrs_out: dict[str, Jsonable] = {}
 
     with h5py.File(p, "r") as f:
         # attrs
@@ -329,10 +330,10 @@ def load_hdf5(
             obj = f["data"]
             if hasattr(obj, "keys"):
                 # Group: likely a DataFrame stored via columns_data
-                if HAS_PANDAS and all(k in obj.keys() for k in ("columns", "index")):
+                if HAS_PANDAS and all(k in obj for k in ("columns", "index")):
                     df = _load_dataframe(obj)  # type: ignore[assignment]
                     logger.info(f"Loaded DataFrame with shape {df.shape} from {p}")  # type: ignore
-                    if filter_pairs is not None and HAS_PANDAS and set(["item_i", "item_j"]).issubset(df.columns):
+                    if filter_pairs is not None and HAS_PANDAS and {"item_i", "item_j"}.issubset(df.columns):
                         wanted = set(filter_pairs)
                         pairs = list(zip(df["item_i"].tolist(), df["item_j"].tolist()))
                         mask = np.array([pair in wanted for pair in pairs])
@@ -342,7 +343,7 @@ def load_hdf5(
                     data_out = df
                 else:
                     # Unsupported group layout -> load children as dict of arrays
-                    child = {k: obj[k][...] for k in obj.keys()}
+                    child = {k: obj[k][...] for k in obj}
                     logger.debug(f"Loaded group as dict with {len(child)} entries")
                     data_out = child
             else:
@@ -367,14 +368,14 @@ def load_hdf5(
 
 
 def h5io(
-    path: Union[str, Path],
+    path: str | Path,
     *,
     task: str,
     data: Any | None = None,
     labels: Any | None = None,
     attrs: Mapping[str, Jsonable] | None = None,
     mode: str = "w",
-) -> Union[Tuple[Any, Any], None]:
+) -> tuple[Any, Any] | None:
     """Compatibility wrapper replicating legacy `h5io` API.
 
     Examples

@@ -8,11 +8,15 @@ matplotlib and plotly backends.
 
 from __future__ import annotations
 
-from typing import Any, Literal, Sequence
+from typing import TYPE_CHECKING, Any, Literal
+
 import numpy as np
 
-from .grid_config import PlotGrid, PlotSpec, GridLayoutConfig, ColorScheme
 from .core import PlotConfig
+from .grid_config import GridLayoutConfig, PlotGrid, PlotSpec
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 __all__ = [
     "plot_bar",
@@ -78,7 +82,7 @@ def plot_bar(
     if isinstance(data, list):
         if labels is None:
             labels = [f'Group {i+1}' for i in range(len(data))]
-        data_dict = {label: arr for label, arr in zip(labels, data)}
+        data_dict = dict(zip(labels, data))
     else:
         data_dict = data
         labels = list(data_dict.keys())
@@ -205,7 +209,7 @@ def plot_violin(
     if isinstance(data, list):
         if labels is None:
             labels = [f'Group {i+1}' for i in range(len(data))]
-        data_dict = {label: arr for label, arr in zip(labels, data)}
+        data_dict = dict(zip(labels, data))
     else:
         data_dict = data
         labels = list(data_dict.keys())
@@ -290,7 +294,7 @@ def plot_box(
     if isinstance(data, list):
         if labels is None:
             labels = [f'Group {i+1}' for i in range(len(data))]
-        data_dict = {label: arr for label, arr in zip(labels, data)}
+        data_dict = dict(zip(labels, data))
     else:
         data_dict = data
         labels = list(data_dict.keys())

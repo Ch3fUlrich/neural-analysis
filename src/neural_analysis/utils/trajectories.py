@@ -5,14 +5,15 @@ This module provides functions for processing and analyzing trajectory data,
 including time-based segmentation and color mapping for visualization.
 """
 
+from typing import Literal
+
 import numpy as np
-from typing import Optional, Literal
 
 
 def prepare_trajectory_segments(
     x: np.ndarray,
     y: np.ndarray,
-    z: Optional[np.ndarray] = None,
+    z: np.ndarray | None = None,
 ) -> np.ndarray:
     """
     Prepare 2D or 3D trajectory data as line segments for visualization.

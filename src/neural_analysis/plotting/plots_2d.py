@@ -9,17 +9,19 @@ All functions in this module use the PlotGrid system internally for consistent
 behavior and code reuse.
 """
 
-from typing import Dict, List, Tuple, Optional, Literal
-import numpy as np
-import matplotlib.pyplot as plt
+from typing import TYPE_CHECKING, Literal
 
-from .backend import BackendType, get_backend
+import numpy as np
+
 from .core import PlotConfig
 from .grid_config import PlotGrid, PlotSpec
 
+if TYPE_CHECKING:
+    import matplotlib.pyplot as plt
+    import plotly.graph_objects as go
+
 # Optional imports
 try:
-    import plotly.graph_objects as go
     PLOTLY_AVAILABLE = True
 except ImportError:
     PLOTLY_AVAILABLE = False

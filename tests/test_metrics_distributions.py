@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from neural_analysis.metrics import compare_distributions, compare_distribution_groups
+from neural_analysis.metrics import compare_distribution_groups, compare_distributions
 
 
 class TestCompareDistributions:

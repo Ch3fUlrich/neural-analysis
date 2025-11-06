@@ -11,16 +11,19 @@ different metrics through a unified interface.
 
 from __future__ import annotations
 
-from typing import Literal, Callable
 import logging
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import numpy.typing as npt
 from scipy.spatial.distance import cdist, cosine
-from scipy.stats import wasserstein_distance, ks_2samp, entropy
+from scipy.stats import entropy, ks_2samp, wasserstein_distance
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 try:
-    from ..utils.logging import log_calls, get_logger  # type: ignore
+    from neural_analysis.utils.logging import get_logger, log_calls  # type: ignore
 except ImportError:
     def log_calls(**kwargs):  # type: ignore
         def decorator(func):  # type: ignore

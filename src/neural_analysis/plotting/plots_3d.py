@@ -13,18 +13,20 @@ Functions support both matplotlib and plotly backends for flexibility between
 static publication-quality figures and interactive exploratory visualizations.
 """
 
+from typing import TYPE_CHECKING, Literal
+
 import numpy as np
-import matplotlib.pyplot as plt
-from typing import Literal
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
-from .backend import BackendType
 from .core import PlotConfig
 from .grid_config import PlotGrid, PlotSpec
 
+if TYPE_CHECKING:
+    import matplotlib.pyplot as plt
+    import plotly.graph_objects as go
+
 # Optional imports
 try:
-    import plotly.graph_objects as go
     PLOTLY_AVAILABLE = True
 except ImportError:
     PLOTLY_AVAILABLE = False

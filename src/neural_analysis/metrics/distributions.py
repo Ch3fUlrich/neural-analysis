@@ -9,24 +9,24 @@ All distance computations delegate to the distance module to avoid code duplicat
 
 from __future__ import annotations
 
-from typing import Literal
 import logging
+from typing import Literal
 
 import numpy as np
 import numpy.typing as npt
 
 from .distance import (
-    euclidean_distance,
-    mahalanobis_distance,
     cosine_similarity,
-    wasserstein_distance_multi,
-    kolmogorov_smirnov_distance,
-    jensen_shannon_divergence,
     distribution_distance,
+    euclidean_distance,
+    jensen_shannon_divergence,
+    kolmogorov_smirnov_distance,
+    mahalanobis_distance,
+    wasserstein_distance_multi,
 )
 
 try:
-    from ..utils.logging import log_calls, get_logger  # type: ignore
+    from neural_analysis.utils.logging import get_logger, log_calls  # type: ignore
 except ImportError:
     def log_calls(**kwargs):  # type: ignore
         def decorator(func):  # type: ignore
@@ -184,7 +184,6 @@ def compare_distribution_groups(
     >>> similarities["A"]  # distances from A to all groups
     """
     n_groups = len(group_vectors)
-    group_names = list(group_vectors.keys())
 
     logger.info(
         f"Comparing {n_groups} groups with compare_type='{compare_type}', metric='{metric}'"
@@ -217,9 +216,9 @@ def compare_distribution_groups(
         case "between":
             # Between-group distances
             similarities = {}
-            for i, (name_i, group_i) in enumerate(group_vectors.items()):
+            for _i, (name_i, group_i) in enumerate(group_vectors.items()):
                 dists_to_all = np.zeros(n_groups)
-                for j, (name_j, group_j) in enumerate(group_vectors.items()):
+                for j, (_name_j, group_j) in enumerate(group_vectors.items()):
                     dist = compare_distributions(group_i, group_j, metric=metric)  # type: ignore
                     dists_to_all[j] = dist
                 similarities[name_i] = dists_to_all

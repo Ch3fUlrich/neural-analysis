@@ -1,13 +1,13 @@
 """Tests for 3D plotting functions."""
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-import matplotlib.pyplot as plt
 
 from neural_analysis.plotting import (
+    PlotConfig,
     plot_scatter_3d,
     plot_trajectory_3d,
-    PlotConfig,
     set_backend,
 )
 

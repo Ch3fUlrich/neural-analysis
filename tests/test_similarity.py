@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 
 from neural_analysis.metrics import (
+    angular_similarity_matrix,
     correlation_matrix,
     cosine_similarity_matrix,
-    angular_similarity_matrix,
 )
 
 

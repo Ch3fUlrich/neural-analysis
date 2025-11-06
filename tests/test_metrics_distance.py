@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 
 from neural_analysis.metrics import (
+    cosine_similarity,
     euclidean_distance,
     mahalanobis_distance,
-    cosine_similarity,
 )
 
 

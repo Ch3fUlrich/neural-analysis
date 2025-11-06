@@ -25,6 +25,19 @@ Example usage:
 
 from .backend import BackendType, get_backend, set_backend
 from .core import PlotConfig
+from .grid_config import (
+    ColorScheme,
+    GridLayoutConfig,
+    PlotGrid,
+    PlotSpec,
+    add_trace_to_subplot,
+    create_subplot_grid,
+    plot_comparison_grid,
+    plot_grouped_comparison,
+)
+from .heatmaps import (
+    plot_heatmap,
+)
 from .plots_1d import (
     plot_boolean_states,
     plot_line,
@@ -40,25 +53,12 @@ from .plots_3d import (
     plot_scatter_3d,
     plot_trajectory_3d,
 )
-from .heatmaps import (
-    plot_heatmap,
-)
-from .grid_config import (
-    PlotSpec,
-    GridLayoutConfig,
-    ColorScheme,
-    PlotGrid,
-    plot_comparison_grid,
-    plot_grouped_comparison,
-    create_subplot_grid,
-    add_trace_to_subplot,
-)
 from .statistical_plots import (
     plot_bar,
-    plot_violin,
     plot_box,
-    plot_grouped_distributions,
     plot_comparison_distributions,
+    plot_grouped_distributions,
+    plot_violin,
 )
 
 __version__ = "0.1.0"

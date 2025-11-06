@@ -10,18 +10,19 @@ Tests cover:
 - Both matplotlib and plotly backends
 """
 
+import matplotlib
 import numpy as np
 import pytest
-import matplotlib
+
 matplotlib.use('Agg')  # Non-interactive backend for testing
 import matplotlib.pyplot as plt
 
-from neural_analysis.plotting.backend import BackendType, set_backend
+from neural_analysis.plotting.backend import set_backend
 from neural_analysis.plotting.core import PlotConfig
 from neural_analysis.plotting.plots_1d import (
+    plot_boolean_states,
     plot_line,
     plot_multiple_lines,
-    plot_boolean_states,
 )
 
 

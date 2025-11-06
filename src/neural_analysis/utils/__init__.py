@@ -26,15 +26,16 @@ __all__ = [
     "compute_kde_2d",
 ]
 
-from .io import (
-    save_array,
-    load_array,
-    update_array,
-    h5io,
-    save_hdf5,
-    load_hdf5,
-)
 import importlib
+
+from .io import (
+    h5io,
+    load_array,
+    load_hdf5,
+    save_array,
+    save_hdf5,
+    update_array,
+)
 
 
 def __getattr__(name: str):

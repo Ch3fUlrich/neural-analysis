@@ -2,20 +2,21 @@
 Tests for heatmap and subplot plotting functions.
 """
 
+import matplotlib
 import numpy as np
 import pytest
-import matplotlib
+
 matplotlib.use('Agg')  # Non-interactive backend for testing
-import matplotlib.pyplot as plt
 import warnings
 
+import matplotlib.pyplot as plt
+
 from neural_analysis.plotting import (
-    plot_heatmap,
-    create_subplot_grid,
-    add_trace_to_subplot,
     PlotConfig,
+    add_trace_to_subplot,
+    create_subplot_grid,
+    plot_heatmap,
 )
-from neural_analysis.plotting.backend import BackendType
 
 # Suppress non-interactive backend warnings in tests
 warnings.filterwarnings("ignore", message=".*non-interactive.*")
@@ -216,7 +217,7 @@ class TestIntegration:
         data = np.random.rand(5, 5)
         
         # Create subplot grid
-        fig = create_subplot_grid(rows=1, cols=2, backend='plotly')
+        create_subplot_grid(rows=1, cols=2, backend='plotly')
         
         # Plot heatmap (it creates its own figure, but we test it doesn't crash)
         heatmap_fig = plot_heatmap(

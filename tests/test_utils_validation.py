@@ -33,9 +33,8 @@ class TestDoCritical:
     def test_logs_critical(self, caplog):
         """Test that do_critical logs at CRITICAL level."""
         message = "Critical issue logged"
-        with caplog.at_level(logging.CRITICAL):
-            with pytest.raises(ValueError):
-                do_critical(ValueError, message)
+        with caplog.at_level(logging.CRITICAL), pytest.raises(ValueError):
+            do_critical(ValueError, message)
         
         # Check that message was logged at CRITICAL level
         assert any(

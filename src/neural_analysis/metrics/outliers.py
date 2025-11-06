@@ -6,8 +6,8 @@ distributions using various statistical methods.
 
 from __future__ import annotations
 
-from typing import Literal
 import logging
+from typing import Literal
 
 import numpy as np
 import numpy.typing as npt
@@ -15,7 +15,7 @@ from sklearn.covariance import EllipticEnvelope
 from sklearn.neighbors import LocalOutlierFactor
 
 try:
-    from ..utils.logging import log_calls, get_logger  # type: ignore
+    from neural_analysis.utils.logging import get_logger, log_calls  # type: ignore
 except ImportError:
     def log_calls(**kwargs):  # type: ignore
         def decorator(func):  # type: ignore

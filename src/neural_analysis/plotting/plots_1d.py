@@ -5,12 +5,13 @@ This module provides convenience functions for creating 1D visualizations using
 the PlotGrid system. All functions support both matplotlib and plotly backends.
 """
 
-from typing import Literal, Any
+from typing import Any, Literal
+
 import numpy as np
 import numpy.typing as npt
 
-from .grid_config import PlotGrid, PlotSpec, GridLayoutConfig
 from .core import PlotConfig
+from .grid_config import GridLayoutConfig, PlotGrid, PlotSpec
 
 __all__ = [
     "plot_line",
@@ -64,7 +65,7 @@ def plot_line(
     else:
         x = np.atleast_1d(x)
         if len(x) != len(data):
-            raise ValueError(f"x and data must have same length")
+            raise ValueError("x and data must have same length")
     
     # Prepare 2D data [x, y]
     line_data = np.column_stack([x, data])
