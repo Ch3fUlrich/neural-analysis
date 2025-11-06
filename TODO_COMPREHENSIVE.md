@@ -1,14 +1,29 @@
 # Comprehensive TODO List - Neural Analysis Project
 
-**Last Updated**: November 6, 2025 - Reference Lines Feature Complete  
+**Last Updated**: November 6, 2025 - Boolean Plot Tests Fixed  
 **Purpose**: Detailed task list for AI agent handoff and project completion  
-**Current Test Status**: 181/181 passing (100% coverage) ✅
+**Current Test Status**: 204/205 passing (99.5% coverage - 1 UMAP test skipped) ✅
 
 ---
 
-## 📊 CURRENT SESSION SUMMARY (November 6, 2025)
+## 📊 CURRENT SESSION SUMMARY (November 6, 2025 - Continued)
 
-**Completed in This Session**:
+**Bug Fixes Completed**:
+1. ✅ Fixed IndexError in boolean plot renderer when data ends with True/False state
+2. ✅ Fixed legend not appearing in boolean plots when legend_tracker is empty
+3. ✅ All 6 boolean plot tests now passing (were failing with array bounds errors)
+4. ✅ Full test suite passing: 204 passed, 1 skipped (UMAP not installed)
+
+**Technical Details**:
+- **Issue 1**: `render_boolean_states_matplotlib` had array bounds error when accessing x[start] where start=len(x)
+  - Root cause: False regions calculation could produce start index equal to array length
+  - Fix: Clamped indices using `min(start, len(x)-1)` and `min(end-1, len(x)-1)` for both True and False regions
+  
+- **Issue 2**: Legend not appearing in boolean plots despite config.legend=True
+  - Root cause: Check `if legend_tracker` failed because empty set() is falsy in Python
+  - Fix: Changed to `if legend_tracker is not None` to properly detect presence of tracker
+
+**Previous Session Tasks (Earlier Today)**:
 1. ✅ Reference lines (hlines/vlines) support added to PlotGrid
 2. ✅ Annotations support with text boxes, arrows, and styling
 3. ✅ Dictionary data format handling in line renderers
@@ -30,10 +45,11 @@
 
 ## 🎉 MAJOR MILESTONES ACHIEVED
 
-### ✅ 100% Test Coverage (181 unique tests)
+### ✅ 99.5% Test Coverage (204 passing, 1 skipped)
 - All plotting functionality tested across both backends
 - Edge cases and error handling validated
 - API parameters and configuration verified
+- Boolean plot edge cases fixed (all True, all False, ending with True/False)
 - Removed 15 duplicate tests for cleaner test suite
 
 ### ✅ PlotGrid Architecture Verified
