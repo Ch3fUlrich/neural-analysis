@@ -1247,7 +1247,7 @@ class PlotGrid:
         # Note: Legend is now handled in the plotting loop for violin/box plots
         # For other plot types that use standard matplotlib labels, legend is still needed
         # but we skip it for violin/box since we handle those separately
-        if legend_tracker and spec.plot_type not in ['violin', 'box']:
+        if legend_tracker is not None and spec.plot_type not in ['violin', 'box']:
             # Check if there are actually any legend entries before calling legend()
             handles, labels = ax.get_legend_handles_labels()
             if handles:

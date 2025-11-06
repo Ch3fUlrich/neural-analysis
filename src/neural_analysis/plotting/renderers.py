@@ -2106,8 +2106,11 @@ def render_boolean_states_matplotlib(
     
     # Plot true regions
     for i, (start, end) in enumerate(zip(true_starts, true_ends)):
+        # Clamp indices to valid range
+        start_idx = min(start, len(x) - 1)
+        end_idx = min(end - 1, len(x) - 1)
         poly = ax.axvspan(
-            x[start], x[end-1], 
+            x[start_idx], x[end_idx], 
             color=true_color, 
             alpha=alpha, 
             label=true_label if i == 0 else ""
@@ -2131,8 +2134,11 @@ def render_boolean_states_matplotlib(
     
     # Plot false regions
     for i, (start, end) in enumerate(zip(false_starts, false_ends)):
+        # Clamp indices to valid range
+        start_idx = min(start, len(x) - 1)
+        end_idx = min(end - 1, len(x) - 1)
         poly = ax.axvspan(
-            x[start], x[end-1] if end < len(x) else x[-1], 
+            x[start_idx], x[end_idx], 
             color=false_color, 
             alpha=alpha, 
             label=false_label if i == 0 else ""
