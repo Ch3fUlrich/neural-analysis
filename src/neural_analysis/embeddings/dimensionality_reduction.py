@@ -80,71 +80,42 @@ def compute_embedding(
     Parameters
     ----------
     data : array-like, shape (n_samples, n_features)
-        Input data matrix. Can be:
-        - Feature matrix: (n_samples, n_features) for methods in feature
-          space
-        - Distance matrix: (n_samples, n_samples) for metric='precomputed'
-          (MDS, Isomap, spectral)
-    method : {"pca", "umap", "tsne", "mds", "isomap", "lle", "spectral"},
-             default="pca"
-        Dimensionality reduction method:
-        - "pca": Principal Component Analysis (linear, fast)
-        - "umap": Uniform Manifold Approximation and Projection
-          (non-linear, preserves local + global)
-        - "tsne": t-Distributed Stochastic Neighbor Embedding
-          (non-linear, preserves local)
-        - "mds": Multidimensional Scaling (preserves pairwise distances)
-        - "isomap": Isometric Mapping (non-linear, geodesic distances)
-        - "lle": Locally Linear Embedding (non-linear, preserves local
-          geometry)
-        - "spectral": Spectral Embedding (graph-based, non-linear)
+        Input data matrix. Can be: (1) Feature matrix: (n_samples, n_features) 
+        for methods in feature space, or (2) Distance matrix: (n_samples, 
+        n_samples) for metric='precomputed' (MDS, Isomap, spectral).
+    method : {"pca", "umap", "tsne", "mds", "isomap", "lle", "spectral"}, default="pca"
+        Dimensionality reduction method. Options: "pca" (Principal Component 
+        Analysis, linear, fast), "umap" (Uniform Manifold Approximation and 
+        Projection, non-linear, preserves local + global), "tsne" (t-Distributed 
+        Stochastic Neighbor Embedding, non-linear, preserves local), "mds" 
+        (Multidimensional Scaling, preserves pairwise distances), "isomap" 
+        (Isometric Mapping, non-linear, geodesic distances), "lle" (Locally 
+        Linear Embedding, non-linear, preserves local geometry), "spectral" 
+        (Spectral Embedding, graph-based, non-linear).
     n_components : int, default=2
-        Number of dimensions for embedding (typically 2 or 3 for visualization)
+        Number of dimensions for embedding (typically 2 or 3 for visualization).
     metric : str, default="euclidean"
-        Distance metric for methods that use distances:
-        - "euclidean": Euclidean distance
-        - "cosine": Cosine distance
-        - "precomputed": Use data as precomputed distance matrix (MDS, Isomap only)
-        Ignored for PCA, which works in feature space.
+        Distance metric for methods that use distances. Options: "euclidean" 
+        (Euclidean distance), "cosine" (cosine distance), "precomputed" (use 
+        data as precomputed distance matrix, MDS and Isomap only). Ignored 
+        for PCA which works in feature space.
     n_neighbors : int, default=15
-        Number of neighbors for methods that use local neighborhood:
-        - Used by: UMAP, Isomap, LLE, Spectral
-        - Controls tradeoff between local and global structure
-        - Typical range: 5-50
+        Number of neighbors for methods that use local neighborhood (UMAP, 
+        Isomap, LLE, Spectral). Controls tradeoff between local and global 
+        structure. Typical range: 5-50.
     random_state : int, optional, default=42
-        Random seed for reproducibility. Used by: UMAP, t-SNE, Spectral.
+        Random seed for reproducibility (used by UMAP, t-SNE, Spectral). 
         Set to None for non-deterministic results.
     **kwargs
-        Additional method-specific parameters:
-        
-        PCA:
-        - svd_solver : {"auto", "full", "arpack", "randomized"}
-        - whiten : bool, default=False
-        
-        UMAP:
-        - min_dist : float, default=0.1 (minimum distance between points)
-        - spread : float, default=1.0 (scale of embedded points)
-        
-        t-SNE:
-        - perplexity : float, default=30.0 (balance between local and global)
-        - learning_rate : float, default=200.0
-        - max_iter : int, default=1000 (maximum iterations)
-        - n_iter : int, deprecated alias for max_iter
-        
-        MDS:
-        - dissimilarity : {"euclidean", "precomputed"}
-        - n_init : int, default=1 (number of random initializations)
-        
-        Isomap:
-        - path_method : {"auto", "FW", "D"}
-        
-        LLE:
-        - reg : float, default=0.001 (regularization)
-        - eigen_solver : {"auto", "arpack", "dense"}
-        
-        Spectral:
-        - affinity : {"nearest_neighbors", "rbf", "precomputed"}
-        - gamma : float, optional (kernel coefficient for rbf)
+        Additional method-specific parameters. For PCA: svd_solver 
+        ("auto"|"full"|"arpack"|"randomized"), whiten (bool). For UMAP: 
+        min_dist (float, default=0.1), spread (float, default=1.0). For 
+        t-SNE: perplexity (float, default=30.0), learning_rate (float, 
+        default=200.0), max_iter (int, default=1000). For MDS: dissimilarity 
+        ("euclidean"|"precomputed"), n_init (int, default=1). For Isomap: 
+        path_method ("auto"|"FW"|"D"). For LLE: reg (float, default=0.001), 
+        eigen_solver ("auto"|"arpack"|"dense"). For Spectral: affinity 
+        ("nearest_neighbors"|"rbf"|"precomputed"), gamma (float, optional).
     
     Returns
     -------
@@ -461,18 +432,13 @@ def pca_explained_variance(
     Returns
     -------
     variance_info : dict
-        Dictionary containing:
-        - "explained_variance_ratio": Fraction of variance explained by each
-          component
-        - "explained_variance": Absolute variance explained by each component
-        - "cumulative_variance_ratio": Cumulative sum of explained variance
-          (if cumulative=True)
-        - "n_components_90": Number of components needed for 90% variance
-          (if cumulative=True)
-        - "n_components_95": Number of components needed for 95% variance
-          (if cumulative=True)
-        - "n_components_99": Number of components needed for 99% variance
-          (if cumulative=True)
+        Dictionary containing: "explained_variance_ratio" (fraction of variance 
+        explained by each component), "explained_variance" (absolute variance 
+        explained by each component), "cumulative_variance_ratio" (cumulative sum 
+        of explained variance, if cumulative=True), "n_components_90" (number of 
+        components needed for 90% variance, if cumulative=True), "n_components_95" 
+        (number of components for 95% variance, if cumulative=True), 
+        "n_components_99" (number of components for 99% variance, if cumulative=True).
     
     Examples
     --------

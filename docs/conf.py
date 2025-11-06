@@ -18,12 +18,17 @@ release = '0.1.0'
 # -- General configuration ---------------------------------------------------
 extensions = [
     'sphinx.ext.autodoc',           # Auto-generate docs from docstrings
+    'sphinx.ext.autosummary',       # Generate summary tables
     'sphinx.ext.napoleon',          # Support for NumPy and Google style docstrings
     'sphinx.ext.viewcode',          # Add links to source code
     'sphinx.ext.intersphinx',       # Link to other project documentation
     'sphinx_autodoc_typehints',     # Better type hint display
     'myst_parser',                  # Markdown support
 ]
+
+# Autosummary settings
+autosummary_generate = True  # Turn on autosummary for stub files
+autosummary_imported_members = False  # Don't include imported members
 
 # Napoleon settings for NumPy-style docstrings
 napoleon_google_docstring = False

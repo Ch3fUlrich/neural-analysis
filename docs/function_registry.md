@@ -497,5 +497,3 @@ This registry helps developers and AI agents:
 **Purpose:** Update axes properties for a specific subplot.
 
 **Location:** `plotting.subplots.py` (line 245)
-
----
