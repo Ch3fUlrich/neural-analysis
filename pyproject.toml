@@ -19,6 +19,7 @@ dependencies = [
     "pot>=0.9", # Optimal Transport (import name: ot)
     "scikit-learn>=1.7.2",
     "numba>=0.59",  # JIT compiler for fast parallel similarity computations
+    "umap-learn>=0.5.3",  # UMAP dimensionality reduction
 ]
 
 [project.optional-dependencies]
