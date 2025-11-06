@@ -57,6 +57,10 @@ Thumbs.db
 # Project specific
 *.log
 
+# Documentation builds
+docs/_build/
+docs/api/generated/
+
 # Tooling/auxiliary directories not tracked
 bin/
 **/.ipynb_checkpoints/
