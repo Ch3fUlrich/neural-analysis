@@ -15,6 +15,7 @@ This repository uses Astral `uv` for reproducible Python environments, enforces 
 
 ### Key Capabilities
 - Error bar support for line plots
+- **Reference lines**: Add horizontal/vertical lines with annotations to any plot
 - Color gradients for trajectories
 - Grouped scatter plots with convex hulls
 - Interactive plotly visualizations
@@ -96,6 +97,34 @@ from neural_analysis.plotting import plot_grouped_scatter_2d
 points = np.random.randn(100, 2)
 labels = np.random.choice(["A", "B", "C"], 100)
 plot_grouped_scatter_2d(points, labels, show_hulls=True, backend="matplotlib")
+
+# Reference lines and annotations (PlotGrid)
+from neural_analysis.plotting import PlotGrid, PlotSpec, PlotConfig
+
+# Create line plot with threshold lines and annotations
+x = np.linspace(0, 10, 100)
+y = np.exp(-0.5 * x) + np.random.normal(0, 0.1, 100)
+
+spec = PlotSpec(
+    data={'x': x, 'y': y},
+    plot_type='line',
+    color='steelblue',
+    line_width=2,
+    # Horizontal threshold line
+    hlines=[{'y': 0.5, 'color': 'red', 'linestyle': '--', 'label': 'Threshold'}],
+    # Vertical marker line
+    vlines=[{'x': 5.0, 'color': 'orange', 'linestyle': ':', 'label': 'Key point'}],
+    # Text annotation with arrow
+    annotations=[{
+        'text': 'Important event',
+        'xy': (5.0, 0.5),
+        'xytext': (6.0, 0.8),
+        'arrowprops': {'color': 'darkred'}
+    }]
+)
+
+grid = PlotGrid(plot_specs=[spec], config=PlotConfig())
+grid.plot()  # Works with both matplotlib and plotly backends!
 ```
 
 ## Development with Makefile
