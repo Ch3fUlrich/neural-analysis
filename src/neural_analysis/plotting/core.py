@@ -17,6 +17,7 @@ import colorsys
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -670,7 +671,7 @@ def save_plot(
         )
 
 
-def make_list_if_not(value: any | list[any]) -> list[any]:
+def make_list_if_not(value: Any | list[Any]) -> list[Any]:
     """
     Convert value to list if it isn't already.
     

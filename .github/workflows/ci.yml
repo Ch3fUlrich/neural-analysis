@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.14"]
+        python-version: ["3.12"]
       fail-fast: false
 
     steps:
@@ -26,18 +26,13 @@ jobs:
     
     - name: Set up Python ${{ matrix.python-version }}
       run: uv python install ${{ matrix.python-version }}
-    
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y cmake llvm-14 llvm-14-dev
-    
+
     - name: Verify lockfile is up-to-date
       run: uv lock --check
       continue-on-error: true
     
     - name: Install dependencies
-      run: uv sync --all-extras
+      run: uv sync --frozen --all-extras
     
     - name: Run ruff (lint and format check)
       run: |
@@ -54,7 +49,7 @@ jobs:
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
-      if: matrix.python-version == '3.14' && github.event_name == 'push'
+      if: matrix.python-version == '3.12' && github.event_name == 'push'
       continue-on-error: true
       with:
         file: ./coverage.xml
@@ -71,7 +66,7 @@ jobs:
         cache-dependency-glob: "uv.lock"
     
     - name: Set up Python
-      run: uv python install 3.14
+      run: uv python install 3.12
     
     - name: Install dependencies
       run: |

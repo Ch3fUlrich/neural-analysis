@@ -51,7 +51,7 @@ def plot_scatter_3d(
     colorbar_label: str | None = None,
     marker: str = "o",
     backend: Literal["matplotlib", "plotly"] | None = None,
-) -> plt.Axes | go.Figure:
+) -> "plt.Axes | go.Figure":
     """
     Create a 3D scatter plot.
     
@@ -128,7 +128,7 @@ def plot_trajectory_3d(
     point_size: float = 10,
     alpha: float = 0.7,
     backend: Literal["matplotlib", "plotly"] | None = None,
-) -> plt.Axes | go.Figure:
+) -> "plt.Axes | go.Figure":
     """
     Plot a 3D trajectory with line connecting points.
     

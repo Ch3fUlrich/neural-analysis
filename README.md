@@ -159,7 +159,10 @@ make update        # Update all dependencies
 
 ## Notes
 
-- Python >= 3.14 required
+### Requirements
+
+- Python >= 3.10 (recommended: 3.12)
+- Git
 - Dev tools (pytest, ruff, mypy, pre-commit, etc.) are in the `dev` optional dependency group
 - CI enforces linting, type-checking, and testing on all PRs
 - See `CONTRIBUTING.md` for detailed development guidelines

@@ -5,15 +5,12 @@ This module provides convenience functions for creating heatmaps using
 the PlotGrid system. Supports both matplotlib and plotly backends.
 """
 
-from typing import TYPE_CHECKING, Any, Literal
-
+from typing import Literal, Any
 import numpy as np
 import numpy.typing as npt
 
+from .core import PlotConfig
 from .grid_config import GridLayoutConfig, PlotGrid, PlotSpec
-
-if TYPE_CHECKING:
-    from .core import PlotConfig
 
 __all__ = ["plot_heatmap"]
 

@@ -9,19 +9,17 @@ All functions in this module use the PlotGrid system internally for consistent
 behavior and code reuse.
 """
 
-from typing import TYPE_CHECKING, Literal
-
+from typing import Dict, List, Tuple, Optional, Literal
 import numpy as np
+import matplotlib.pyplot as plt
 
+from .backend import BackendType, get_backend
 from .core import PlotConfig
 from .grid_config import PlotGrid, PlotSpec
 
-if TYPE_CHECKING:
-    import matplotlib.pyplot as plt
-    import plotly.graph_objects as go
-
 # Optional imports
 try:
+    import plotly.graph_objects as go
     PLOTLY_AVAILABLE = True
 except ImportError:
     PLOTLY_AVAILABLE = False
@@ -44,7 +42,7 @@ def plot_scatter_2d(
     colorbar: bool = False,
     colorbar_label: str | None = None,
     backend: Literal["matplotlib", "plotly"] | None = None,
-) -> plt.Axes | go.Figure:
+) -> "plt.Axes | go.Figure":
     """
     Create a 2D scatter plot.
     

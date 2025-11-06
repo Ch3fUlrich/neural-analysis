@@ -15,7 +15,7 @@ This repository provides an **automated pipeline for building and testing neural
 
 ### Prerequisites
 
-- Python 3.14 or newer
+- Python 3.10 or newer (recommended: 3.12)
 - `uv` package manager (installation instructions below)
 - Git
 

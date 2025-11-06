@@ -5,9 +5,9 @@ description = "Automated pipeline for building and testing neural analysis metho
 readme = "README.md"
 license = {text = "MIT"}
 authors = [ { name = "maintainer", email = "you@example.com" } ]
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 dependencies = [
-    "numpy>=1.24,<2.3", # Pin to avoid Python 3.14 incompatibility with NumPy 2.3+
+    "numpy>=1.24",
     "matplotlib>=3.7",
     "scipy>=1.11",
     "ipykernel>=6.29",
@@ -97,7 +97,7 @@ markers = [
 ]
 
 [tool.mypy]
-python_version = "3.14"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
