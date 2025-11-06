@@ -20,14 +20,14 @@ Functions are organized by:
 from __future__ import annotations
 
 import logging
-from typing import Literal, Optional, Union, Dict, Any
+from typing import Literal
 
 import numpy as np
 import numpy.typing as npt
 from sklearn.decomposition import PCA
 from sklearn.manifold import (
-    TSNE,
     MDS,
+    TSNE,
     Isomap,
     LocallyLinearEmbedding,
     SpectralEmbedding,
@@ -67,7 +67,7 @@ def compute_embedding(
     n_components: int = 2,
     metric: str = "euclidean",
     n_neighbors: int = 15,
-    random_state: Optional[int] = 42,
+    random_state: int | None = 42,
     **kwargs
 ) -> np.ndarray:
     """
@@ -349,9 +349,9 @@ def compute_multiple_embeddings(
     n_components: int = 2,
     metric: str = "euclidean",
     n_neighbors: int = 15,
-    random_state: Optional[int] = 42,
+    random_state: int | None = 42,
     **kwargs
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """
     Compute multiple embeddings for comparison.
     
@@ -438,9 +438,9 @@ def compute_multiple_embeddings(
 
 def pca_explained_variance(
     data: npt.ArrayLike,
-    n_components: Optional[int] = None,
+    n_components: int | None = None,
     cumulative: bool = True
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """
     Compute explained variance for PCA components.
     
