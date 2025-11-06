@@ -5,7 +5,7 @@ description = "Automated pipeline for building and testing neural analysis metho
 readme = "README.md"
 license = {text = "MIT"}
 authors = [ { name = "maintainer", email = "you@example.com" } ]
-requires-python = ">=3.14"
+requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.24,<2.3", # Pin to avoid Python 3.14 incompatibility with NumPy 2.3+
     "matplotlib>=3.7",
