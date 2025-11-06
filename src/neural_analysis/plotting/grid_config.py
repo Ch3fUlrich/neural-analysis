@@ -168,6 +168,32 @@ class PlotSpec:
     equal_aspect : bool, optional
         Whether to use equal aspect ratio
     
+    # Reference lines and annotations (for line plots)
+    vlines : list of dict, optional
+        Vertical reference lines. Each dict should contain:
+        - 'x': float - x-coordinate for the line
+        - 'color': str, optional - line color (default: 'black')
+        - 'linestyle': str, optional - line style (default: '--')
+        - 'linewidth': float, optional - line width (default: 1.5)
+        - 'label': str, optional - legend label
+        - 'alpha': float, optional - transparency (default: 0.7)
+    hlines : list of dict, optional
+        Horizontal reference lines. Each dict should contain:
+        - 'y': float - y-coordinate for the line
+        - 'color': str, optional - line color (default: 'black')
+        - 'linestyle': str, optional - line style (default: '--')
+        - 'linewidth': float, optional - line width (default: 1.5)
+        - 'label': str, optional - legend label
+        - 'alpha': float, optional - transparency (default: 0.7)
+    annotations : list of dict, optional
+        Text annotations. Each dict should contain:
+        - 'text': str - annotation text
+        - 'xy': tuple - (x, y) point to annotate
+        - 'xytext': tuple, optional - (x, y) position for text
+        - 'fontsize': float, optional - font size (default: 10)
+        - 'bbox': dict, optional - bounding box properties
+        - 'arrowprops': dict, optional - arrow properties
+    
     kwargs : dict, optional
         Additional plot-specific arguments passed to underlying renderers
     """
@@ -198,6 +224,11 @@ class PlotSpec:
     n_levels: int = 10
     bandwidth: float | None = None
     equal_aspect: bool = False
+    
+    # Reference lines for line plots
+    vlines: list[dict] | None = None  # Vertical reference lines: [{'x': value, 'color': 'red', 'linestyle': '--', 'linewidth': 2, 'label': 'label'}]
+    hlines: list[dict] | None = None  # Horizontal reference lines: [{'y': value, 'color': 'blue', 'linestyle': ':', 'linewidth': 1, 'label': 'label'}]
+    annotations: list[dict] | None = None  # Annotations: [{'text': 'label', 'xy': (x, y), 'xytext': (x, y), 'fontsize': 10, 'bbox': {...}, 'arrowprops': {...}}]
     
     # Boolean states parameters
     true_color: str | None = None
@@ -529,6 +560,20 @@ class PlotGrid:
         spec = PlotSpec(data=data, plot_type=plot_type, **kwargs)
         self.plot_specs.append(spec)
     
+    def _convert_linestyle_to_plotly(self, linestyle: str) -> str:
+        """Convert matplotlib linestyle to plotly dash style."""
+        style_map = {
+            '-': 'solid',
+            '--': 'dash',
+            '-.': 'dashdot',
+            ':': 'dot',
+            'solid': 'solid',
+            'dashed': 'dash',
+            'dashdot': 'dashdot',
+            'dotted': 'dot',
+        }
+        return style_map.get(linestyle, 'dash')
+    
     def plot(self) -> Any:
         """
         Generate the plot grid.
@@ -681,6 +726,134 @@ class PlotGrid:
                     trace = self._plot_spec_plotly(spec, legend_tracker[i])
                     if trace is not None:
                         add_trace_to_subplot(fig, trace, row=row, col=col)
+                        
+                        # Add reference lines and annotations if present
+                        # These are added as shapes/annotations to the figure
+                        if hasattr(trace, '_hlines') and trace._hlines:
+                            for hline in trace._hlines:
+                                y_val = hline['y']
+                                line_color = hline.get('color', 'black')
+                                line_dash = self._convert_linestyle_to_plotly(hline.get('linestyle', '--'))
+                                line_width = hline.get('linewidth', 1.5)
+                                line_opacity = hline.get('alpha', 0.7)
+                                
+                                # Determine xref based on subplot position
+                                xref = f'x{i+1}' if i > 0 else 'x'
+                                yref = f'y{i+1}' if i > 0 else 'y'
+                                
+                                fig.add_shape(
+                                    type='line',
+                                    x0=0, x1=1,
+                                    y0=y_val, y1=y_val,
+                                    xref=f'{xref} domain',
+                                    yref=yref,
+                                    line=dict(
+                                        color=line_color,
+                                        dash=line_dash,
+                                        width=line_width,
+                                    ),
+                                    opacity=line_opacity,
+                                )
+                                
+                                # Add label to legend if provided
+                                if hline.get('label'):
+                                    fig.add_trace(
+                                        go.Scatter(
+                                            x=[None], y=[None],
+                                            mode='lines',
+                                            line=dict(color=line_color, dash=line_dash, width=line_width),
+                                            name=hline['label'],
+                                            showlegend=True,
+                                        ),
+                                        row=row, col=col
+                                    )
+                        
+                        if hasattr(trace, '_vlines') and trace._vlines:
+                            for vline in trace._vlines:
+                                x_val = vline['x']
+                                line_color = vline.get('color', 'black')
+                                line_dash = self._convert_linestyle_to_plotly(vline.get('linestyle', '--'))
+                                line_width = vline.get('linewidth', 1.5)
+                                line_opacity = vline.get('alpha', 0.7)
+                                
+                                # Determine xref based on subplot position
+                                xref = f'x{i+1}' if i > 0 else 'x'
+                                yref = f'y{i+1}' if i > 0 else 'y'
+                                
+                                fig.add_shape(
+                                    type='line',
+                                    x0=x_val, x1=x_val,
+                                    y0=0, y1=1,
+                                    xref=xref,
+                                    yref=f'{yref} domain',
+                                    line=dict(
+                                        color=line_color,
+                                        dash=line_dash,
+                                        width=line_width,
+                                    ),
+                                    opacity=line_opacity,
+                                )
+                                
+                                # Add label to legend if provided
+                                if vline.get('label'):
+                                    fig.add_trace(
+                                        go.Scatter(
+                                            x=[None], y=[None],
+                                            mode='lines',
+                                            line=dict(color=line_color, dash=line_dash, width=line_width),
+                                            name=vline['label'],
+                                            showlegend=True,
+                                        ),
+                                        row=row, col=col
+                                    )
+                        
+                        if hasattr(trace, '_annotations') and trace._annotations:
+                            for annot in trace._annotations:
+                                text = annot['text']
+                                xy = annot['xy']
+                                xytext = annot.get('xytext', xy)
+                                fontsize = annot.get('fontsize', 10)
+                                
+                                # Determine xref/yref based on subplot position
+                                xref = f'x{i+1}' if i > 0 else 'x'
+                                yref = f'y{i+1}' if i > 0 else 'y'
+                                
+                                # Convert bbox to plotly style
+                                bgcolor = 'rgba(255, 255, 255, 0.8)'
+                                bordercolor = 'black'
+                                if 'bbox' in annot and annot['bbox']:
+                                    bbox = annot['bbox']
+                                    if 'facecolor' in bbox:
+                                        # Convert matplotlib color to rgba
+                                        fc = bbox['facecolor']
+                                        alpha = bbox.get('alpha', 0.7)
+                                        if fc == 'yellow':
+                                            bgcolor = f'rgba(255, 255, 0, {alpha})'
+                                        elif fc == 'lightyellow':
+                                            bgcolor = f'rgba(255, 255, 224, {alpha})'
+                                        # Add more color mappings as needed
+                                
+                                fig.add_annotation(
+                                    x=xytext[0],
+                                    y=xytext[1],
+                                    text=text,
+                                    xref=xref,
+                                    yref=yref,
+                                    showarrow=True if 'arrowprops' in annot else False,
+                                    arrowhead=2,
+                                    arrowsize=1,
+                                    arrowwidth=2,
+                                    arrowcolor=annot.get('arrowprops', {}).get('color', 'black') if 'arrowprops' in annot else 'black',
+                                    ax=xy[0] if 'arrowprops' in annot else xytext[0],
+                                    ay=xy[1] if 'arrowprops' in annot else xytext[1],
+                                    axref=xref,
+                                    ayref=yref,
+                                    font=dict(size=fontsize),
+                                    bgcolor=bgcolor,
+                                    bordercolor=bordercolor,
+                                    borderwidth=1,
+                                    borderpad=4,
+                                )
             return fig
     
     def _plot_spec_matplotlib(self, spec: PlotSpec, ax, legend_tracker: set):
@@ -695,29 +868,49 @@ class PlotGrid:
         label_to_use = spec.label if show_label else None
         
         if spec.plot_type == 'scatter':
-            renderers.render_scatter_matplotlib(
+            scatter = renderers.render_scatter_matplotlib(
                 ax=ax,
                 data=spec.data,
                 color=spec.color,
+                colors=spec.colors,
+                cmap=spec.cmap,
                 marker=spec.marker or 'o',
                 marker_size=spec.marker_size,
                 alpha=spec.alpha,
                 label=label_to_use,
                 **spec.kwargs
             )
+            # Add colorbar if requested and we have color-mapped data
+            if spec.colorbar and scatter is not None and spec.colors is not None:
+                # Get the figure from the axes
+                fig = ax.get_figure()
+                if fig is not None:
+                    cbar = fig.colorbar(scatter, ax=ax)
+                    if spec.colorbar_label:
+                        cbar.set_label(spec.colorbar_label)
         
         elif spec.plot_type == 'scatter3d':
             # 3D scatter plot - ax must be a 3D axis
-            renderers.render_scatter_matplotlib(
+            scatter = renderers.render_scatter_matplotlib(
                 ax=ax,
                 data=spec.data,
                 color=spec.color,
+                colors=spec.colors,
+                cmap=spec.cmap,
                 marker=spec.marker or 'o',
                 marker_size=spec.marker_size,
                 alpha=spec.alpha,
                 label=label_to_use,
                 **spec.kwargs
             )
+            # Add colorbar if requested and we have color-mapped data
+            if spec.colorbar and scatter is not None and spec.colors is not None:
+                # Get the figure from the axes
+                fig = ax.get_figure()
+                if fig is not None:
+                    cbar = fig.colorbar(scatter, ax=ax)
+                    if spec.colorbar_label:
+                        cbar.set_label(spec.colorbar_label)
         
         elif spec.plot_type == 'line':
             # Pop custom parameters that shouldn't be passed to matplotlib
@@ -741,6 +934,43 @@ class PlotGrid:
                 x_labels=spec.kwargs.pop('x_labels', None),
                 **spec.kwargs
             )
+            
+            # Add vertical reference lines
+            if spec.vlines:
+                for vline in spec.vlines:
+                    x_val = vline['x']
+                    vline_color = vline.get('color', 'black')
+                    vline_style = vline.get('linestyle', '--')
+                    vline_width = vline.get('linewidth', 1.5)
+                    vline_alpha = vline.get('alpha', 0.7)
+                    vline_label = vline.get('label', None)
+                    ax.axvline(x=x_val, color=vline_color, linestyle=vline_style, 
+                              linewidth=vline_width, alpha=vline_alpha, label=vline_label)
+            
+            # Add horizontal reference lines
+            if spec.hlines:
+                for hline in spec.hlines:
+                    y_val = hline['y']
+                    hline_color = hline.get('color', 'black')
+                    hline_style = hline.get('linestyle', '--')
+                    hline_width = hline.get('linewidth', 1.5)
+                    hline_alpha = hline.get('alpha', 0.7)
+                    hline_label = hline.get('label', None)
+                    ax.axhline(y=y_val, color=hline_color, linestyle=hline_style, 
+                              linewidth=hline_width, alpha=hline_alpha, label=hline_label)
+            
+            # Add annotations
+            if spec.annotations:
+                for annot in spec.annotations:
+                    text = annot['text']
+                    xy = annot['xy']
+                    xytext = annot.get('xytext', None)
+                    fontsize = annot.get('fontsize', 10)
+                    bbox = annot.get('bbox', None)
+                    arrowprops = annot.get('arrowprops', None)
+                    
+                    ax.annotate(text, xy=xy, xytext=xytext, fontsize=fontsize,
+                               bbox=bbox, arrowprops=arrowprops)
             
             # Apply custom settings
             if x_label:
@@ -1067,7 +1297,7 @@ class PlotGrid:
             )
         
         elif spec.plot_type == 'line':
-            return renderers.render_line_plotly(
+            trace = renderers.render_line_plotly(
                 data=spec.data,
                 color=spec.color,
                 line_width=spec.line_width,
@@ -1078,6 +1308,25 @@ class PlotGrid:
                 showlegend=show_legend,
                 **spec.kwargs
             )
+            
+            # Store hlines, vlines, and annotations for later processing
+            # These will be added as shapes/annotations to the figure
+            if hasattr(spec, 'hlines') and spec.hlines:
+                if not hasattr(trace, '_hlines'):
+                    trace._hlines = []
+                trace._hlines = spec.hlines
+            
+            if hasattr(spec, 'vlines') and spec.vlines:
+                if not hasattr(trace, '_vlines'):
+                    trace._vlines = []
+                trace._vlines = spec.vlines
+            
+            if hasattr(spec, 'annotations') and spec.annotations:
+                if not hasattr(trace, '_annotations'):
+                    trace._annotations = []
+                trace._annotations = spec.annotations
+            
+            return trace
         
         elif spec.plot_type == 'histogram':
             return renderers.render_histogram_plotly(
