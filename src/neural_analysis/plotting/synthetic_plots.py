@@ -119,10 +119,14 @@ def plot_synthetic_data(
 
     # 3. Behavioral trajectory
     if show_behavior and "positions" in metadata:
-        behavior_spec = _create_behavior_plot(metadata, subplot_position=n_plots)
-        if behavior_spec:
-            plot_specs.append(behavior_spec)
-            n_plots += 1
+        behavior_specs = _create_behavior_plot(metadata["positions"], metadata, subplot_position=n_plots)
+        if behavior_specs:
+            if isinstance(behavior_specs, list):
+                plot_specs.extend(behavior_specs)
+                n_plots += len(behavior_specs)
+            else:
+                plot_specs.append(behavior_specs)
+                n_plots += 1
 
     # 4. Ground truth embedding
     if show_ground_truth and "ground_truth_embedding" in metadata:
@@ -147,17 +151,18 @@ def plot_synthetic_data(
     if n_plots == 0:
         raise ValueError("No plots to show. Enable at least one plot type.")
 
-    # Compute optimal grid layout
+    # Compute optimal grid layout (minimize empty subplots)
+    import math
     if n_plots <= 2:
         nrows, ncols = 1, n_plots
     elif n_plots <= 4:
         nrows, ncols = 2, 2
     elif n_plots <= 6:
         nrows, ncols = 2, 3
-    elif n_plots <= 9:
-        nrows, ncols = 3, 3
     else:
-        nrows, ncols = 4, 3
+        # For more plots, use a more efficient layout
+        ncols = min(3, n_plots)
+        nrows = math.ceil(n_plots / ncols)
 
     # Create plot grid
     from neural_analysis.plotting.grid_config import GridLayoutConfig, PlotConfig
@@ -165,7 +170,12 @@ def plot_synthetic_data(
     grid = PlotGrid(
         plot_specs=plot_specs,
         config=PlotConfig(figsize=figsize or (ncols * 5, nrows * 4)),
-        layout=GridLayoutConfig(rows=nrows, cols=ncols),
+        layout=GridLayoutConfig(
+            rows=nrows, 
+            cols=ncols,
+            vertical_spacing=0.35,    # Increase vertical spacing to prevent overlap
+            horizontal_spacing=0.25   # Horizontal spacing
+        ),
         backend=backend,
     )
 
@@ -176,14 +186,17 @@ def plot_synthetic_data(
     else:
         fig = result
 
-    # Add overall title
+    # Add overall title with proper spacing
     title = f"Synthetic Neural Data: {cell_type.title()} Cells"
     if cell_types is not None:
         unique_types = sorted(set(cell_types))
         title = f"Synthetic Neural Data: Mixed Population ({', '.join(unique_types)})"
 
     if backend == "matplotlib":
-        fig.suptitle(title, fontsize=16, y=0.98)
+        # Adjust suptitle position to avoid overlap
+        fig.suptitle(title, fontsize=14, y=0.995)
+        # Adjust subplot spacing to prevent overlap
+        fig.tight_layout(rect=[0, 0, 1, 0.98])
     else:
         fig.update_layout(title_text=title)
 
@@ -196,7 +209,7 @@ def _create_raster_plot(
     max_cells: int,
     subplot_position: int,
 ) -> PlotSpec:
-    """Create raster plot specification."""
+    """Create raster plot specification as heatmap (matching notebook style)."""
     n_samples, n_cells = activity.shape
 
     # Subsample cells if too many
@@ -204,40 +217,28 @@ def _create_raster_plot(
         step = n_cells // max_cells
         cell_indices = np.arange(0, n_cells, step)[:max_cells]
         activity_sub = activity[:, cell_indices]
-        colors_sub = [colors[i] for i in cell_indices]
     else:
         activity_sub = activity
-        colors_sub = colors
-        cell_indices = np.arange(n_cells)
 
-    # Create spike data for raster
-    # Convert to sparse representation: (time, cell_id, color)
-    spike_times = []
-    spike_cells = []
-    spike_colors = []
+    # Transpose to (n_cells, n_samples) for imshow-style display
+    # This matches the notebook: ax.imshow(activity.T, ...)
+    raster_data = activity_sub.T
 
-    for i, _cell_idx in enumerate(cell_indices):
-        # Find spikes (activity > threshold)
-        threshold = activity_sub[:, i].mean() + 0.5 * activity_sub[:, i].std()
-        spike_idx = np.where(activity_sub[:, i] > threshold)[0]
-
-        spike_times.extend(spike_idx)
-        spike_cells.extend([i] * len(spike_idx))
-        spike_colors.extend([colors_sub[i]] * len(spike_idx))
-
-    # Create 2D array for scatter plot (n_points, 2)
-    spike_data = np.column_stack([np.array(spike_times), np.array(spike_cells)])
-
-    # Create as scatter plot
+    # Create as heatmap (like notebook's imshow)
     spec = PlotSpec(
-        data=spike_data,
-        plot_type="scatter",
+        data=raster_data,
+        plot_type="heatmap",
         subplot_position=subplot_position,
         title="Neural Activity Raster",
-        marker="|",
-        marker_size=2,
-        alpha=0.6,
-        color=spike_colors[0] if spike_colors else "#000000",
+        cmap="hot",
+        colorbar=True,
+        colorbar_label="Firing Rate (Hz)",
+        kwargs={
+            "x_label": "Time (samples)",
+            "y_label": "Cell ID",
+            "interpolation": "nearest",
+            "aspect": "auto",
+        },
     )
 
     return spec
@@ -410,47 +411,59 @@ def _create_grid_field_plot(
 
 
 def _create_behavior_plot(
+    positions: npt.NDArray[np.float64],
     metadata: dict[str, Any],
     subplot_position: int,
-) -> PlotSpec | None:
-    """Create behavioral trajectory plot."""
-    positions = metadata.get("positions")
-
-    if positions is None:
-        return None
-
+) -> PlotSpec | list[PlotSpec]:
+    """Create behavior trajectory/position plot."""
     n_dims = positions.shape[1] if positions.ndim > 1 else 1
 
     if n_dims == 1:
+        # For 1D position, create a line plot over time
         spec = PlotSpec(
-            data={"x": np.arange(len(positions)), "y": positions[:, 0]},
+            data={"x": np.arange(len(positions)), "y": positions.ravel()},
             plot_type="line",
             subplot_position=subplot_position,
-            title="Behavioral Trajectory (1D)",
-            color="#34495E",
-            alpha=0.7,
+            title="Position on Linear Track",
+            color="#3498DB",
+            line_width=1,
+            kwargs={"x_label": "Time (samples)", "y_label": "Position (m)"},
         )
     elif n_dims == 2:
+        # For 2D, create scatter with time coloring
         spec = PlotSpec(
             data={"x": positions[:, 0], "y": positions[:, 1]},
-            plot_type="trajectory",
+            plot_type="scatter",
             subplot_position=subplot_position,
-            title="Behavioral Trajectory (2D)",
+            title="2D Trajectory",
             color_by="time",
             cmap="viridis",
-            show_points=False,
-            alpha=0.7,
+            marker="o",
+            marker_size=5,
+            alpha=0.6,
+            colorbar=True,
+            colorbar_label="Time",
+            kwargs={"x_label": "X Position (m)", "y_label": "Y Position (m)"},
         )
     elif n_dims == 3:
+        # For 3D, create 3D scatter with time coloring
         spec = PlotSpec(
-            data={"x": positions[:, 0], "y": positions[:, 1], "z": positions[:, 2]},
-            plot_type="trajectory3d",
+            data={
+                "x": positions[:, 0],
+                "y": positions[:, 1],
+                "z": positions[:, 2],
+            },
+            plot_type="scatter3d",
             subplot_position=subplot_position,
-            title="Behavioral Trajectory (3D)",
+            title="3D Trajectory",
             color_by="time",
             cmap="viridis",
-            show_points=False,
+            marker="o",
+            marker_size=3,
             alpha=0.7,
+            colorbar=True,
+            colorbar_label="Time",
+            kwargs={"x_label": "X Position (m)", "y_label": "Y Position (m)", "z_label": "Z Position (m)"},
         )
     else:
         return None
