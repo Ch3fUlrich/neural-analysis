@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import numpy.typing as npt
+from scipy import signal
 
 from neural_analysis.embeddings.dimensionality_reduction import compute_embedding
 from neural_analysis.plotting.grid_config import PlotGrid, PlotSpec
@@ -34,6 +35,111 @@ CELL_TYPE_COLORS = {
     "random": "#95A5A6",  # Gray
 }
 
+
+# ==============================================================================
+# Helper Functions for Spatial Binning (Reduce Code Duplication)
+# ==============================================================================
+
+def _compute_spatial_bins_1d(
+    positions: npt.NDArray[np.float64],
+    activity: npt.NDArray[np.float64],
+    arena_size: float | tuple[float, ...],
+    n_bins: int = 50,
+    cell_idx: int | None = None,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Compute 1D spatial binning of activity.
+    
+    Args:
+        positions: Position array, shape (n_samples, 1).
+        activity: Activity array, shape (n_samples, n_cells).
+        arena_size: Arena size (float or tuple).
+        n_bins: Number of spatial bins.
+        cell_idx: If specified, only bin this cell. Otherwise average all cells.
+        
+    Returns:
+        bin_centers: Center position of each bin.
+        binned_rates: Average firing rate in each bin.
+    """
+    # Get arena length
+    if isinstance(arena_size, tuple):
+        x_max = arena_size[0]
+    else:
+        x_max = arena_size
+    
+    # Create position bins
+    x_bins = np.linspace(0, x_max, n_bins + 1)
+    binned_rates = np.zeros(n_bins)
+    
+    # Compute average activity per position bin
+    for i in range(n_bins):
+        mask = (positions[:, 0] >= x_bins[i]) & (positions[:, 0] < x_bins[i + 1])
+        if mask.sum() > 0:
+            if cell_idx is not None:
+                binned_rates[i] = activity[mask, cell_idx].mean()
+            else:
+                binned_rates[i] = activity[mask, :].mean()
+    
+    # Get bin centers for plotting
+    bin_centers = (x_bins[:-1] + x_bins[1:]) / 2
+    
+    return bin_centers, binned_rates
+
+
+def _compute_spatial_bins_2d(
+    positions: npt.NDArray[np.float64],
+    activity: npt.NDArray[np.float64],
+    arena_size: tuple[float, ...],
+    n_bins: int = 30,
+    cell_idx: int | None = None,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Compute 2D spatial binning of activity.
+    
+    Args:
+        positions: Position array, shape (n_samples, 2).
+        activity: Activity array, shape (n_samples, n_cells).
+        arena_size: Arena size (width, height).
+        n_bins: Number of spatial bins per dimension.
+        cell_idx: If specified, only bin this cell. Otherwise average all cells.
+        
+    Returns:
+        x_bins: X bin edges.
+        y_bins: Y bin edges.
+        firing_map: 2D firing rate map, shape (n_bins, n_bins).
+    """
+    # Get arena dimensions
+    if isinstance(arena_size, tuple):
+        x_max, y_max = arena_size
+    else:
+        x_max = y_max = arena_size
+    
+    # Create spatial bins
+    x_bins = np.linspace(0, x_max, n_bins + 1)
+    y_bins = np.linspace(0, y_max, n_bins + 1)
+    
+    # Initialize firing map with NaN for unvisited bins
+    firing_map = np.full((n_bins, n_bins), np.nan)
+    
+    # Compute average activity per spatial bin
+    for i in range(n_bins):
+        for j in range(n_bins):
+            mask = (
+                (positions[:, 0] >= x_bins[i])
+                & (positions[:, 0] < x_bins[i + 1])
+                & (positions[:, 1] >= y_bins[j])
+                & (positions[:, 1] < y_bins[j + 1])
+            )
+            if mask.sum() > 0:
+                if cell_idx is not None:
+                    firing_map[j, i] = activity[mask, cell_idx].mean()
+                else:
+                    firing_map[j, i] = activity[mask, :].mean()
+    
+    return x_bins, y_bins, firing_map
+
+
+# ==============================================================================
+# Main Plotting Function
+# ==============================================================================
 
 def plot_synthetic_data(
     activity: npt.NDArray[np.float64],
@@ -115,7 +221,42 @@ def plot_synthetic_data(
         )
         if field_specs:
             plot_specs.extend(field_specs)
-            n_plots += len(field_specs)
+            # For 1D, multiple specs go on same subplot, so only increment once
+            # Count unique subplot positions instead of number of specs
+            unique_positions = set(spec.subplot_position for spec in field_specs)
+            n_plots += len(unique_positions)
+        
+        # Add coverage heatmap for place cells (1D and 2D)
+        if metadata.get("cell_type") == "place":
+            n_dims = metadata.get("n_dims", 2)
+            if n_dims == 1:
+                # 1D coverage: histogram of activity by position
+                coverage_spec = _create_coverage_histogram_1d(activity, metadata, subplot_position=n_plots)
+            elif n_dims == 2:
+                # 2D coverage: spatial heatmap
+                coverage_spec = _create_coverage_heatmap(activity, metadata, subplot_position=n_plots)
+            else:
+                coverage_spec = None
+            
+            if coverage_spec:
+                plot_specs.append(coverage_spec)
+                n_plots += 1
+        
+        # Add coverage heatmap for grid cells (1D and 2D)
+        elif metadata.get("cell_type") == "grid":
+            n_dims = metadata.get("n_dims", 2)
+            if n_dims == 1:
+                # 1D coverage: histogram of activity by position
+                coverage_spec = _create_coverage_histogram_1d(activity, metadata, subplot_position=n_plots)
+            elif n_dims == 2:
+                # 2D coverage: spatial heatmap
+                coverage_spec = _create_coverage_heatmap(activity, metadata, subplot_position=n_plots)
+            else:
+                coverage_spec = None
+            
+            if coverage_spec:
+                plot_specs.append(coverage_spec)
+                n_plots += 1
 
     # 3. Behavioral trajectory
     if show_behavior and "positions" in metadata:
@@ -256,18 +397,18 @@ def _create_field_plots(
     n_dims = metadata.get("n_dims", 2)
 
     if cell_type == "place" and n_dims <= 2:
-        # Place fields
+        # Place fields (1D and 2D)
         specs.extend(
             _create_place_field_plots(activity, metadata, colors, subplot_position)
+        )
+    elif cell_type == "grid":
+        # Grid cell periodicity analysis (1D, 2D, and 3D via FFT)
+        specs.extend(
+            _create_grid_field_plots(activity, metadata, colors, subplot_position)
         )
     elif cell_type == "head_direction":
         # Head direction tuning curves
         spec = _create_hd_tuning_plot(activity, metadata, colors, subplot_position)
-        if spec is not None:
-            specs.append(spec)
-    elif cell_type == "grid" and n_dims == 2:
-        # Grid cell firing map
-        spec = _create_grid_field_plot(activity, metadata, colors, subplot_position)
         if spec is not None:
             specs.append(spec)
 
@@ -290,10 +431,13 @@ def _create_place_field_plots(
         return specs
 
     if n_dims == 1:
-        # 1D place fields: show firing rate vs position
+        # 1D place fields: show firing rate vs position for multiple cells in ONE plot
         x_bins = np.linspace(positions.min(), positions.max(), 50)
+        x_centers = (x_bins[:-1] + x_bins[1:]) / 2
 
-        # Average activity in spatial bins
+        # Create a single plot with multiple lines (one per cell)
+        # We'll create separate PlotSpecs for each line but with same subplot_position
+        # so they all go on the same subplot
         for i in range(min(5, activity.shape[1])):  # Show first 5 cells
             rates = np.zeros(len(x_bins) - 1)
             for j in range(len(x_bins) - 1):
@@ -304,32 +448,146 @@ def _create_place_field_plots(
                     rates[j] = activity[mask, i].mean()
 
             spec = PlotSpec(
-                data={"x": (x_bins[:-1] + x_bins[1:]) / 2, "y": rates},
+                data={"x": x_centers, "y": rates},
                 plot_type="line",
-                subplot_position=subplot_position,
-                title="Place Fields (1D)",
-                color=colors[i],
+                subplot_position=subplot_position,  # ALL lines use same position
+                title="Place Fields (1D)" if i == 0 else None,  # Only first has title
+                color=colors[i % len(colors)],
                 label=f"Cell {i}",
                 alpha=0.7,
+                line_width=1.5,
+                kwargs={"x_label": "Position (m)", "y_label": "Firing Rate (Hz)"} if i == 0 else {},
             )
             specs.append(spec)
+        
+        # Since all 5 cells go on the same subplot, we return all specs
+        # but the calling code should only increment n_plots by 1, not 5
+        # To fix this, we should return as single subplot worth of specs
 
     elif n_dims == 2:
-        # 2D place fields: show firing rate heatmap
-        # Overlay field centers
+        # 2D place fields: show anisotropic oval patches representing actual field shapes
+        field_radii = metadata.get("field_radii")  # Shape: (n_cells, 2) with x,y radii
+        field_angles = metadata.get("field_angles")  # Shape: (n_cells,) rotation angles
+        
+        # Create ellipse plot showing actual place field shapes
         spec = PlotSpec(
-            data=field_centers,  # Already a 2D numpy array
-            plot_type="scatter",
+            data=field_centers,
+            plot_type="ellipse",
             subplot_position=subplot_position,
-            title="Place Field Centers (2D)",
-            marker="o",
-            marker_size=8,
-            alpha=0.7,
-            color=colors[0],
+            title="Place Fields (2D)",
+            ellipse_widths=field_radii[:, 0] * 2 if field_radii is not None else np.ones(len(field_centers)) * 0.6,  # 1 std dev on each side = 2 * radius
+            ellipse_heights=field_radii[:, 1] * 2 if field_radii is not None else np.ones(len(field_centers)) * 0.6,
+            ellipse_angles=np.degrees(field_angles) if field_angles is not None else np.zeros(len(field_centers)),
+            color="#E74C3C",  # Red for place fields
+            alpha=0.25,
+            kwargs={
+                "x_label": "X Position (m)",
+                "y_label": "Y Position (m)",
+            },
         )
         specs.append(spec)
+        
+        # Add field centers as points
+        spec_centers = PlotSpec(
+            data=field_centers,
+            plot_type="scatter",
+            subplot_position=subplot_position,
+            marker="x",
+            marker_size=40,
+            alpha=0.9,
+            color="#C0392B",  # Darker red for centers
+        )
+        specs.append(spec_centers)
 
     return specs
+
+
+def _create_coverage_heatmap(
+    activity: npt.NDArray[np.float64],
+    metadata: dict[str, Any],
+    subplot_position: int,
+) -> PlotSpec | None:
+    """Create spatial coverage heatmap for place/grid cells (unified function)."""
+    positions = metadata.get("positions")
+    arena_size = metadata.get("arena_size", (1.0, 1.0))
+    cell_type = metadata.get("cell_type", "place")
+    
+    if positions is None or positions.shape[1] != 2:
+        return None
+    
+    # Use helper function for spatial binning
+    x_bins, y_bins, coverage_map = _compute_spatial_bins_2d(
+        positions, activity, arena_size, n_bins=30, cell_idx=None
+    )
+    
+    # Get arena dimensions for extent
+    if isinstance(arena_size, tuple):
+        x_max, y_max = arena_size
+    else:
+        x_max = y_max = arena_size
+    
+    # Choose colormap based on cell type
+    cmap = "hot" if cell_type == "place" else "viridis"
+    title = f"{cell_type.title()} Field Coverage"
+    
+    # Create heatmap spec with proper extent for correct axis labels
+    spec = PlotSpec(
+        data=coverage_map,
+        plot_type="heatmap",
+        subplot_position=subplot_position,
+        title=title,
+        cmap=cmap,
+        colorbar=True,
+        colorbar_label="Avg. Firing Rate (Hz)",
+        kwargs={
+            "x_label": "X Position (m)",
+            "y_label": "Y Position (m)",
+            "aspect": "auto",
+            "extent": [0, x_max, 0, y_max],
+            "origin": "lower",
+        },
+    )
+    
+    return spec
+
+
+def _create_coverage_histogram_1d(
+    activity: npt.NDArray[np.float64],
+    metadata: dict[str, Any],
+    subplot_position: int,
+) -> PlotSpec | None:
+    """Create 1D coverage histogram for place/grid cells (unified function)."""
+    positions = metadata.get("positions")
+    arena_size = metadata.get("arena_size", 1.0)
+    cell_type = metadata.get("cell_type", "place")
+    
+    if positions is None or positions.ndim != 2 or positions.shape[1] != 1:
+        return None
+    
+    # Use helper function for spatial binning
+    x_centers, coverage = _compute_spatial_bins_1d(
+        positions, activity, arena_size, n_bins=50, cell_idx=None
+    )
+    
+    # Choose color based on cell type
+    color = CELL_TYPE_COLORS.get(cell_type, "#E74C3C")
+    title = f"{cell_type.title()} Field Coverage (1D)"
+    
+    # Create line plot spec
+    spec = PlotSpec(
+        data={"x": x_centers, "y": coverage},
+        plot_type="line",
+        subplot_position=subplot_position,
+        title=title,
+        color=color,
+        line_width=2,
+        kwargs={
+            "x_label": "Position (m)",
+            "y_label": "Avg. Firing Rate (Hz)",
+        },
+    )
+    
+    return spec
 
 
 def _create_hd_tuning_plot(
@@ -370,44 +628,215 @@ def _create_hd_tuning_plot(
     return spec
 
 
-def _create_grid_field_plot(
+def _create_grid_field_plots(
     activity: npt.NDArray[np.float64],
     metadata: dict[str, Any],
     colors: list[str],
     subplot_position: int,
-) -> PlotSpec:
-    """Create grid cell firing field plot."""
+) -> list[PlotSpec]:
+    """Create grid cell periodicity analysis using FFT and Welch's method.
+    
+    Instead of spatial firing fields, shows the periodic nature of grid cells
+    by computing spectral analysis of firing rates along spatial trajectories.
+    Displays a heatmap showing dominant frequencies for all cells.
+    """
+    specs = []
     positions = metadata.get("positions")
+    n_dims = metadata.get("n_dims", 2)
+    arena_size = metadata.get("arena_size", (2.0, 2.0))
+    grid_spacing = metadata.get("grid_spacing", 0.3)
 
-    if positions is None or positions.shape[1] != 2:
-        return None
+    if positions is None:
+        return specs
 
-    # Show averaged firing field for first grid cell
-    x_bins = np.linspace(positions[:, 0].min(), positions[:, 0].max(), 30)
-    y_bins = np.linspace(positions[:, 1].min(), positions[:, 1].max(), 30)
-
-    firing_map = np.zeros((len(y_bins) - 1, len(x_bins) - 1))
-    for i in range(len(x_bins) - 1):
-        for j in range(len(y_bins) - 1):
-            mask = (
-                (positions[:, 0] >= x_bins[i])
-                & (positions[:, 0] < x_bins[i + 1])
-                & (positions[:, 1] >= y_bins[j])
-                & (positions[:, 1] < y_bins[j + 1])
+    n_cells = activity.shape[1]
+    
+    if n_dims == 1:
+        # 1D periodicity: Compute FFT of firing rates along the track
+        # Bin activity along position
+        n_bins = 100
+        bin_edges = np.linspace(0, arena_size if not isinstance(arena_size, tuple) else arena_size[0], n_bins + 1)
+        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+        
+        # Compute periodicity for each cell
+        periodicity_matrix = np.zeros((n_cells, n_bins // 2))
+        
+        for cell_idx in range(n_cells):
+            # Bin firing rates
+            firing_rates = np.zeros(n_bins)
+            counts = np.zeros(n_bins)
+            
+            pos_bins = np.digitize(positions[:, 0], bin_edges) - 1
+            pos_bins = np.clip(pos_bins, 0, n_bins - 1)
+            
+            for t, bin_idx in enumerate(pos_bins):
+                firing_rates[bin_idx] += activity[t, cell_idx]
+                counts[bin_idx] += 1
+            
+            # Normalize by occupancy
+            mask = counts > 0
+            firing_rates[mask] /= counts[mask]
+            
+            # Apply FFT
+            fft_result = np.fft.fft(firing_rates)
+            power_spectrum = np.abs(fft_result[:n_bins // 2])
+            
+            periodicity_matrix[cell_idx, :] = power_spectrum
+        
+        # Create frequency axis (cycles per meter)
+        track_length = arena_size if not isinstance(arena_size, tuple) else arena_size[0]
+        freqs = np.fft.fftfreq(n_bins, d=track_length / n_bins)[:n_bins // 2]
+        
+        spec = PlotSpec(
+            data=periodicity_matrix,
+            plot_type="heatmap",
+            subplot_position=subplot_position,
+            title="Grid Cell Periodicity (1D FFT)",
+            cmap="hot",
+            colorbar=True,
+            colorbar_label="Power",
+            kwargs={
+                "x_label": "Frequency (cycles/m)",
+                "y_label": "Cell ID",
+                "aspect": "auto",
+                "extent": [freqs[0], freqs[-1], 0, n_cells],
+                "origin": "lower",
+            },
+        )
+        specs.append(spec)
+    
+    elif n_dims == 2:
+        # 2D periodicity: Use Welch's method on autocorrelation
+        # Compute spatial autocorrelation and then FFT
+        n_bins = 50
+        
+        # Initialize periodicity matrix (cells x frequency bins)
+        periodicity_matrix = np.zeros((n_cells, n_bins))
+        
+        for cell_idx in range(n_cells):
+            # Compute 2D firing rate map
+            x_bins, y_bins, firing_map = _compute_spatial_bins_2d(
+                positions, activity, arena_size, n_bins=n_bins, cell_idx=cell_idx
             )
-            if mask.sum() > 0:
-                firing_map[j, i] = activity[mask, 0].mean()
-
-    spec = PlotSpec(
-        data=firing_map,
-        plot_type="heatmap",
-        subplot_position=subplot_position,
-        title="Grid Cell Firing Field",
-        cmap="viridis",
-        colorbar=True,
-    )
-
-    return spec
+            
+            # Apply 2D FFT to detect periodicity
+            fft_2d = np.fft.fft2(firing_map)
+            power_spectrum_2d = np.abs(np.fft.fftshift(fft_2d))
+            
+            # Take radial average to get 1D power spectrum
+            center = np.array(power_spectrum_2d.shape) // 2
+            y_coords, x_coords = np.ogrid[:power_spectrum_2d.shape[0], :power_spectrum_2d.shape[1]]
+            r = np.sqrt((x_coords - center[1])**2 + (y_coords - center[0])**2)
+            r = r.astype(int)
+            
+            # Compute radial profile
+            radial_profile = np.zeros(n_bins)
+            for i in range(n_bins):
+                mask = (r == i)
+                if mask.sum() > 0:
+                    radial_profile[i] = power_spectrum_2d[mask].mean()
+            
+            periodicity_matrix[cell_idx, :] = radial_profile
+        
+        # Create frequency axis
+        if isinstance(arena_size, tuple):
+            spatial_extent = max(arena_size)
+        else:
+            spatial_extent = arena_size
+        
+        freqs = np.fft.fftfreq(n_bins * 2, d=spatial_extent / n_bins)[:n_bins]
+        freqs = np.abs(freqs)
+        
+        spec = PlotSpec(
+            data=periodicity_matrix,
+            plot_type="heatmap",
+            subplot_position=subplot_position,
+            title="Grid Cell Periodicity (2D FFT)",
+            cmap="hot",
+            colorbar=True,
+            colorbar_label="Power",
+            kwargs={
+                "x_label": "Spatial Frequency (cycles/m)",
+                "y_label": "Cell ID",
+                "aspect": "auto",
+                "extent": [freqs[0], freqs[-1], 0, n_cells],
+                "origin": "lower",
+            },
+        )
+        specs.append(spec)
+    
+    elif n_dims == 3:
+        # 3D periodicity: Project to 2D and use similar approach
+        # Use XY plane projection
+        positions_2d = positions[:, :2]
+        arena_size_2d = arena_size[:2] if isinstance(arena_size, tuple) else (arena_size, arena_size)
+        
+        n_bins = 50
+        periodicity_matrix = np.zeros((n_cells, n_bins))
+        
+        for cell_idx in range(n_cells):
+            # Compute 2D firing rate map from XY projection
+            x_bins = np.linspace(0, arena_size_2d[0], n_bins + 1)
+            y_bins = np.linspace(0, arena_size_2d[1], n_bins + 1)
+            
+            firing_map = np.zeros((n_bins, n_bins))
+            occupancy = np.zeros((n_bins, n_bins))
+            
+            x_indices = np.digitize(positions_2d[:, 0], x_bins) - 1
+            y_indices = np.digitize(positions_2d[:, 1], y_bins) - 1
+            
+            x_indices = np.clip(x_indices, 0, n_bins - 1)
+            y_indices = np.clip(y_indices, 0, n_bins - 1)
+            
+            for t in range(len(positions_2d)):
+                i, j = x_indices[t], y_indices[t]
+                firing_map[i, j] += activity[t, cell_idx]
+                occupancy[i, j] += 1
+            
+            mask = occupancy > 0
+            firing_map[mask] /= occupancy[mask]
+            
+            # Apply 2D FFT
+            fft_2d = np.fft.fft2(firing_map)
+            power_spectrum_2d = np.abs(np.fft.fftshift(fft_2d))
+            
+            # Radial average
+            center = np.array(power_spectrum_2d.shape) // 2
+            y_coords, x_coords = np.ogrid[:power_spectrum_2d.shape[0], :power_spectrum_2d.shape[1]]
+            r = np.sqrt((x_coords - center[1])**2 + (y_coords - center[0])**2)
+            r = r.astype(int)
+            
+            radial_profile = np.zeros(n_bins)
+            for i in range(n_bins):
+                mask = (r == i)
+                if mask.sum() > 0:
+                    radial_profile[i] = power_spectrum_2d[mask].mean()
+            
+            periodicity_matrix[cell_idx, :] = radial_profile
+        
+        spatial_extent = max(arena_size_2d)
+        freqs = np.fft.fftfreq(n_bins * 2, d=spatial_extent / n_bins)[:n_bins]
+        freqs = np.abs(freqs)
+        
+        spec = PlotSpec(
+            data=periodicity_matrix,
+            plot_type="heatmap",
+            subplot_position=subplot_position,
+            title="Grid Cell Periodicity (3D → 2D FFT)",
+            cmap="hot",
+            colorbar=True,
+            colorbar_label="Power",
+            kwargs={
+                "x_label": "Spatial Frequency (cycles/m)",
+                "y_label": "Cell ID",
+                "aspect": "auto",
+                "extent": [freqs[0], freqs[-1], 0, n_cells],
+                "origin": "lower",
+            },
+        )
+        specs.append(spec)
+    
+    return specs
 
 
 def _create_behavior_plot(
@@ -430,30 +859,29 @@ def _create_behavior_plot(
             kwargs={"x_label": "Time (samples)", "y_label": "Position (m)"},
         )
     elif n_dims == 2:
-        # For 2D, create scatter with time coloring
+        # For 2D, create trajectory with time coloring
         spec = PlotSpec(
             data={"x": positions[:, 0], "y": positions[:, 1]},
-            plot_type="scatter",
+            plot_type="trajectory",  # Use trajectory instead of scatter
             subplot_position=subplot_position,
             title="2D Trajectory",
             color_by="time",
             cmap="viridis",
-            marker="o",
-            marker_size=5,
-            alpha=0.6,
+            line_width=1.5,
+            alpha=0.7,
             colorbar=True,
             colorbar_label="Time",
             kwargs={"x_label": "X Position (m)", "y_label": "Y Position (m)"},
         )
     elif n_dims == 3:
-        # For 3D, create 3D scatter with time coloring
+        # For 3D, create 3D trajectory with time coloring
         spec = PlotSpec(
             data={
                 "x": positions[:, 0],
                 "y": positions[:, 1],
                 "z": positions[:, 2],
             },
-            plot_type="scatter3d",
+            plot_type="trajectory3d",  # Use trajectory3d instead of scatter3d
             subplot_position=subplot_position,
             title="3D Trajectory",
             color_by="time",
@@ -525,7 +953,11 @@ def _create_embedding_plots(
     n_dims: int,
     subplot_position: int,
 ) -> list[PlotSpec]:
-    """Create learned embedding plots."""
+    """Create learned embedding plots.
+    
+    NOTE: n_dims here refers to embedding dimensionality (2D or 3D),
+    NOT the spatial dimensionality of the environment.
+    """
     specs = []
     metadata.get("positions")
 

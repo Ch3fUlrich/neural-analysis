@@ -353,6 +353,7 @@ def _generate_place_cells(
     arena_size = kwargs.get('arena_size', (1.0, 1.0))
     field_size = kwargs.get('field_size', 0.2)
     peak_rate = kwargs.get('peak_rate', 10.0)
+    sampling_rate = kwargs.get('sampling_rate', 20.0)
     positions = kwargs.get('positions')
     
     activity, metadata = generate_place_cells(
@@ -363,6 +364,7 @@ def _generate_place_cells(
         field_size=field_size,
         peak_rate=peak_rate,
         noise_level=noise,
+        sampling_rate=sampling_rate,
         seed=seed,
     )
     return activity, metadata
@@ -380,6 +382,7 @@ def _generate_grid_cells(
     grid_spacing = kwargs.get('grid_spacing', 0.4)
     grid_orientation = kwargs.get('grid_orientation', 0.0)
     peak_rate = kwargs.get('peak_rate', 10.0)
+    sampling_rate = kwargs.get('sampling_rate', 20.0)
     positions = kwargs.get('positions')
     
     activity, metadata = generate_grid_cells(
@@ -391,6 +394,7 @@ def _generate_grid_cells(
         grid_orientation=grid_orientation,
         peak_rate=peak_rate,
         noise_level=noise,
+        sampling_rate=sampling_rate,
         seed=seed,
     )
     return activity, metadata
@@ -406,6 +410,7 @@ def _generate_head_direction_cells(
     """Generate head direction cells - returns (activity, metadata with angles)."""
     tuning_width = kwargs.get('tuning_width', np.pi / 6)
     peak_rate = kwargs.get('peak_rate', 10.0)
+    sampling_rate = kwargs.get('sampling_rate', 20.0)
     head_direction = kwargs.get('head_direction')
     
     activity, metadata = generate_head_direction_cells(
@@ -415,6 +420,7 @@ def _generate_head_direction_cells(
         tuning_width=tuning_width,
         peak_rate=peak_rate,
         noise_level=noise,
+        sampling_rate=sampling_rate,
         seed=seed,
     )
     return activity, metadata
@@ -446,16 +452,211 @@ def _generate_mixed_cells(
 # Core Behavioral Data Generators (Public API)
 # ============================================================================
 
+def _generate_smooth_speeds(
+    n_samples: int,
+    speed_range: tuple[float, float],
+    rng: np.random.Generator,
+) -> npt.NDArray[np.float64]:
+    """Generate smooth speed profile using Ornstein-Uhlenbeck process.
+    
+    Creates smooth, continuous speed variations within specified range.
+    
+    Args:
+        n_samples: Number of time points.
+        speed_range: Tuple of (min_speed, max_speed).
+        rng: Random number generator.
+        
+    Returns:
+        speeds: Array of speeds, shape (n_samples,).
+    """
+    min_speed, max_speed = speed_range
+    
+    # Initialize with random speed
+    current_speed = rng.uniform(min_speed, max_speed)
+    speeds = np.zeros(n_samples)
+    speeds[0] = current_speed
+    
+    # Parameters for Ornstein-Uhlenbeck process
+    speed_mean = (min_speed + max_speed) / 2
+    speed_tau = 0.98  # Temporal correlation (high = smooth changes)
+    speed_sigma = (max_speed - min_speed) / 6  # Noise level
+    
+    for i in range(1, n_samples):
+        # Ornstein-Uhlenbeck process for smooth speed changes
+        current_speed = (
+            speed_tau * current_speed + 
+            (1 - speed_tau) * speed_mean + 
+            speed_sigma * rng.normal()
+        )
+        # Clip to valid range
+        current_speed = np.clip(current_speed, min_speed, max_speed)
+        speeds[i] = current_speed
+    
+    return speeds
+
+
+def _trajectory_1d(
+    n_samples: int,
+    arena_size: tuple[float, ...],
+    speeds: npt.NDArray[np.float64],
+    turning_rate: float,
+    rng: np.random.Generator,
+) -> npt.NDArray[np.float64]:
+    """Generate 1D trajectory with bouncing off walls.
+    
+    Args:
+        n_samples: Number of time points.
+        arena_size: (length,) of arena.
+        speeds: Speed at each time point.
+        turning_rate: How quickly direction changes.
+        rng: Random number generator.
+        
+    Returns:
+        positions: Position trajectory, shape (n_samples, 1).
+    """
+    positions = np.zeros((n_samples, 1))
+    positions[0, 0] = arena_size[0] / 2  # Start in center
+    
+    # Initial velocity direction
+    velocity = rng.choice([-1, 1]) * speeds[0]
+    
+    for i in range(1, n_samples):
+        # Update velocity direction with smooth turning
+        velocity_change = rng.normal(0, turning_rate * speeds[i])
+        velocity = velocity + velocity_change
+        
+        # Apply current speed magnitude
+        if abs(velocity) > 0:
+            velocity = (velocity / abs(velocity)) * speeds[i]
+        else:
+            velocity = rng.choice([-1, 1]) * speeds[i]
+        
+        new_pos = positions[i - 1, 0] + velocity
+        
+        # Bounce off walls
+        if new_pos < 0:
+            velocity = abs(velocity)
+            new_pos = 0
+        elif new_pos > arena_size[0]:
+            velocity = -abs(velocity)
+            new_pos = arena_size[0]
+        
+        positions[i, 0] = new_pos
+    
+    return positions
+
+
+def _trajectory_2d(
+    n_samples: int,
+    arena_size: tuple[float, ...],
+    speeds: npt.NDArray[np.float64],
+    turning_rate: float,
+    rng: np.random.Generator,
+) -> npt.NDArray[np.float64]:
+    """Generate 2D trajectory with bouncing off walls.
+    
+    Args:
+        n_samples: Number of time points.
+        arena_size: (width, height) of arena.
+        speeds: Speed at each time point.
+        turning_rate: How quickly direction changes.
+        rng: Random number generator.
+        
+    Returns:
+        positions: Position trajectory, shape (n_samples, 2).
+    """
+    positions = np.zeros((n_samples, 2))
+    positions[0] = [arena_size[0] / 2, arena_size[1] / 2]  # Start in center
+    
+    # Initial direction
+    direction = rng.uniform(0, 2 * np.pi)
+    
+    for i in range(1, n_samples):
+        direction += rng.normal(0, turning_rate)
+        
+        dx = speeds[i] * np.cos(direction)
+        dy = speeds[i] * np.sin(direction)
+        new_pos = positions[i - 1] + [dx, dy]
+        
+        # Bounce off walls
+        if new_pos[0] < 0 or new_pos[0] > arena_size[0]:
+            direction = np.pi - direction
+            new_pos[0] = np.clip(new_pos[0], 0, arena_size[0])
+        
+        if new_pos[1] < 0 or new_pos[1] > arena_size[1]:
+            direction = -direction
+            new_pos[1] = np.clip(new_pos[1], 0, arena_size[1])
+        
+        positions[i] = new_pos
+    
+    return positions
+
+
+def _trajectory_3d(
+    n_samples: int,
+    arena_size: tuple[float, ...],
+    speeds: npt.NDArray[np.float64],
+    turning_rate: float,
+    rng: np.random.Generator,
+) -> npt.NDArray[np.float64]:
+    """Generate 3D trajectory with bouncing off walls.
+    
+    Args:
+        n_samples: Number of time points.
+        arena_size: (width, height, depth) of arena.
+        speeds: Speed at each time point.
+        turning_rate: How quickly direction changes.
+        rng: Random number generator.
+        
+    Returns:
+        positions: Position trajectory, shape (n_samples, 3).
+    """
+    positions = np.zeros((n_samples, 3))
+    positions[0] = [s / 2 for s in arena_size]  # Start in center
+    
+    # Initial spherical direction
+    theta = rng.uniform(0, 2 * np.pi)  # azimuth
+    phi = rng.uniform(0, np.pi)  # elevation
+    
+    for i in range(1, n_samples):
+        theta += rng.normal(0, turning_rate)
+        phi += rng.normal(0, turning_rate / 2)
+        phi = np.clip(phi, 0, np.pi)  # Keep elevation valid
+        
+        dx = speeds[i] * np.sin(phi) * np.cos(theta)
+        dy = speeds[i] * np.sin(phi) * np.sin(theta)
+        dz = speeds[i] * np.cos(phi)
+        new_pos = positions[i - 1] + [dx, dy, dz]
+        
+        # Bounce off walls
+        for dim in range(3):
+            if new_pos[dim] < 0 or new_pos[dim] > arena_size[dim]:
+                new_pos[dim] = np.clip(new_pos[dim], 0, arena_size[dim])
+                # Reverse relevant direction component
+                if dim == 0:
+                    theta = np.pi - theta
+                elif dim == 1:
+                    theta = -theta
+                else:
+                    phi = np.pi - phi
+        
+        positions[i] = new_pos
+    
+    return positions
+
+
 def generate_position_trajectory(
     n_samples: int = 1000,
     arena_size: float | tuple[float, ...] = (1.0, 1.0),
-    speed: float = 0.1,
+    speed: float | None = None,
+    speed_range: tuple[float, float] = (0.02, 0.2),
     turning_rate: float = 0.3,
     seed: int | None = None,
 ) -> npt.NDArray[np.float64]:
     """Generate realistic position trajectory for a freely moving animal.
 
-    Simulates random walk with momentum in 1D, 2D, or 3D space.
+    Simulates random walk with momentum in 1D, 2D, or 3D space with
+    realistic speed variations.
 
     Args:
         n_samples: Number of time points.
@@ -463,7 +664,10 @@ def generate_position_trajectory(
             - float: 1D linear track of length arena_size
             - Tuple[float, float]: 2D arena (width, height)
             - Tuple[float, float, float]: 3D arena (width, height, depth)
-        speed: Average movement speed in meters per timestep.
+        speed: DEPRECATED. Average movement speed in meters per timestep.
+            If provided, overrides speed_range with fixed speed.
+        speed_range: Tuple of (min_speed, max_speed) in meters per timestep.
+            Speed smoothly varies within this range. Default: (0.02, 0.2) m/s.
         turning_rate: How quickly direction changes (0=straight, 1=random).
         seed: Random seed for reproducibility.
 
@@ -481,6 +685,10 @@ def generate_position_trajectory(
     """
     rng = np.random.default_rng(seed)
     
+    # Handle deprecated speed parameter
+    if speed is not None:
+        speed_range = (speed, speed)
+    
     # Determine dimensionality
     if isinstance(arena_size, (int, float)):
         n_dims = 1
@@ -489,77 +697,18 @@ def generate_position_trajectory(
         n_dims = len(arena_size)
         arena_size = tuple(arena_size)
     
-    positions = np.zeros((n_samples, n_dims))
-    # Start in center
-    positions[0] = [size / 2 for size in arena_size]
+    # Generate smooth speed profile
+    speeds = _generate_smooth_speeds(n_samples, speed_range, rng)
     
+    # Generate trajectory based on dimensionality
     if n_dims == 1:
-        # 1D: Simple back-and-forth with momentum
-        velocity = rng.choice([-1, 1]) * speed
-        for i in range(1, n_samples):
-            velocity += rng.normal(0, turning_rate * speed)
-            new_pos = positions[i - 1, 0] + velocity
-            
-            # Bounce off walls
-            if new_pos < 0:
-                velocity = abs(velocity)
-                new_pos = 0
-            elif new_pos > arena_size[0]:
-                velocity = -abs(velocity)
-                new_pos = arena_size[0]
-            
-            positions[i, 0] = new_pos
-    
+        positions = _trajectory_1d(n_samples, arena_size, speeds, turning_rate, rng)
     elif n_dims == 2:
-        # 2D: Random walk with direction
-        direction = rng.uniform(0, 2 * np.pi)
-        
-        for i in range(1, n_samples):
-            direction += rng.normal(0, turning_rate)
-            
-            dx = speed * np.cos(direction)
-            dy = speed * np.sin(direction)
-            new_pos = positions[i - 1] + [dx, dy]
-            
-            # Bounce off walls
-            if new_pos[0] < 0 or new_pos[0] > arena_size[0]:
-                direction = np.pi - direction
-                new_pos[0] = np.clip(new_pos[0], 0, arena_size[0])
-            
-            if new_pos[1] < 0 or new_pos[1] > arena_size[1]:
-                direction = -direction
-                new_pos[1] = np.clip(new_pos[1], 0, arena_size[1])
-            
-            positions[i] = new_pos
-    
+        positions = _trajectory_2d(n_samples, arena_size, speeds, turning_rate, rng)
     elif n_dims == 3:
-        # 3D: Random walk with spherical direction
-        theta = rng.uniform(0, 2 * np.pi)  # azimuth
-        phi = rng.uniform(0, np.pi)  # elevation
-        
-        for i in range(1, n_samples):
-            theta += rng.normal(0, turning_rate)
-            phi += rng.normal(0, turning_rate / 2)
-            phi = np.clip(phi, 0, np.pi)  # Keep elevation valid
-            
-            dx = speed * np.sin(phi) * np.cos(theta)
-            dy = speed * np.sin(phi) * np.sin(theta)
-            dz = speed * np.cos(phi)
-            new_pos = positions[i - 1] + [dx, dy, dz]
-            
-            # Bounce off walls
-            for dim in range(3):
-                if new_pos[dim] < 0 or new_pos[dim] > arena_size[dim]:
-                    new_pos[dim] = np.clip(new_pos[dim], 0, arena_size[dim])
-                    # Reverse relevant direction component
-                    if dim == 0:
-                        theta = np.pi - theta
-                    elif dim == 1:
-                        theta = -theta
-                    else:
-                        phi = np.pi - phi
-            
-            positions[i] = new_pos
+        positions = _trajectory_3d(n_samples, arena_size, speeds, turning_rate, rng)
+    else:
+        raise ValueError(f"Unsupported number of dimensions: {n_dims}")
     
     return positions
 
@@ -609,6 +758,7 @@ def generate_place_cells(
     field_size: float = 0.2,
     peak_rate: float = 10.0,
     noise_level: float = 0.1,
+    sampling_rate: float = 20.0,
     seed: int | None = None,
     plot: bool = True,
 ) -> tuple[npt.NDArray[np.float64], dict]:
@@ -626,6 +776,8 @@ def generate_place_cells(
         field_size: Standard deviation of Gaussian place field in meters.
         peak_rate: Maximum firing rate in Hz.
         noise_level: Amount of Poisson noise (0=none, 1=full Poisson).
+        sampling_rate: Sampling rate in Hz (default: 20 Hz for calcium imaging).
+            Controls temporal resolution of neural activity.
         seed: Random seed for reproducibility.
         plot: If True, create comprehensive visualization using PlotGrid system.
 
@@ -637,12 +789,14 @@ def generate_place_cells(
             - 'positions': Position trajectory used, shape (n_samples, n_dims)
             - 'cell_type': 'place' for all cells
             - 'n_dims': Dimensionality (1, 2, or 3)
+            - 'sampling_rate': Sampling rate in Hz
 
     Examples:
-        >>> # 1D place cells with automatic plotting
+        >>> # 1D place cells with automatic plotting (20 Hz sampling)
         >>> activity, meta = generate_place_cells(50, 1000, arena_size=2.0, plot=True)
-        >>> # 2D place cells without plotting
-        >>> activity, meta = generate_place_cells(50, 1000, arena_size=(1.0, 1.0), plot=False)
+        >>> # 2D place cells without plotting (30 Hz sampling)
+        >>> activity, meta = generate_place_cells(50, 1000, arena_size=(1.0, 1.0), 
+        ...                                        sampling_rate=30.0, plot=False)
         >>> # 3D place cells
         >>> activity, meta = generate_place_cells(50, 1000, arena_size=(1.0, 1.0, 0.5))
     """
@@ -690,12 +844,15 @@ def generate_place_cells(
     
     # Compute firing rates based on distance to field center
     activity = np.zeros((n_samples, n_cells))
+    
+    # Low baseline firing rate outside place field (realistic for place cells)
+    baseline_rate = peak_rate * 0.01  # 1% of peak rate
 
     for i in range(n_cells):
         if n_dims == 1:
             # 1D: Simple Gaussian with variable width
             distances = np.abs(positions[:, 0] - field_centers[i, 0])
-            rates = peak_rate * np.exp(-(distances ** 2) / (2 * field_radii[i, 0] ** 2))
+            rates = baseline_rate + peak_rate * np.exp(-(distances ** 2) / (2 * field_radii[i, 0] ** 2))
         
         elif n_dims == 2:
             # 2D: Rotated oval (anisotropic Gaussian)
@@ -708,21 +865,26 @@ def generate_place_cells(
             dx_rot = dx * np.cos(angle) + dy * np.sin(angle)
             dy_rot = -dx * np.sin(angle) + dy * np.cos(angle)
             
-            # Compute anisotropic distance
+            # Compute anisotropic distance (Mahalanobis-like distance)
             dist_x = (dx_rot / field_radii[i, 0]) ** 2
             dist_y = (dy_rot / field_radii[i, 1]) ** 2
-            rates = peak_rate * np.exp(-(dist_x + dist_y) / 2)
+            rates = baseline_rate + peak_rate * np.exp(-(dist_x + dist_y) / 2)
         
         elif n_dims == 3:
             # 3D: Ellipsoid (axis-aligned for simplicity)
             dx = (positions[:, 0] - field_centers[i, 0]) / field_radii[i, 0]
             dy = (positions[:, 1] - field_centers[i, 1]) / field_radii[i, 1]
             dz = (positions[:, 2] - field_centers[i, 2]) / field_radii[i, 2]
-            rates = peak_rate * np.exp(-(dx**2 + dy**2 + dz**2) / 2)
+            rates = baseline_rate + peak_rate * np.exp(-(dx**2 + dy**2 + dz**2) / 2)
 
-        # Add Poisson noise
+        # Add Poisson noise: sample from Poisson distribution then add Gaussian noise
         if noise_level > 0:
-            rates = rng.poisson(rates * noise_level) / noise_level
+            # Poisson noise (spike count variability)
+            rates = rng.poisson(rates)
+            # Small Gaussian noise on top
+            rates = rates + rng.normal(0, noise_level * peak_rate, size=rates.shape)
+            # Clip to non-negative
+            rates = np.maximum(0, rates)
 
         activity[:, i] = rates
 
@@ -735,11 +897,14 @@ def generate_place_cells(
         'arena_size': arena_size,
         'field_size': field_size,
         'n_dims': n_dims,
+        'sampling_rate': sampling_rate,
     }
 
     # Create visualization if requested
     if plot:
         from neural_analysis.plotting.synthetic_plots import plot_synthetic_data
+        # Force embeddings to always be 2D, even for 3D spatial environments
+        # Raster plots are always 2D heatmaps by design
         plot_synthetic_data(
             activity, metadata,
             show_raster=True,
@@ -748,7 +913,7 @@ def generate_place_cells(
             show_ground_truth=False,
             show_embeddings=True,
             embedding_methods=['pca', 'umap'],
-            n_embedding_dims=2,
+            n_embedding_dims=2,  # Always 2D for embeddings, regardless of spatial dims
         )
 
     return activity, metadata
@@ -759,38 +924,45 @@ def generate_grid_cells(
     n_samples: int = 1000,
     positions: npt.NDArray | None = None,
     arena_size: float | tuple[float, ...] = (2.0, 2.0),
-    grid_spacing: float = 0.4,
+    grid_spacing: float | list[float] = 0.4,
     grid_orientation: float = 0.0,
     peak_rate: float = 10.0,
     noise_level: float = 0.1,
+    sampling_rate: float = 20.0,
     seed: int | None = None,
     plot: bool = True,
+    multi_scale: bool = True,
 ) -> tuple[npt.NDArray[np.float64], dict]:
     """Generate grid cell firing data in 1D, 2D, or 3D.
 
     Grid cells fire at multiple locations arranged in regular grid pattern.
+    Supports multi-scale grid cells with multiple spatial frequencies (like in biology).
 
     Args:
         n_cells: Number of grid cells.
         n_samples: Number of time points.
         positions: Optional position trajectory, shape (n_samples, n_dims).
         arena_size: Size of arena. Float for 1D, tuple for 2D/3D.
-        grid_spacing: Distance between grid peaks in meters.
+        grid_spacing: Distance between grid peaks in meters. Can be a list for multi-scale.
         grid_orientation: Grid rotation in degrees (2D/3D only).
         peak_rate: Maximum firing rate in Hz.
         noise_level: Amount of Poisson noise.
+        sampling_rate: Sampling rate in Hz (default: 20 Hz for calcium imaging).
+            Controls temporal resolution of neural activity.
         seed: Random seed.
         plot: If True, create comprehensive visualization using PlotGrid system.
+        multi_scale: If True, create cells with multiple grid spacings (biological realism).
 
     Returns:
         activity: Neural activity matrix, shape (n_samples, n_cells).
         metadata: Dictionary with grid cell parameters.
 
     Examples:
-        >>> # 1D grid cells with plotting
+        >>> # 1D multi-scale grid cells with plotting
         >>> activity, meta = generate_grid_cells(30, 1000, arena_size=2.0, plot=True)
-        >>> # 2D grid cells without plotting
-        >>> activity, meta = generate_grid_cells(30, 1000, arena_size=(2.0, 2.0), plot=False)
+        >>> # 2D grid cells with custom spacings
+        >>> activity, meta = generate_grid_cells(30, 1000, arena_size=(2.0, 2.0), 
+        ...                                       grid_spacing=[0.3, 0.4, 0.6], plot=False)
     """
     rng = np.random.default_rng(seed)
     
@@ -834,6 +1006,7 @@ def generate_grid_cells(
             'grid_spacing': grid_spacing,
             'arena_size': arena_size,
             'n_dims': n_dims,
+            'sampling_rate': sampling_rate,
         }
     
     elif n_dims == 2:
@@ -874,6 +1047,7 @@ def generate_grid_cells(
             'grid_orientation': grid_orientation,
             'arena_size': arena_size,
             'n_dims': n_dims,
+            'sampling_rate': sampling_rate,
         }
     
     elif n_dims == 3:
@@ -902,6 +1076,7 @@ def generate_grid_cells(
             'grid_spacing': grid_spacing,
             'arena_size': arena_size,
             'n_dims': n_dims,
+            'sampling_rate': sampling_rate,
         }
 
     # Create visualization if requested
@@ -928,6 +1103,7 @@ def generate_head_direction_cells(
     tuning_width: float = np.pi / 6,  # 30 degrees
     peak_rate: float = 10.0,
     noise_level: float = 0.1,
+    sampling_rate: float = 20.0,
     seed: int | None = None,
     plot: bool = True,
 ) -> tuple[npt.NDArray[np.float64], dict]:
@@ -942,6 +1118,8 @@ def generate_head_direction_cells(
         tuning_width: Width of directional tuning curve (radians).
         peak_rate: Maximum firing rate in Hz.
         noise_level: Amount of Poisson noise.
+        sampling_rate: Sampling rate in Hz (default: 20 Hz for calcium imaging).
+            Controls temporal resolution of neural activity.
         seed: Random seed.
         plot: If True, create comprehensive visualization using PlotGrid system.
 
@@ -987,6 +1165,7 @@ def generate_head_direction_cells(
         'head_directions': head_direction,
         'cell_type': 'head_direction',
         'tuning_width': tuning_width,
+        'sampling_rate': sampling_rate,
     }
 
     # Create visualization if requested
@@ -1012,6 +1191,7 @@ def generate_random_cells(
     baseline_rate: float = 2.0,
     variability: float = 1.0,
     temporal_smoothness: float = 0.1,
+    sampling_rate: float = 20.0,
     seed: int | None = None,
     plot: bool = True,
 ) -> tuple[npt.NDArray[np.float64], dict]:
@@ -1027,6 +1207,8 @@ def generate_random_cells(
         variability: Standard deviation of firing rate fluctuations.
         temporal_smoothness: Temporal correlation (0=white noise, 1=highly smooth).
             Controls how smoothly firing rates change over time.
+        sampling_rate: Sampling rate in Hz (default: 20 Hz for calcium imaging).
+            Controls temporal resolution of neural activity.
         seed: Random seed for reproducibility.
         plot: If True, create comprehensive visualization using PlotGrid system.
     
@@ -1077,6 +1259,7 @@ def generate_random_cells(
         'baseline_rate': baseline_rate,
         'variability': variability,
         'temporal_smoothness': temporal_smoothness,
+        'sampling_rate': sampling_rate,
     }
     
     # Create visualization if requested

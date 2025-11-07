@@ -168,6 +168,11 @@ def render_scatter_matplotlib(
     kwargs.pop('y_label', None)
     kwargs.pop('z_label', None)
     
+    # Handle marker size - use 's' from kwargs if provided, otherwise use marker_size
+    s_param = kwargs.pop('s', None)  # Pop 's' to avoid duplicate
+    if s_param is None:
+        s_param = marker_size or 20
+    
     # Determine color parameter: use colors array if provided, otherwise single color
     c_param = colors if colors is not None else color
     
@@ -175,7 +180,7 @@ def render_scatter_matplotlib(
         # 2D scatter
         return ax.scatter(
             data[:, 0], data[:, 1],
-            c=c_param, s=marker_size or 20,
+            c=c_param, s=s_param,
             marker=marker,
             cmap=cmap,
             alpha=alpha, label=label,
@@ -185,7 +190,7 @@ def render_scatter_matplotlib(
         # 3D scatter
         return ax.scatter(
             data[:, 0], data[:, 1], data[:, 2],
-            c=c_param, s=marker_size or 20,
+            c=c_param, s=s_param,
             marker=marker,
             cmap=cmap,
             alpha=alpha, label=label,
@@ -2251,3 +2256,224 @@ def render_boolean_states_plotly(
     
     return traces
 
+
+# ==============================================================================
+# Ellipse Rendering
+# ==============================================================================
+
+def render_ellipse_matplotlib(
+    ax,
+    centers: npt.NDArray[np.float64],
+    widths: npt.NDArray[np.float64],
+    heights: npt.NDArray[np.float64],
+    angles: npt.NDArray[np.float64] | None = None,
+    color: str = 'red',
+    alpha: float = 0.3,
+    edgecolor: str | None = None,
+    linewidth: float = 0,
+    **kwargs
+):
+    """
+    Render ellipses using matplotlib patches.
+    
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        The axes to plot on
+    centers : np.ndarray
+        Center coordinates, shape (n_ellipses, n_dims)
+        For 1D: (n, 1), for 2D: (n, 2), for 3D: (n, 3)
+    widths : np.ndarray
+        Width of each ellipse, shape (n_ellipses,)
+    heights : np.ndarray
+        Height of each ellipse, shape (n_ellipses,)
+    angles : np.ndarray, optional
+        Rotation angles in degrees, shape (n_ellipses,)
+    color : str
+        Face color
+    alpha : float
+        Transparency
+    edgecolor : str, optional
+        Edge color (None for no edge)
+    linewidth : float
+        Edge line width
+    **kwargs
+        Additional arguments passed to patch constructor
+        
+    Returns
+    -------
+    list
+        List of patch objects added to axes
+    """
+    from matplotlib.patches import Ellipse, Rectangle
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+    
+    patches = []
+    n_dims = centers.shape[1] if centers.ndim > 1 else 1
+    
+    if n_dims == 1:
+        # 1D: Draw as rectangles (vertical bars)
+        for i in range(len(centers)):
+            center_x = centers[i, 0] if centers.ndim > 1 else centers[i]
+            width = widths[i]
+            height = heights[i] if heights is not None else 1.0
+            
+            # Rectangle centered at (center_x, 0) with given width and height
+            rect = Rectangle(
+                xy=(center_x - width/2, -height/2),
+                width=width,
+                height=height,
+                facecolor=color,
+                edgecolor=edgecolor,
+                alpha=alpha,
+                linewidth=linewidth,
+                zorder=1,
+                **kwargs
+            )
+            ax.add_patch(rect)
+            patches.append(rect)
+    
+    elif n_dims == 2:
+        # 2D: Draw as ellipses
+        for i in range(len(centers)):
+            center = centers[i]
+            width = widths[i]
+            height = heights[i]
+            angle = angles[i] if angles is not None else 0
+            
+            ellipse = Ellipse(
+                xy=center,
+                width=width,
+                height=height,
+                angle=angle,
+                facecolor=color,
+                edgecolor=edgecolor,
+                alpha=alpha,
+                linewidth=linewidth,
+                zorder=1,
+                **kwargs
+            )
+            ax.add_patch(ellipse)
+            patches.append(ellipse)
+    
+    elif n_dims == 3:
+        # 3D: Draw as ellipsoids using parametric surface
+        # Simplified: draw multiple circular slices to approximate ellipsoid
+        for i in range(len(centers)):
+            center = centers[i]
+            a, b, c = widths[i]/2, heights[i]/2, (widths[i] + heights[i])/4  # radii
+            
+            # Create ellipsoid parametric surface
+            u = np.linspace(0, 2 * np.pi, 20)
+            v = np.linspace(0, np.pi, 20)
+            x = a * np.outer(np.cos(u), np.sin(v)) + center[0]
+            y = b * np.outer(np.sin(u), np.sin(v)) + center[1]
+            z = c * np.outer(np.ones(np.size(u)), np.cos(v)) + center[2]
+            
+            # Plot as surface
+            surf = ax.plot_surface(x, y, z, color=color, alpha=alpha, **kwargs)
+            patches.append(surf)
+    
+    return patches
+
+
+def render_ellipse_plotly(
+    centers: npt.NDArray[np.float64],
+    widths: npt.NDArray[np.float64],
+    heights: npt.NDArray[np.float64],
+    angles: npt.NDArray[np.float64] | None = None,
+    color: str = 'red',
+    alpha: float = 0.3,
+    name: str | None = None,
+    **kwargs
+) -> list:
+    """
+    Render ellipses using plotly shapes.
+    
+    Parameters
+    ----------
+    centers : np.ndarray
+        Center coordinates, shape (n_ellipses, n_dims)
+    widths : np.ndarray
+        Width of each ellipse
+    heights : np.ndarray
+        Height of each ellipse
+    angles : np.ndarray, optional
+        Rotation angles in degrees
+    color : str
+        Fill color
+    alpha : float
+        Transparency
+    name : str, optional
+        Trace name for legend
+    **kwargs
+        Additional arguments
+        
+    Returns
+    -------
+    list
+        List of shape dictionaries for plotly
+    """
+    shapes = []
+    n_dims = centers.shape[1] if centers.ndim > 1 else 1
+    
+    # Convert color to rgba with alpha
+    import plotly.colors as pc
+    rgba = f'rgba({pc.hex_to_rgb(color)[0]}, {pc.hex_to_rgb(color)[1]}, {pc.hex_to_rgb(color)[2]}, {alpha})'
+    
+    if n_dims == 1:
+        # 1D: rectangles
+        for i in range(len(centers)):
+            center_x = centers[i, 0] if centers.ndim > 1 else centers[i]
+            width = widths[i]
+            height = heights[i] if heights is not None else 1.0
+            
+            shape = dict(
+                type='rect',
+                x0=center_x - width/2,
+                x1=center_x + width/2,
+                y0=-height/2,
+                y1=height/2,
+                fillcolor=rgba,
+                line=dict(width=0),
+                layer='below'
+            )
+            shapes.append(shape)
+    
+    elif n_dims == 2:
+        # 2D: circles (plotly doesn't support rotated ellipses natively)
+        # Approximate with path for rotated ellipses
+        for i in range(len(centers)):
+            center = centers[i]
+            width = widths[i]
+            height = heights[i]
+            angle_deg = angles[i] if angles is not None else 0
+            angle_rad = np.radians(angle_deg)
+            
+            # Generate ellipse points
+            t = np.linspace(0, 2*np.pi, 50)
+            x = (width/2) * np.cos(t)
+            y = (height/2) * np.sin(t)
+            
+            # Rotate
+            x_rot = x * np.cos(angle_rad) - y * np.sin(angle_rad) + center[0]
+            y_rot = x * np.sin(angle_rad) + y * np.cos(angle_rad) + center[1]
+            
+            # Create path
+            path = f'M {x_rot[0]},{y_rot[0]} '
+            for j in range(1, len(x_rot)):
+                path += f'L {x_rot[j]},{y_rot[j]} '
+            path += 'Z'
+            
+            shape = dict(
+                type='path',
+                path=path,
+                fillcolor=rgba,
+                line=dict(width=0),
+                layer='below'
+            )
+            shapes.append(shape)
+    
+    # Note: 3D ellipsoids in plotly would require mesh3d traces
+    
+    return shapes

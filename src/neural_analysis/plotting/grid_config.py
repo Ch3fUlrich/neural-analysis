@@ -92,7 +92,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
 PlotType = Literal['scatter', 'line', 'histogram', 'heatmap', 'scatter3d', 'violin', 'box', 'bar', 
-                   'trajectory', 'trajectory3d', 'kde', 'grouped_scatter', 'convex_hull', 'boolean_states']
+                   'trajectory', 'trajectory3d', 'kde', 'grouped_scatter', 'convex_hull', 'boolean_states', 'ellipse']
 
 @dataclass
 class PlotSpec:
@@ -239,6 +239,11 @@ class PlotSpec:
     false_color: str | None = None
     true_label: str | None = None
     false_label: str | None = None
+    
+    # Ellipse plot parameters (for plot_type='ellipse')
+    ellipse_widths: np.ndarray | None = None  # Width of each ellipse
+    ellipse_heights: np.ndarray | None = None  # Height of each ellipse
+    ellipse_angles: np.ndarray | None = None  # Rotation angle in degrees
     
     kwargs: dict[str, Any] = field(default_factory=dict)
 
@@ -629,12 +634,17 @@ class PlotGrid:
         else:
             backend_str = backend_enum
         
-        # Check if any specs are 3D to set projection
-        needs_3d = any(
-            spec.plot_type in ('scatter3d', 'trajectory3d')
-            for group in subplot_groups 
-            for spec in group
-        )
+        # Determine which subplots need 3D projection (per-subplot basis)
+        subplot_projections = []
+        for group in subplot_groups:
+            needs_3d_subplot = any(
+                spec.plot_type in ('scatter3d', 'trajectory3d')
+                for spec in group
+            )
+            subplot_projections.append('3d' if needs_3d_subplot else None)
+        
+        # Check if ANY specs are 3D for plotly specs generation
+        needs_any_3d = any(p == '3d' for p in subplot_projections)
         
         result = create_subplot_grid(
             rows=rows,
@@ -644,8 +654,9 @@ class PlotGrid:
             shared_xaxes=self.layout.shared_xaxes,
             shared_yaxes=self.layout.shared_yaxes,
             backend=backend_str,
-            projection='3d' if needs_3d else None,
-            specs=[[{'type': 'scene'}] * cols] * rows if needs_3d and backend_str == 'plotly' else None,
+            projection=None,  # Will handle per-subplot projections separately
+            subplot_projections=subplot_projections if backend_str == 'matplotlib' else None,
+            specs=[[{'type': 'scene'}] * cols] * rows if needs_any_3d and backend_str == 'plotly' else None,
         )
         
         if backend_str == 'matplotlib':
@@ -903,6 +914,7 @@ class PlotGrid:
                 label=label_to_use,
                 **spec.kwargs
             )
+            
             # Add colorbar if requested and we have color-mapped data
             if spec.colorbar and scatter is not None and spec.colors is not None:
                 # Get the figure from the axes
@@ -1265,6 +1277,20 @@ class PlotGrid:
                 true_label=spec.true_label or 'True',
                 false_label=spec.false_label or 'False',
                 alpha=spec.alpha,
+            )
+        
+        elif spec.plot_type == 'ellipse':
+            # Render ellipses/ellipsoids
+            renderers.render_ellipse_matplotlib(
+                ax=ax,
+                centers=spec.data,
+                widths=spec.ellipse_widths,
+                heights=spec.ellipse_heights,
+                angles=spec.ellipse_angles,
+                color=spec.color or 'red',
+                alpha=spec.alpha,
+                edgecolor=spec.kwargs.get('edgecolor', None),
+                linewidth=spec.kwargs.get('linewidth', 0),
             )
         
         if spec.title:
@@ -1754,6 +1780,7 @@ def create_subplot_grid(
     specs: list[list[dict[str, Any]]] | None = None,
     backend: Literal["matplotlib", "plotly"] | None = None,
     projection: str | None = None,
+    subplot_projections: list[str | None] | None = None,
 ):
     """
     Create a multi-panel subplot grid.
@@ -1783,6 +1810,10 @@ def create_subplot_grid(
         Each dict can contain 'type' (e.g., 'xy', 'scene', etc.).
     backend : {"matplotlib", "plotly"}, optional
         Backend to use.
+    projection : str, optional
+        Default projection for all subplots (deprecated, use subplot_projections).
+    subplot_projections : list of str or None, optional
+        Per-subplot projections. If provided, each subplot gets its own projection.
 
     Returns
     -------
@@ -1798,7 +1829,7 @@ def create_subplot_grid(
 
     if backend_str == 'matplotlib':
         return _create_subplot_grid_matplotlib(
-            rows, cols, config, subplot_titles, shared_xaxes, shared_yaxes, plt, projection
+            rows, cols, config, subplot_titles, shared_xaxes, shared_yaxes, plt, projection, subplot_projections
         )
     else:
         if not PLOTLY_AVAILABLE:
@@ -1818,30 +1849,51 @@ def _create_subplot_grid_matplotlib(
     shared_yaxes: bool | str,
     plt,
     projection: str | None = None,
+    subplot_projections: list[str | None] | None = None,
 ):
-    """Matplotlib implementation of subplot grid."""
+    """Matplotlib implementation of subplot grid with per-subplot projection support."""
     # Convert shared axes parameters
     sharex = "all" if shared_xaxes is True else (shared_xaxes if isinstance(shared_xaxes, str) else False)
     sharey = "all" if shared_yaxes is True else (shared_yaxes if isinstance(shared_yaxes, str) else False)
 
-    # Set up subplot_kw for 3D projection if needed
-    subplot_kw = {}
-    if projection:
-        subplot_kw['projection'] = projection
-    
-    fig, axes = plt.subplots(
-        rows,
-        cols,
-        figsize=config.figsize,
-        dpi=config.dpi,
-        sharex=sharex if sharex != "rows" and sharex != "columns" else False,
-        sharey=sharey if sharey != "rows" and sharey != "columns" else False,
-        squeeze=False,
-        subplot_kw=subplot_kw,
-    )
-
-    # Flatten axes array for easier indexing
-    axes_flat = axes.flatten().tolist()
+    # If we have per-subplot projections, create figure and axes individually
+    if subplot_projections is not None and any(p is not None for p in subplot_projections):
+        # Create figure
+        fig = plt.figure(figsize=config.figsize, dpi=config.dpi)
+        
+        # Create axes with individual projections
+        axes_flat = []
+        for idx in range(rows * cols):
+            row = idx // cols
+            col = idx % cols
+            proj = subplot_projections[idx] if idx < len(subplot_projections) else None
+            
+            # Add subplot with specific projection
+            if proj:
+                ax = fig.add_subplot(rows, cols, idx + 1, projection=proj)
+            else:
+                ax = fig.add_subplot(rows, cols, idx + 1)
+            
+            axes_flat.append(ax)
+    else:
+        # Original behavior: all subplots have same projection
+        subplot_kw = {}
+        if projection:
+            subplot_kw['projection'] = projection
+        
+        fig, axes = plt.subplots(
+            rows,
+            cols,
+            figsize=config.figsize,
+            dpi=config.dpi,
+            sharex=sharex if sharex != "rows" and sharex != "columns" else False,
+            sharey=sharey if sharey != "rows" and sharey != "columns" else False,
+            squeeze=False,
+            subplot_kw=subplot_kw,
+        )
+        
+        # Flatten axes array for easier indexing
+        axes_flat = axes.flatten().tolist()
 
     # Add subplot titles
     if subplot_titles is not None:
