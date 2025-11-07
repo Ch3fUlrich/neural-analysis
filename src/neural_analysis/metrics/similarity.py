@@ -27,6 +27,7 @@ from scipy.stats import kendalltau, spearmanr
 # Optional numba acceleration
 try:
     import numba
+
     NUMBA_AVAILABLE = True
 except ImportError:
     NUMBA_AVAILABLE = False
@@ -81,11 +82,11 @@ def correlation_matrix(
     >>> x = rng.normal(0, 1, 100)
     >>> y = 0.8 * x + 0.2 * rng.normal(0, 1, 100)
     >>> data = np.column_stack([x, y, rng.normal(0, 1, 100)])
-    >>> 
+    >>>
     >>> # Compute Pearson correlation
     >>> corr = correlation_matrix(data, method='pearson')
     >>> print(f"Correlation between features 0 and 1: {corr[0, 1]:.3f}")
-    
+
     >>> # Compare with Spearman (rank-based)
     >>> corr_spearman = correlation_matrix(data, method='spearman')
 
@@ -94,7 +95,7 @@ def correlation_matrix(
     - Pearson: Measures linear relationships, sensitive to outliers
     - Spearman: Measures monotonic relationships, robust to outliers
     - Kendall: Similar to Spearman but different null hypothesis
-    
+
     For neural data:
     - Use Pearson for normally distributed firing rates
     - Use Spearman for non-linear tuning curves
@@ -166,7 +167,7 @@ def cosine_similarity_matrix(
     >>> data = np.array([[1, 0, 0, 1],
     ...                  [0, 1, 1, 0],
     ...                  [1, 0, 1, 0]]).T
-    >>> 
+    >>>
     >>> # Compute cosine similarity
     >>> sim = cosine_similarity_matrix(data)
     >>> print(f"Similarity between patterns 0 and 2: {sim[0, 2]:.3f}")
@@ -177,7 +178,7 @@ def cosine_similarity_matrix(
     - Useful for sparse data (e.g., spike counts)
     - If centered=True, equivalent to Pearson correlation
     - More robust than Euclidean distance for high-dimensional data
-    
+
     For neural data:
     - Use for comparing tuning curve shapes
     - Use for sparse population activity patterns
@@ -238,7 +239,7 @@ def angular_similarity_matrix(
     >>> v2 = np.array([1, 1]) / np.sqrt(2)  # 45 degrees
     >>> v3 = np.array([0, 1])  # 90 degrees
     >>> data = np.column_stack([v1, v2, v3])
-    >>> 
+    >>>
     >>> sim = angular_similarity_matrix(data.T)
     >>> print(f"Angular similarity (0° vs 45°): {sim[0, 1]:.3f}")
     >>> print(f"Angular similarity (0° vs 90°): {sim[0, 2]:.3f}")
@@ -248,7 +249,7 @@ def angular_similarity_matrix(
     - Related to cosine similarity: angle = arccos(cosine_similarity)
     - Scale-invariant (only direction matters)
     - Useful for directional tuning curves
-    
+
     For neural data:
     - Use for preferred direction analysis
     - Use for population activity states on a hypersphere
@@ -258,9 +259,7 @@ def angular_similarity_matrix(
     if data_arr.ndim != 2:
         raise ValueError(f"data must be 2D, got shape {data_arr.shape}")
 
-    logger.info(
-        f"Computing angular similarity matrix for {data_arr.shape[1]} features"
-    )
+    logger.info(f"Computing angular similarity matrix for {data_arr.shape[1]} features")
 
     # Get cosine similarity
     cosine_sim = cosine_similarity_matrix(data_arr, centered=False)
@@ -331,14 +330,14 @@ def similarity_matrix(
     >>> # Generate correlated neural activity
     >>> rng = np.random.default_rng(42)
     >>> data = rng.normal(0, 1, (100, 10))
-    >>> 
+    >>>
     >>> # Compute Pearson correlation
     >>> sim = similarity_matrix(data, method='pearson')
-    >>> 
+    >>>
     >>> # Compute cosine similarity with visualization
     >>> sim = similarity_matrix(data, method='cosine', plot=True,
     ...                         plot_config={'title': 'Neural Similarity'})
-    >>> 
+    >>>
     >>> # Use parallel computation for large dataset
     >>> large_data = rng.normal(0, 1, (1000, 500))
     >>> sim = similarity_matrix(large_data, method='pearson', parallel=True)
@@ -351,12 +350,12 @@ def similarity_matrix(
     - Use "kendall" for ordinal data or small samples
     - Use "cosine" for directional similarity (scale-invariant)
     - Use "angular" for bounded [0,1] similarity scores
-    
+
     Parallel computation is recommended for:
     - Large matrices (>500 features)
     - Repeated computations
     - Real-time analysis pipelines
-    
+
     See Also
     --------
     correlation_matrix : Compute correlation matrices
@@ -432,12 +431,12 @@ def _plot_similarity_matrix(
         "figsize": (8, 7),
         "cmap": "RdBu_r" if method in ["pearson", "spearman", "kendall"] else "viridis",
     }
-    
+
     if plot_config is not None:
         config_dict.update(plot_config)
-    
+
     config = PlotConfig(**config_dict)
-    
+
     # Create heatmap
     plot_heatmap(
         similarity,
@@ -453,24 +452,25 @@ def _plot_similarity_matrix(
 # Parallel Computation Functions
 # =============================================================================
 
+
 def _correlation_matrix_parallel(
     data: np.ndarray,
     method: str,
 ) -> np.ndarray:
     """
     Compute correlation matrix with parallel optimization.
-    
+
     For Pearson correlation, uses numpy's highly optimized corrcoef.
     For Spearman and Kendall, uses numba-accelerated implementations if available,
     otherwise falls back to scipy.
-    
+
     Parameters
     ----------
     data : ndarray
         Data matrix, shape (n_samples, n_features).
     method : str
         Correlation method: 'pearson', 'spearman', or 'kendall'.
-    
+
     Returns
     -------
     ndarray
@@ -501,18 +501,18 @@ def _cosine_similarity_matrix_parallel(
 ) -> np.ndarray:
     """
     Compute cosine similarity with parallel optimization.
-    
+
     Uses optimized BLAS operations through numpy. The matrix multiplication
     automatically leverages multi-threaded BLAS libraries (OpenBLAS, MKL)
     when available, providing significant speedup for large matrices.
-    
+
     Parameters
     ----------
     data : ndarray
         Data matrix, shape (n_samples, n_features).
     centered : bool
         If True, center data before computing similarity.
-    
+
     Returns
     -------
     ndarray
@@ -521,12 +521,12 @@ def _cosine_similarity_matrix_parallel(
     # Center if requested
     if centered:
         data = data - data.mean(axis=0, keepdims=True)
-    
+
     # Normalize columns to unit vectors
     norms = np.linalg.norm(data, axis=0, keepdims=True)
     norms = np.where(norms == 0, 1, norms)  # Avoid division by zero
     data_normalized = data / norms
-    
+
     # Compute similarity via matrix multiplication (uses optimized BLAS)
     return data_normalized.T @ data_normalized
 
@@ -536,15 +536,15 @@ def _angular_similarity_matrix_parallel(
 ) -> np.ndarray:
     """
     Compute angular similarity with parallel optimization.
-    
+
     Leverages optimized cosine similarity computation and applies
     angular transformation: similarity = 1 - arccos(cosine) / π
-    
+
     Parameters
     ----------
     data : ndarray
         Data matrix, shape (n_samples, n_features).
-    
+
     Returns
     -------
     ndarray
@@ -562,19 +562,20 @@ def _angular_similarity_matrix_parallel(
 # =============================================================================
 
 if NUMBA_AVAILABLE:
+
     @numba.jit(nopython=True, parallel=True, cache=True)
     def _rank_data_numba(data: np.ndarray) -> np.ndarray:
         """
         Compute ranks for each feature column using numba acceleration.
-        
+
         This function ranks the values in each column independently, which is
         required for Spearman correlation. Uses parallel loops for efficiency.
-        
+
         Parameters
         ----------
         data : ndarray
             Data matrix, shape (n_samples, n_features).
-        
+
         Returns
         -------
         ndarray
@@ -583,31 +584,30 @@ if NUMBA_AVAILABLE:
         """
         n_samples, n_features = data.shape
         ranks = np.empty_like(data)
-        
+
         for j in numba.prange(n_features):
             # Get indices that would sort the column
             sorted_idx = np.argsort(data[:, j])
             # Assign ranks (1-indexed)
             for i, idx in enumerate(sorted_idx):
                 ranks[idx, j] = i + 1
-        
+
         return ranks
-    
-    
+
     @numba.jit(nopython=True, parallel=True, cache=True)
     def _kendall_tau_pairwise(x: np.ndarray, y: np.ndarray) -> float:
         """
         Compute Kendall's tau correlation between two arrays.
-        
+
         Kendall's tau measures ordinal association based on concordant and
         discordant pairs. This implementation uses O(n²) algorithm with
         numba acceleration.
-        
+
         Parameters
         ----------
         x, y : ndarray
             1D arrays of equal length.
-        
+
         Returns
         -------
         float
@@ -616,38 +616,37 @@ if NUMBA_AVAILABLE:
         n = len(x)
         concordant = 0
         discordant = 0
-        
+
         for i in range(n):
             for j in range(i + 1, n):
                 # Sign of differences
                 sign_x = np.sign(x[j] - x[i])
                 sign_y = np.sign(y[j] - y[i])
                 prod = sign_x * sign_y
-                
+
                 if prod > 0:
                     concordant += 1
                 elif prod < 0:
                     discordant += 1
                 # If prod == 0, it's a tie (not counted)
-        
+
         # Tau = (concordant - discordant) / total_pairs
         total_pairs = n * (n - 1) / 2
         return (concordant - discordant) / total_pairs
-    
-    
+
     def _spearman_numba(data: np.ndarray) -> np.ndarray:
         """
         Compute Spearman correlation matrix using numba-accelerated ranking.
-        
+
         Spearman correlation is Pearson correlation applied to ranks.
         This implementation ranks data in parallel, then uses numpy's
         optimized corrcoef on the ranked data.
-        
+
         Parameters
         ----------
         data : ndarray
             Data matrix, shape (n_samples, n_features).
-        
+
         Returns
         -------
         ndarray
@@ -655,21 +654,20 @@ if NUMBA_AVAILABLE:
         """
         ranks = _rank_data_numba(data)
         return np.corrcoef(ranks.T)
-    
-    
+
     def _kendall_numba(data: np.ndarray) -> np.ndarray:
         """
         Compute Kendall correlation matrix using numba acceleration.
-        
+
         Computes pairwise Kendall's tau for all feature pairs.
         Uses parallel loops to compute upper triangle, then mirrors
         to lower triangle.
-        
+
         Parameters
         ----------
         data : ndarray
             Data matrix, shape (n_samples, n_features).
-        
+
         Returns
         -------
         ndarray
@@ -677,14 +675,14 @@ if NUMBA_AVAILABLE:
         """
         n_features = data.shape[1]
         corr_matrix = np.eye(n_features)
-        
+
         # Compute upper triangle in parallel
         for i in numba.prange(n_features):
             for j in range(i + 1, n_features):
                 tau = _kendall_tau_pairwise(data[:, i], data[:, j])
                 corr_matrix[i, j] = tau
                 corr_matrix[j, i] = tau  # Symmetric
-        
+
         return corr_matrix
 
 else:
@@ -699,8 +697,7 @@ else:
         if data.shape[1] == 2 and np.ndim(corr_matrix) == 0:
             corr_matrix = np.array([[1.0, corr_matrix], [corr_matrix, 1.0]])
         return corr_matrix
-    
-    
+
     def _kendall_numba(data: np.ndarray) -> np.ndarray:
         """
         Fallback Kendall correlation without numba.

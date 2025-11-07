@@ -25,12 +25,16 @@ if TYPE_CHECKING:
 try:
     from neural_analysis.utils.logging import get_logger, log_calls  # type: ignore
 except ImportError:
+
     def log_calls(**kwargs):  # type: ignore
         def decorator(func):  # type: ignore
             return func
+
         return decorator
+
     def get_logger(name: str):  # type: ignore
         return logging.getLogger(name)
+
 
 # Module logger
 logger = get_logger(__name__)
@@ -42,40 +46,40 @@ try:  # pragma: no cover - optional dependency
     NUMBA_AVAILABLE = True
 
     @njit(parallel=True, fastmath=True)
-    def _pairwise_euclidean_numba(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
+    def _pairwise_euclidean_numba(x_arr: np.ndarray, y_arr: np.ndarray) -> np.ndarray:
         """Numba-accelerated pairwise Euclidean distance."""
-        n_x, n_feat = X.shape
-        n_y, _ = Y.shape
+        n_x, n_feat = x_arr.shape
+        n_y, _ = y_arr.shape
         out = np.empty((n_x, n_y), dtype=np.float64)
         for i in prange(n_x):
             for j in range(n_y):
                 s = 0.0
                 for k in range(n_feat):
-                    d = X[i, k] - Y[j, k]
+                    d = x_arr[i, k] - y_arr[j, k]
                     s += d * d
                 out[i, j] = np.sqrt(s)
         return out
 
     @njit(parallel=True, fastmath=True)
-    def _pairwise_cosine_numba(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
+    def _pairwise_cosine_numba(x_arr: np.ndarray, y_arr: np.ndarray) -> np.ndarray:
         """Numba-accelerated pairwise cosine similarity."""
-        n_x, n_feat = X.shape
-        n_y, _ = Y.shape
+        n_x, n_feat = x_arr.shape
+        n_y, _ = y_arr.shape
         out = np.empty((n_x, n_y), dtype=np.float64)
         for i in prange(n_x):
             norm_x = 0.0
             for k in range(n_feat):
-                norm_x += X[i, k] ** 2
+                norm_x += x_arr[i, k] ** 2
             norm_x = np.sqrt(norm_x)
-            
+
             for j in range(n_y):
                 dot_prod = 0.0
                 norm_y = 0.0
                 for k in range(n_feat):
-                    dot_prod += X[i, k] * Y[j, k]
-                    norm_y += Y[j, k] ** 2
+                    dot_prod += x_arr[i, k] * y_arr[j, k]
+                    norm_y += y_arr[j, k] ** 2
                 norm_y = np.sqrt(norm_y)
-                
+
                 if norm_x > 0 and norm_y > 0:
                     out[i, j] = dot_prod / (norm_x * norm_y)
                 else:
@@ -83,16 +87,16 @@ try:  # pragma: no cover - optional dependency
         return out
 
     @njit(parallel=True, fastmath=True)
-    def _pairwise_manhattan_numba(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
+    def _pairwise_manhattan_numba(x_arr: np.ndarray, y_arr: np.ndarray) -> np.ndarray:
         """Numba-accelerated pairwise Manhattan distance."""
-        n_x, n_feat = X.shape
-        n_y, _ = Y.shape
+        n_x, n_feat = x_arr.shape
+        n_y, _ = y_arr.shape
         out = np.empty((n_x, n_y), dtype=np.float64)
         for i in prange(n_x):
             for j in range(n_y):
                 s = 0.0
                 for k in range(n_feat):
-                    s += abs(X[i, k] - Y[j, k])
+                    s += abs(x_arr[i, k] - y_arr[j, k])
                 out[i, j] = s
         return out
 
@@ -116,19 +120,20 @@ __all__ = [
 # Helper Functions
 # =============================================================================
 
+
 def _compute_summary_statistics(
     dists: np.ndarray,
     summary: Literal["mean", "std", "median", "all"] = "mean",
 ) -> float | dict[str, float]:
     """Compute summary statistics from distance array.
-    
+
     Parameters
     ----------
     dists : ndarray
         Array of distance values.
     summary : {"mean", "std", "median", "all"}, default="mean"
         Summary statistic to return.
-    
+
     Returns
     -------
     float or dict
@@ -158,6 +163,7 @@ def _compute_summary_statistics(
 # =============================================================================
 # Point-to-Point Distance Metrics
 # =============================================================================
+
 
 @log_calls(level=logging.DEBUG)
 def euclidean_distance(
@@ -393,6 +399,7 @@ def cosine_similarity(
         else:
             # Use sklearn's cosine_similarity
             from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine
+
             return sklearn_cosine(v1_arr, v2_arr)
 
     # Default: flatten and compute single similarity
@@ -402,6 +409,7 @@ def cosine_similarity(
 # =============================================================================
 # Distribution-Level Distance Metrics
 # =============================================================================
+
 
 @log_calls(level=logging.DEBUG)
 def wasserstein_distance_multi(
@@ -434,9 +442,7 @@ def wasserstein_distance_multi(
     if p2.ndim == 1:
         p2 = p2.reshape(-1, 1)
 
-    distances = [
-        wasserstein_distance(p1[:, i], p2[:, i]) for i in range(p1.shape[1])
-    ]
+    distances = [wasserstein_distance(p1[:, i], p2[:, i]) for i in range(p1.shape[1])]
     return float(np.sum(distances))
 
 
@@ -511,7 +517,9 @@ def jensen_shannon_divergence(
 
     # Determine common bin edges
     all_data = np.vstack([p1, p2])
-    ranges = [(all_data[:, i].min(), all_data[:, i].max()) for i in range(all_data.shape[1])]
+    ranges = [
+        (all_data[:, i].min(), all_data[:, i].max()) for i in range(all_data.shape[1])
+    ]
 
     # Compute multi-dimensional histograms
     hist1, _ = np.histogramdd(p1, bins=bins, range=ranges)
@@ -546,7 +554,7 @@ DistanceMetric = Literal[
 
 def _get_distance_function(metric: DistanceMetric) -> Callable:
     """Get the distance function for a given metric name.
-    
+
     This is the plugin registry for distance metrics.
     """
     match metric:
@@ -612,7 +620,7 @@ def pairwise_distance(
     >>> dists = pairwise_distance(X, Y, metric="euclidean")
     >>> dists.shape
     (100, 50)
-    
+
     >>> # Within-sample distances
     >>> dists = pairwise_distance(X, metric="cosine")
     >>> dists.shape
@@ -655,7 +663,7 @@ def pairwise_distance(
                         cov = metric_kwargs.get("cov", np.cov(Y_arr, rowvar=False))
                         dists[i, j] = dist_func(X_arr[i], mean, cov=cov)
                     else:
-                        dists[i, j] = dist_func(X_arr[i:i+1], Y_arr[j:j+1])
+                        dists[i, j] = dist_func(X_arr[i : i + 1], Y_arr[j : j + 1])
 
             result = dists
         case _:
@@ -711,14 +719,14 @@ def distribution_distance(
     >>> mean_dist = distribution_distance(points, mode="within")
     >>> isinstance(mean_dist, float)
     True
-    
+
     >>> # Between-distribution distances
     >>> p1 = np.random.randn(100, 10)
     >>> p2 = np.random.randn(100, 10) + 1.0
     >>> mean_dist = distribution_distance(p1, p2, mode="between")
     >>> isinstance(mean_dist, float)
     True
-    
+
     >>> # Get all statistics
     >>> stats = distribution_distance(p1, p2, mode="between", summary="all")
     >>> "mean" in stats and "std" in stats
@@ -731,7 +739,11 @@ def distribution_distance(
         case "within":
             if points1_arr.shape[0] < 2:
                 logger.warning("Less than 2 samples, returning zero distances")
-                return {"mean": 0.0, "std": 0.0, "median": 0.0} if summary == "all" else 0.0
+                return (
+                    {"mean": 0.0, "std": 0.0, "median": 0.0}
+                    if summary == "all"
+                    else 0.0
+                )
 
             logger.info(
                 f"Computing within-distribution distances: n_samples={points1_arr.shape[0]}, "
@@ -740,7 +752,11 @@ def distribution_distance(
 
             # Compute pairwise distances within single distribution
             dists_matrix = pairwise_distance(
-                points1_arr, points1_arr, metric=metric, parallel=parallel, **metric_kwargs
+                points1_arr,
+                points1_arr,
+                metric=metric,
+                parallel=parallel,
+                **metric_kwargs,
             )
 
             # Extract upper triangle (excluding diagonal)
@@ -763,11 +779,19 @@ def distribution_distance(
                 dist_func = _get_distance_function(metric)
                 dist = dist_func(points1_arr, points2_arr, **metric_kwargs)
                 logger.info(f"Distribution-level distance: {dist:.6f}")
-                return dist if summary != "all" else {"mean": dist, "std": 0.0, "median": dist}
+                return (
+                    dist
+                    if summary != "all"
+                    else {"mean": dist, "std": 0.0, "median": dist}
+                )
 
             # For point-wise metrics, compute pairwise and summarize
             dists_matrix = pairwise_distance(
-                points1_arr, points2_arr, metric=metric, parallel=parallel, **metric_kwargs
+                points1_arr,
+                points2_arr,
+                metric=metric,
+                parallel=parallel,
+                **metric_kwargs,
             )
 
             # Flatten all pairwise distances

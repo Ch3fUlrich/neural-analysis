@@ -78,7 +78,7 @@ class TestFilterOutlier:
         filtered, mask = filter_outlier(
             points, method="lof", contamination=0.05, return_mask=True
         )
-        
+
         assert isinstance(mask, np.ndarray)
         assert mask.dtype == bool
         assert mask.shape == (points.shape[0],)

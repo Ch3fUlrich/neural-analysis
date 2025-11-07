@@ -1,96 +1,34 @@
 # Comprehensive TODO List - Neural Analysis Project
 
-**Last Updated**: November 6, 2025 - Documentation & CI/CD Complete  
+**Last Updated**: November 5, 2025 - Code Quality & Maintenance Phase Complete  
 **Purpose**: Detailed task list for AI agent handoff and project completion  
-**Current Test Status**: 204/205 passing (99.5% coverage - 1 UMAP test skipped) ✅
+**Current Test Status**: 181/181 passing (100% coverage) ✅
 
 ---
 
-## 📊 CURRENT SESSION SUMMARY (November 6, 2025 - Final)
+## 📊 CURRENT SESSION SUMMARY (November 5, 2025)
 
-**Major Accomplishments Today**:
+**Completed in This Session**:
+1. ✅ PlotGrid architecture verification (all 15 functions consistent)
+2. ✅ README.md documentation (features, usage examples, testing)
+3. ✅ Example notebooks verified (code correct, outputs stale)
+4. ✅ Duplicate test file removed (181 unique tests, down from 196)
+5. ✅ Type annotation fixes (renderers.py plotly types)
+6. ✅ All tests passing (100% coverage maintained)
 
-### Phase 1: Bug Fixes ✅
-1. ✅ Fixed IndexError in boolean plot renderer when data ends with True/False state
-2. ✅ Fixed legend not appearing in boolean plots when legend_tracker is empty
-3. ✅ All 6 boolean plot tests now passing (were failing with array bounds errors)
-4. ✅ Full test suite passing: 204 passed, 1 skipped (UMAP not installed)
-
-### Phase 2: Notebooks ✅
-5. ✅ Re-executed all 10 example notebooks to clear stale outputs
-6. ✅ Created `scripts/execute_notebooks.py` for automated notebook execution
-7. ✅ All notebooks now have fresh, correct outputs (no stale errors)
-
-### Phase 3: Documentation ✅
-8. ✅ Set up Sphinx with autodoc for automated API documentation
-9. ✅ Created comprehensive documentation structure:
-   - Installation guide
-   - Quick start guide
-   - Complete API reference for all modules
-   - Examples and usage guide
-   - Contributing guide integration
-10. ✅ Generated HTML documentation (259 warnings handled, build successful)
-11. ✅ Configured ReadTheDocs theme with proper navigation
-
-### Phase 4: CI/CD ✅
-12. ✅ Created GitHub Actions workflow (`.github/workflows/test.yml`)
-13. ✅ Multi-Python version testing (3.10, 3.11, 3.12, 3.14)
-14. ✅ Automated pytest with coverage reporting
-15. ✅ Lint checks with ruff
-16. ✅ Type checking with mypy  
-17. ✅ Documentation build verification
-18. ✅ Pushed to GitHub - CI/CD workflow now active!
-
-**Technical Details**:
-- **Boolean Plot Fix**: Clamped indices using `min(start, len(x)-1)` for array bounds safety
-- **Legend Fix**: Changed `if legend_tracker` to `if legend_tracker is not None` (empty set is falsy)
-- **Sphinx Setup**: Used autodoc + napoleon for NumPy-style docstrings
-- **Mock Imports**: Configured autodoc to mock matplotlib/plotly for documentation build
-- **Notebook Automation**: Created reusable script with ExecutePreprocessor
-
-**Previous Session Tasks (Earlier Today)**:
-1. ✅ Reference lines (hlines/vlines) support added to PlotGrid
-2. ✅ Annotations support with text boxes, arrows, and styling
-3. ✅ Dictionary data format handling in line renderers
-4. ✅ Matplotlib backend implementation for reference lines
-5. ✅ Plotly backend implementation with shapes and annotations
-6. ✅ Examples added in plots_1d_examples.ipynb (both backends)
-7. ✅ Test examples added in embeddings_demo.ipynb
-8. ✅ README.md updated with reference lines documentation
-
-**New Features Added Today**:
-- Automated notebook execution pipeline
-- Comprehensive Sphinx-based API documentation
-- GitHub Actions CI/CD with multi-version testing
-- Coverage reporting integration
-- Documentation build automation
+**Test Journey**:
+- Previous session: 106/196 → 196/196 (100% coverage achieved)
+- This session: 196/196 → 181/181 (duplicates removed, coverage maintained)
 
 ---
 
 ## 🎉 MAJOR MILESTONES ACHIEVED
 
-### ✅ 99.5% Test Coverage (204 passing, 1 skipped)
+### ✅ 100% Test Coverage (181 unique tests)
 - All plotting functionality tested across both backends
 - Edge cases and error handling validated
 - API parameters and configuration verified
-- Boolean plot edge cases fixed (all True, all False, ending with True/False)
 - Removed 15 duplicate tests for cleaner test suite
-
-### ✅ Complete API Documentation
-- Sphinx with autodoc for automated documentation generation
-- ReadTheDocs theme with proper navigation (4-level depth)
-- Installation, quickstart, and comprehensive examples
-- Full API reference for all 15 plotting functions
-- PlotSpec, PlotConfig, and PlotGrid fully documented
-- Build successful with `cd docs && make html`
-
-### ✅ CI/CD Pipeline Active
-- GitHub Actions workflow running on push/PR
-- Multi-version Python testing (3.10, 3.11, 3.12, 3.14)
-- Automated test execution with coverage reports
-- Lint and type checking integrated
-- Documentation build verification
-- Ready for production deployment
 
 ### ✅ PlotGrid Architecture Verified
 - All 15 plotting functions use unified PlotGrid system
@@ -100,7 +38,7 @@
 ### ✅ Documentation & Code Quality
 - README.md enhanced with features, usage examples, and testing status
 - Architecture verification documented
-- Example notebooks all re-executed with fresh outputs
+- Example notebooks code verified correct
 - Duplicate test files removed
 - Type annotations fixed (plotly forward references)
 - Lint errors resolved
@@ -226,122 +164,67 @@ All plotting functions consistently use the PlotGrid system with the same patter
 
 ---
 
-## 3. DOCUMENTATION TASKS - COMPLETE ✅
+## 3. DOCUMENTATION TASKS - IN PROGRESS
 
 ### 3.1 Update README.md ✅
-**Status**: COMPLETE (Updated November 6, 2025)
-- ✅ Coverage statistics maintained (204/205 - 99.5%)
+**Status**: COMPLETE
+- ✅ Coverage statistics updated (196/196 - 100%)
 - ✅ Added Features section highlighting plotting capabilities
 - ✅ Added Usage examples with code snippets
 - ✅ Documented backend selection (matplotlib/plotly)
 - ✅ Added advanced features examples (trajectories, grouped scatter)
 - ✅ Added Testing section with coverage status
-- ✅ Added reference lines feature documentation with full example
 
 ### 3.2 Example Notebooks ✅
-**Status**: COMPLETE - All notebooks re-executed
+**Status**: CODE IS CORRECT - Just needs re-execution
 **Location**: `/examples/` directory
 
-**Accomplishments**:
-- ✅ All 10 notebooks re-executed with fresh outputs
-- ✅ Cleared stale error outputs from plots_3d_examples.ipynb
-- ✅ Created `scripts/execute_notebooks.py` for automation
-- ✅ All notebooks now have current, correct outputs
+**Investigation Results**:
+- Checked `plots_1d_examples.ipynb`: Code uses correct API ✅
+- Checked `plots_3d_examples.ipynb`: Code uses `color_by="time"` correctly ✅
+- Error messages found are from **old output cells** (stale execution results)
+- Source code has been updated and is using correct parameters
 
-**Notebooks Updated**:
-1. plots_1d_examples.ipynb
-2. plots_2d_examples.ipynb
-3. plots_3d_examples.ipynb
-4. statistical_plots_examples.ipynb
-5. plotting_grid_showcase.ipynb
-6. embeddings_demo.ipynb
-7. neural_analysis_demo.ipynb
-8. io_h5io_examples.ipynb
-9. logging_examples.ipynb
-10. metrics_examples.ipynb
+**Action**:
+- Notebooks contain correct code but have stale error outputs
+- Re-running notebooks will clear old errors and generate fresh outputs
+- Low priority since code is actually correct
 
-### 3.3 API Documentation ✅
-**Status**: COMPLETE - Sphinx documentation generated
-**Priority**: Was Medium → Now COMPLETE
+### 3.3 API Documentation
+**Priority**: Medium
+- Document all PlotSpec fields with examples
+- Create comprehensive plotting guide
+- Add migration guide from old Visualizer.py API
 
-**Accomplishments**:
-- ✅ Installed Sphinx with autodoc, napoleon, and ReadTheDocs theme
-- ✅ Created comprehensive documentation structure:
-  - `docs/index.rst` - Main landing page with features overview
-  - `docs/installation.rst` - Installation instructions for all scenarios
-  - `docs/quickstart.rst` - Quick start guide with examples
-  - `docs/examples.rst` - Detailed examples and complete workflows
-  - `docs/api/index.rst` - Complete API reference
-  - `docs/contributing.rst` - Contributing guide
-  - `docs/conf.py` - Sphinx configuration with autodoc settings
-  - `docs/Makefile` - Build automation
+**File to Modify**: `src/neural_analysis/plotting/renderers.py`
 
-**Documentation Features**:
-- Automated API documentation from docstrings (autodoc)
-- NumPy-style docstring support (napoleon)
-- Source code linking (viewcode)
-- Cross-referencing to Python/NumPy/Matplotlib docs (intersphinx)
-- Type hint display (sphinx-autodoc-typehints)
-- Markdown support (myst-parser)
-- ReadTheDocs theme with 4-level navigation
-- Mock imports for matplotlib/plotly to avoid build dependencies
+**Current Behavior**: Raises `ValueError("Need at least 2 points for trajectory")`
 
-**Build Process**:
-```bash
-cd docs
-make html  # Builds to docs/_build/html/
+**Options**:
+1. Allow graceful degradation: plot as single scatter point
+2. Improve error message: "Trajectory requires at least 2 points, got 1. Use scatter plot instead."
+3. Add special handling in trajectory functions to detect and redirect to scatter
+
+**Test Affected**:
+- `test_plots_2d.py::TestEdgeCases::test_single_point_trajectory`
+
+#### 1.4.2 Invalid Backend Validation
+
+**File to Modify**: Backend selection code (likely in `plots_2d.py` or `grid_config.py`)
+
+**Issue**: No validation that backend value is valid
+
+**Required Fix**: Add backend validation before use:
+```python
+valid_backends = ['matplotlib', 'plotly']
+if backend and backend not in valid_backends:
+    raise ValueError(f"Invalid backend '{backend}'. Must be one of {valid_backends}")
 ```
 
-**Coverage**:
-- All 15 plotting functions documented
-- PlotSpec with all fields (hlines, vlines, annotations)
-- PlotConfig, PlotGrid, GridLayoutConfig
-- Embeddings, metrics, and utility modules
-- Installation, quickstart, and advanced examples
+**Test Affected**:
+- `test_plots_2d.py::TestBackendSelection::test_invalid_backend_raises_error`
 
----
-
-## 4. CI/CD SETUP - COMPLETE ✅
-
-### 4.1 GitHub Actions Workflow ✅
-**Status**: COMPLETE - Active and running
-**Priority**: Was Medium → Now COMPLETE
-
-**File**: `.github/workflows/test.yml`
-
-**Workflow Features**:
-- **Trigger**: Runs on push to main/migration/develop, PRs, and manual dispatch
-- **Multi-Version Testing**: Python 3.10, 3.11, 3.12, 3.14 in matrix
-- **Test Suite**: 
-  - Runs pytest with verbose output
-  - Coverage reporting with codecov integration
-  - Coverage report in terminal and XML format
-- **Code Quality**:
-  - Ruff linting (continue-on-error for warnings)
-  - Mypy type checking (continue-on-error for warnings)
-- **Documentation**: 
-  - Separate job to build Sphinx docs
-  - Uploads documentation as artifact
-  - Verifies docs build on every push
-
-**Job Configuration**:
-1. **test** job:
-   - Ubuntu latest runner
-   - Matrix strategy for multiple Python versions
-   - Fail-fast disabled for comprehensive testing
-   - Steps: checkout → setup Python → install deps → lint → type check → test
-   
-2. **docs** job:
-   - Ubuntu latest runner
-   - Python 3.14
-   - Steps: checkout → setup Python → install deps → build docs → upload artifact
-
-**Deployment Status**: ✅ Pushed to GitHub and workflow is now active!
-
-### 4.2 Local CI Testing
-**Status**: SKIPPED - Direct GitHub deployment chosen
-**Reason**: Act installation had issues; workflow validated and pushed directly
-**Result**: Workflow running successfully on GitHub Actions
+**Expected Impact**: +2 tests → 196/196 passing (100% ✅)
 
 ---
 
@@ -373,44 +256,357 @@ make html  # Builds to docs/_build/html/
 
 ---
 
-## 4. MIGRATION TASKS FROM TODO FOLDER
+## 4. MIGRATION TASKS FROM TODO FOLDER ⚠️ HIGH PRIORITY
 
-### 4.1 Visualizer.py Analysis
-**File**: `todo/Visualizer.py`  
-**Size**: 7,586 lines (massive legacy file)  
-**Status**: Partially migrated
+### 4.1 Overview: Legacy Code Migration Strategy
 
-**Already Migrated** ✅:
-- 3D scatter plotting → `plots_3d.py::plot_scatter_3d`
-- 3D trajectory plotting → `plots_3d.py::plot_trajectory_3d`
-- 2D scatter plots → `plots_2d.py::plot_scatter_2d`
-- 2D trajectory plots → `plots_2d.py::plot_trajectory_2d`
-- Heatmaps → `heatmaps.py::plot_heatmap`
-- Line plots → `plots_1d.py::plot_line`
-- KDE plots → `plots_2d.py::plot_kde_2d`
-- Grouped scatter → `plots_2d.py::plot_grouped_scatter_2d`
+**Total Legacy Code**: ~16,134 lines in /todo folder
+- `Visualizer.py`: 7,585 lines (plotting and visualization)
+- `Helper.py`: 4,730 lines (utility functions)
+- `Manimeasure.py`: 1,881 lines (embeddings, decoding, similarity)
+- `structure_index.py`: 863 lines (structure index calculations)
+- `yaml_creator.py`: 685 lines (configuration)
+- `restructure.py`: 390 lines (data restructuring)
 
-**Still in Visualizer.py** (>25 functions):
-- Embedding visualizations (plot_embedding, plot_embedding_2d, plot_embedding_3d)
-- Neural activity rasters
-- Batch heatmaps
-- Animation functions
-- Sankey diagrams (commented out dependency)
-- Various specialized plots
+**Migration Philosophy**:
+1. **Preserve Functionality**: All important analysis capabilities must be maintained
+2. **Improve Architecture**: Use PlotGrid system, clean APIs, proper testing
+3. **Prioritize by Usage**: Migrate most-used functions first
+4. **Add Examples**: Create example notebooks for each new module
 
-**Recommendation**:
-1. **Keep for now**: Visualizer.py as legacy compatibility layer
-2. **Document**: Add deprecation warnings for migrated functions
-3. **Future**: Migrate remaining functions as needed
-4. **Low Priority**: Most active development uses new system
+---
 
-### 4.2 Other Files in todo/
-**Files**: 
-- `restructure.py` - Data restructuring utilities
-- `yaml_creator.py` - Configuration file generation
+### 4.2 Manimeasure.py - CRITICAL FOR MIGRATION 🔴
 
-**Status**: Needs review
-**Action**: Determine if these should be migrated or remain as scripts
+**File**: `todo/Manimeasure.py` (1,881 lines)
+**Priority**: **VERY HIGH** - Contains core analysis pipeline
+
+#### 4.2.1 Embedding Methods (Lines 47-320) 
+**Status**: ❌ NOT MIGRATED - **TOP PRIORITY**
+
+**Functions**:
+- `create_multiple_embeddings()` - Multi-panel embedding comparison plots
+- `_add_embedding_subplot()` - Helper for subplot creation
+- `simple_embedd()` - Core embedding wrapper (TSNE, UMAP, PCA, MDS, Isomap, LLE, PTU, Spectral)
+
+**Migration Plan**:
+1. Create new module: `src/neural_analysis/embeddings/__init__.py`
+2. Create submodules:
+   - `embeddings/dimensionality_reduction.py` - Core embedding functions
+   - `embeddings/visualization.py` - Embedding plotting with PlotGrid
+3. Implement embedding functions:
+   ```python
+   def compute_embedding(
+       data: np.ndarray,
+       method: Literal["pca", "umap", "tsne", "mds", "isomap", "lle", "spectral"],
+       n_components: int = 2,
+       **kwargs
+   ) -> np.ndarray
+   ```
+4. Implement multi-embedding comparison using PlotGrid:
+   ```python
+   def plot_multiple_embeddings(
+       data: np.ndarray,
+       methods: List[str] = ["pca", "umap"],
+       n_components: int = 2,
+       colors: Optional[np.ndarray] = None,
+       config: PlotConfig = None
+   ) -> Figure
+   ```
+5. Add PCA variance plot (already exists in Visualizer.py line 5823)
+6. **Connect to distribution comparison**: Link embeddings with `compare_distributions()`
+
+**Dependencies**:
+- scikit-learn (PCA, MDS, Isomap, LLE, SpectralEmbedding)
+- umap-learn (UMAP)
+- Optional: parallel_transport_unfolding (PTU)
+
+**Example Notebook**: Create `examples/embedding_examples.ipynb`
+
+---
+
+#### 4.2.2 Decoding Analysis (Lines 322-664)
+**Status**: ❌ NOT MIGRATED - **HIGH PRIORITY**
+
+**Functions**:
+- `decode()` - k-NN decoding with cross-validation
+- `_compute_regression_metrics()` - R², RMSE for regression
+- `_compute_classification_metrics()` - Accuracy, precision, recall, F1, ROC/AUC
+
+**Migration Plan**:
+1. Create new module: `src/neural_analysis/decoding/__init__.py`
+2. Implement:
+   ```python
+   def knn_decode(
+       embedding_train: np.ndarray,
+       embedding_test: np.ndarray,
+       labels_train: np.ndarray,
+       labels_test: np.ndarray,
+       n_neighbors: Optional[int] = None,  # Auto-select via CV
+       metric: str = "cosine",
+       task: Literal["regression", "classification"] = "auto"
+   ) -> Dict[str, float]
+   ```
+3. Add visualization:
+   ```python
+   def plot_decoding_results(
+       predictions: np.ndarray,
+       true_labels: np.ndarray,
+       task: str = "regression",
+       config: PlotConfig = None
+   ) -> Figure
+   ```
+4. **Connect to embeddings**: Pipeline from `compute_embedding()` → `knn_decode()`
+
+**Example Notebook**: Create `examples/decoding_examples.ipynb`
+
+---
+
+#### 4.2.3 Feature Similarity (Lines 665-889)
+**Status**: ❌ NOT MIGRATED - **HIGH PRIORITY**
+
+**Functions**:
+- `feature_similarity()` - Population vector similarity analysis
+- Supports: inside-group, between-group, pairwise similarity
+- Outlier removal and parallel computation
+
+**Migration Plan**:
+1. **Extend existing module**: `src/neural_analysis/metrics/similarity.py`
+2. Add new functions:
+   ```python
+   def population_similarity(
+       data: np.ndarray,
+       labels: np.ndarray,
+       category_map: Dict,
+       metric: Literal["cosine", "euclidean"] = "cosine",
+       mode: Literal["pairwise", "within", "between"] = "within"
+   ) -> np.ndarray
+   ```
+3. Add visualization:
+   ```python
+   def plot_similarity_matrix(
+       similarities: np.ndarray,
+       labels: Optional[List[str]] = None,
+       config: PlotConfig = None
+   ) -> Figure
+   ```
+4. **TODO ITEM**: Create example notebook `examples/similarity_examples.ipynb` ✅
+
+**Integration**: Works with existing `similarity_matrix()` function
+
+---
+
+#### 4.2.4 Structure Index (Lines 891-1055)
+**Status**: ⚠️ PARTIALLY MIGRATED - Uses external `structure_index.py`
+
+**Functions**:
+- `structure_index()` - Wrapper for structure index computation
+- Parameter sweep over n_neighbors
+- Plotting and saving results
+
+**Migration Plan**:
+1. Create new module: `src/neural_analysis/topology/__init__.py`
+2. Integrate with `todo/structure_index.py`:
+   ```python
+   def compute_structure_index(
+       data: np.ndarray,
+       labels: np.ndarray,
+       n_bins: int = 10,
+       n_neighbors: Union[int, List[int]] = 15,
+       discrete_label: bool = False,
+       num_shuffles: int = 100
+   ) -> Dict[str, Any]
+   ```
+3. Add visualization with PlotGrid:
+   ```python
+   def plot_structure_index(
+       embedding: np.ndarray,
+       labels: np.ndarray,
+       overlap_mat: np.ndarray,
+       SI: float,
+       config: PlotConfig = None
+   ) -> Figure
+   ```
+
+**Example Notebook**: Create `examples/structure_index_examples.ipynb`
+
+---
+
+#### 4.2.5 Shape Similarity (Lines 1057-1520)
+**Status**: ❌ NOT MIGRATED - **MEDIUM PRIORITY**
+
+**Functions**:
+- `load_df_sim()` - Load/save similarity DataFrames
+- `pairwise_shape_compare_hdf5io_wrapper()` - HDF5-based batch processing
+- `shape_distance()` - Procrustes, one-to-one, soft-matching distances
+- `_plot_similarity_results()` - Visualization
+
+**Migration Plan**:
+1. Create new module: `src/neural_analysis/shape/__init__.py`
+2. Implement shape distance metrics:
+   ```python
+   def shape_distance(
+       matrix1: np.ndarray,
+       matrix2: np.ndarray,
+       method: Literal["procrustes", "one-to-one", "soft-matching"] = "soft-matching"
+   ) -> float
+   ```
+3. Add batch processing with HDF5 backend (use existing `utils/io.py`)
+4. Visualization with PlotGrid
+
+**Dependencies**:
+- scipy.spatial (procrustes)
+- scipy.optimize (linear_sum_assignment)
+- POT (Python Optimal Transport) for soft-matching
+
+**Example Notebook**: Create `examples/shape_similarity_examples.ipynb`
+
+---
+
+### 4.3 Visualizer.py - PARTIAL MIGRATION NEEDED 🟡
+
+**File**: `todo/Visualizer.py` (7,585 lines)
+**Priority**: **MEDIUM** - Many functions already migrated
+
+#### 4.3.1 Already Migrated ✅
+- ✅ 3D scatter → `plots_3d.py::plot_scatter_3d`
+- ✅ 3D trajectory → `plots_3d.py::plot_trajectory_3d`
+- ✅ 2D scatter → `plots_2d.py::plot_scatter_2d`
+- ✅ 2D trajectory → `plots_2d.py::plot_trajectory_2d`
+- ✅ Heatmaps → `heatmaps.py::plot_heatmap`
+- ✅ Line plots → `plots_1d.py::plot_line`
+- ✅ KDE plots → `plots_2d.py::plot_kde_2d`
+- ✅ Grouped scatter → `plots_2d.py::plot_grouped_scatter_2d`
+- ✅ Violin plots → `statistical_plots.py::plot_violin`
+- ✅ Box plots → `statistical_plots.py::plot_box`
+- ✅ Bar plots → `statistical_plots.py::plot_bar`
+
+#### 4.3.2 Still Needs Migration ❌
+
+**Embedding Plots** (Lines 4994-5822):
+- `plot_simple_embedd()` - Simple embedding visualization
+- `pca_component_variance_plot()` - Scree plot for PCA
+- **Action**: Migrate to `embeddings/visualization.py`
+
+**Batch Heatmaps** (Lines 7524-7585):
+- `plot_batch_heatmap()` - Multiple heatmaps in grid
+- `plot_all_cells_modular()` - Cell-wise activity heatmaps
+- **Action**: Create `plot_heatmap_grid()` in `heatmaps.py` using PlotGrid
+
+**Animation Functions** (Lines 7400-7523):
+- `animate_2D_positions()` - Position trajectory animation
+- **Action**: Low priority - animations not critical for analysis
+
+**Specialized Plots** (Lines 6818-7315):
+- `linebar_df_group_plot()` - Combined line/bar plots
+- `violin_plot()` - Enhanced violin plots (already have basic version)
+- **Action**: Evaluate if needed or if existing functions suffice
+
+**Utility Functions** (Lines 5854-6563):
+- `prep_subplot_template()`, `end_subplot()` - Subplot management
+- `calculate_axis_range()`, `autoscale_axis()` - Axis utilities
+- `set_share_axes()` - Shared axes configuration
+- **Action**: Review and integrate into PlotConfig/GridLayoutConfig
+
+**Colormap Functions** (Lines 6584-6812):
+- `create_2d_colormap()`, `plot_2d_colormap()` - 2D colormaps
+- `is_continuous_colormap()` - Colormap validation
+- `get_plotly_colors()`, `hex_to_rgba_str()` - Color utilities
+- **Action**: Integrate into `core.py::ColorScheme` and `core.py::resolve_colormap()`
+
+---
+
+### 4.4 Helper.py - UTILITY FUNCTIONS 🟢
+
+**File**: `todo/Helper.py` (4,730 lines)
+**Priority**: **LOW-MEDIUM** - Support functions
+
+**Status**: Needs detailed review to identify which functions are:
+1. Already available in numpy/scipy
+2. Need migration to `utils/`
+3. Obsolete and can be removed
+
+**Action Plan**:
+1. Catalog all functions in Helper.py
+2. Cross-reference with existing `utils/` modules
+3. Identify gaps and migrate critical utilities
+4. Add tests for migrated functions
+
+---
+
+### 4.5 Migration Priority Summary
+
+**🔴 CRITICAL (Do First)**:
+1. **Embedding module** (`embeddings/`) - Core analysis capability
+   - `compute_embedding()` with PCA, UMAP, TSNE, MDS, Isomap, LLE, Spectral
+   - `plot_multiple_embeddings()` using PlotGrid
+   - Connect to distribution comparison
+   - **Example notebook**: `embedding_examples.ipynb`
+
+2. **Shape similarity** (`shape/`) - After similarity.py example notebook
+   - Already requested: similarity.py example notebook ✅
+   - Then migrate shape distance functions
+   - **Example notebook**: `shape_similarity_examples.ipynb`
+
+**🟡 HIGH (Do Next)**:
+3. **Decoding module** (`decoding/`)
+   - k-NN decoding with auto k-selection
+   - Regression and classification metrics
+   - Connect to embeddings
+   - **Example notebook**: `decoding_examples.ipynb`
+
+4. **Feature similarity** (extend `metrics/similarity.py`)
+   - Population vector similarity
+   - Within/between group comparisons
+   - **Example notebook**: `similarity_examples.ipynb` ✅
+
+**🟢 MEDIUM (Do Later)**:
+5. **Structure index** (`topology/`)
+   - Integrate existing structure_index.py
+   - Add PlotGrid visualization
+   - **Example notebook**: `structure_index_examples.ipynb`
+
+6. **Visualizer.py remaining functions**
+   - Batch heatmaps, specialized plots
+   - Embedding plots (after embeddings/ module)
+   - Utility integration
+
+**⚪ LOW (Future)**:
+7. **Helper.py** - Review and migrate as needed
+8. **Animation functions** - Nice-to-have
+9. **Legacy compatibility layer** - Wrappers for old API
+
+---
+
+### 4.6 TODO List Additions
+
+**Added to TODO**:
+- [ ] Create `examples/similarity_examples.ipynb` for functions in `similarity.py` ✅
+- [ ] Create `src/neural_analysis/embeddings/` module
+  - [ ] `embeddings/dimensionality_reduction.py` - compute_embedding()
+  - [ ] `embeddings/visualization.py` - plot_multiple_embeddings()
+  - [ ] Connect embeddings to distribution comparison
+  - [ ] Add PCA variance plot
+  - [ ] Create `examples/embedding_examples.ipynb`
+- [ ] Create `src/neural_analysis/shape/` module
+  - [ ] Implement shape_distance() with procrustes, one-to-one, soft-matching
+  - [ ] Add HDF5 batch processing
+  - [ ] PlotGrid visualization
+  - [ ] Create `examples/shape_similarity_examples.ipynb`
+- [ ] Create `src/neural_analysis/decoding/` module
+  - [ ] Implement knn_decode() with auto k-selection
+  - [ ] Add regression and classification metrics
+  - [ ] Plot decoding results
+  - [ ] Create `examples/decoding_examples.ipynb`
+- [ ] Create `src/neural_analysis/topology/` module
+  - [ ] Integrate structure_index.py
+  - [ ] Add PlotGrid visualization
+  - [ ] Create `examples/structure_index_examples.ipynb`
+- [ ] Migrate remaining Visualizer.py functions
+  - [ ] Batch heatmaps → `plot_heatmap_grid()`
+  - [ ] Embedding plots → `embeddings/visualization.py`
+  - [ ] Integrate colormap utilities into `core.py`
+- [ ] Review and migrate Helper.py utilities
 
 ---
 

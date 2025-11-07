@@ -47,15 +47,15 @@ __all__ = [
 class PlotConfig:
     """
     Configuration for plot appearance and behavior.
-    
+
     This dataclass consolidates all plot configuration parameters into a single
     object for easier management and passing between functions.
-    
+
     Attributes
     ----------
     title : str, optional
         Plot title
-    xlabel : str, optional  
+    xlabel : str, optional
         X-axis label
     ylabel : str, optional
         Y-axis label
@@ -96,7 +96,7 @@ class PlotConfig:
         Colormap name
     alpha : float, default=0.8
         Default alpha transparency
-        
+
     Examples
     --------
     >>> config = PlotConfig(
@@ -108,7 +108,7 @@ class PlotConfig:
     ... )
     >>> # Use config in plotting function
     >>> plot_line(data, config=config)
-    
+
     >>> # Save with generated filename
     >>> config = PlotConfig(
     ...     save_dir="output/figures",
@@ -118,7 +118,7 @@ class PlotConfig:
     ... )
     >>> # Will save as: output/figures/scatter_neuron_activity.png
     """
-    
+
     title: str | None = None
     xlabel: str | None = None
     ylabel: str | None = None
@@ -132,30 +132,30 @@ class PlotConfig:
     legend: bool = True
     tight_layout: bool = True
     save_path: str | Path | None = None
-    save_format: str = 'png'
+    save_format: str = "png"
     save_dir: str | Path | None = None
     plot_type: str | None = None
     additional_save_title: str | None = None
     save_html: bool = True
     show: bool = True
-    cmap: str = 'viridis'
+    cmap: str = "viridis"
     alpha: float = 0.8
-    
+
     def __post_init__(self):
         """Validate and convert parameters after initialization."""
         if self.save_path is not None:
             self.save_path = Path(self.save_path)
         if self.save_dir is not None:
             self.save_dir = Path(self.save_dir)
-    
+
     def get_save_path(self) -> Path | None:
         """
         Get the full save path for the plot.
-        
+
         If save_path is set, returns it directly.
         If save_dir is set, generates filename from plot_type and additional_save_title.
         Otherwise returns None.
-        
+
         Returns
         -------
         Path or None
@@ -163,7 +163,7 @@ class PlotConfig:
         """
         if self.save_path is not None:
             return self.save_path
-        
+
         if self.save_dir is not None:
             # Generate filename
             parts = []
@@ -171,14 +171,14 @@ class PlotConfig:
                 parts.append(self.plot_type)
             if self.additional_save_title:
                 parts.append(self.additional_save_title)
-            
+
             if not parts:
                 # Default filename if nothing specified
                 parts = ["plot"]
-            
+
             filename = "_".join(parts) + f".{self.save_format}"
             return self.save_dir / filename
-        
+
         return None
 
 
@@ -232,7 +232,7 @@ def resolve_colormap(cmap: str | None, backend: BackendType) -> str:
                 return plt.colormaps[attempt_name]
             except (KeyError, AttributeError):
                 continue
-        
+
         # Fallback: use viridis if colormap not found
         warnings.warn(
             f"Unknown colormap '{cmap}', using 'viridis' instead.", stacklevel=2
@@ -257,13 +257,13 @@ def apply_layout_matplotlib(ax, config: PlotConfig) -> None:
         ax.set_xlabel(config.xlabel)
     if config.ylabel:
         ax.set_ylabel(config.ylabel)
-    if config.zlabel and hasattr(ax, 'set_zlabel'):
+    if config.zlabel and hasattr(ax, "set_zlabel"):
         ax.set_zlabel(config.zlabel)
     if config.xlim:
         ax.set_xlim(config.xlim)
     if config.ylim:
         ax.set_ylim(config.ylim)
-    if config.zlim and hasattr(ax, 'set_zlim'):
+    if config.zlim and hasattr(ax, "set_zlim"):
         ax.set_zlim(config.zlim)
     if config.grid:
         ax.grid(True, alpha=0.3)
@@ -302,32 +302,32 @@ def apply_layout_plotly_3d(fig, config: PlotConfig) -> None:
     """Apply common layout for Plotly 3D plots (scene configuration)."""
     layout_updates: dict = {}
     if config.title:
-        layout_updates['title'] = config.title
-    
+        layout_updates["title"] = config.title
+
     scene_dict = {}
     if config.xlabel:
-        scene_dict['xaxis_title'] = config.xlabel
+        scene_dict["xaxis_title"] = config.xlabel
     if config.ylabel:
-        scene_dict['yaxis_title'] = config.ylabel
+        scene_dict["yaxis_title"] = config.ylabel
     if config.zlabel:
-        scene_dict['zaxis_title'] = config.zlabel
+        scene_dict["zaxis_title"] = config.zlabel
     if config.xlim:
-        scene_dict['xaxis'] = scene_dict.get('xaxis', {})
-        scene_dict['xaxis']['range'] = list(config.xlim)
+        scene_dict["xaxis"] = scene_dict.get("xaxis", {})
+        scene_dict["xaxis"]["range"] = list(config.xlim)
     if config.ylim:
-        scene_dict['yaxis'] = scene_dict.get('yaxis', {})
-        scene_dict['yaxis']['range'] = list(config.ylim)
+        scene_dict["yaxis"] = scene_dict.get("yaxis", {})
+        scene_dict["yaxis"]["range"] = list(config.ylim)
     if config.zlim:
-        scene_dict['zaxis'] = scene_dict.get('zaxis', {})
-        scene_dict['zaxis']['range'] = list(config.zlim)
-    
+        scene_dict["zaxis"] = scene_dict.get("zaxis", {})
+        scene_dict["zaxis"]["range"] = list(config.zlim)
+
     if scene_dict:
-        layout_updates['scene'] = scene_dict
-    
+        layout_updates["scene"] = scene_dict
+
     if config.figsize:
-        layout_updates['width'] = int(config.figsize[0] * 100)
-        layout_updates['height'] = int(config.figsize[1] * 100)
-    
+        layout_updates["width"] = int(config.figsize[0] * 100)
+        layout_updates["height"] = int(config.figsize[1] * 100)
+
     fig.update_layout(**layout_updates)
 
 
@@ -338,20 +338,20 @@ def get_default_categorical_colors(n: int) -> list[str]:
     backends (matplotlib and plotly).
     """
     try:
-        palette = plt.colormaps['tab10']
+        palette = plt.colormaps["tab10"]
     except AttributeError:
-        palette = plt.get_cmap('tab10')
-    
+        palette = plt.get_cmap("tab10")
+
     colors: list[str] = []
     for i in range(n):
         r, g, b, _ = palette(i % palette.N)
-        colors.append(f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}')
+        colors.append(f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}")
     return colors
 
 
 def finalize_plot_matplotlib(config: PlotConfig) -> None:
     """Handle save and show for matplotlib plots.
-    
+
     This consolidates the common pattern of saving and showing matplotlib
     plots based on config settings.
     """
@@ -364,7 +364,7 @@ def finalize_plot_matplotlib(config: PlotConfig) -> None:
 
 def finalize_plot_plotly(fig, config: PlotConfig) -> None:
     """Handle save and show for plotly plots.
-    
+
     This consolidates the common pattern of saving and showing plotly
     plots based on config settings. If save_html is True, also saves
     an HTML version alongside the specified format.
@@ -372,7 +372,7 @@ def finalize_plot_plotly(fig, config: PlotConfig) -> None:
     save_path = config.get_save_path()
     if save_path:
         # Save in the requested format
-        if config.save_format == 'html':
+        if config.save_format == "html":
             fig.write_html(str(save_path))
         else:
             # Save in requested format (png, jpg, pdf)
@@ -380,25 +380,26 @@ def finalize_plot_plotly(fig, config: PlotConfig) -> None:
                 fig.write_image(str(save_path), format=config.save_format)
             except ValueError as e:
                 import logging
+
                 logger = logging.getLogger(__name__)
                 logger.warning(
                     f"Could not save plotly figure as {config.save_format}: {e}. "
                     f"You may need to install kaleido: pip install kaleido"
                 )
-            
+
             # Also save HTML if requested
             if config.save_html:
-                html_path = save_path.with_suffix('.html')
+                html_path = save_path.with_suffix(".html")
                 fig.write_html(str(html_path))
-    
+
     if config.show:
         from IPython.display import HTML, display
+
         try:
             display(HTML(fig.to_html()))
         except Exception:
             # Fall back to standard show if not in Jupyter
             fig.show()
-
 
 
 def calculate_alpha(
@@ -410,11 +411,11 @@ def calculate_alpha(
 ) -> float | list[float]:
     """
     Calculate alpha value(s) based on value's position in range.
-    
+
     Maps input values to alpha (transparency) values linearly based on their
     position in the min-max range. Useful for encoding additional information
     in scatter plots or other visualizations.
-    
+
     Parameters
     ----------
     value : float, int, list, or array
@@ -427,65 +428,63 @@ def calculate_alpha(
         Minimum alpha value (fully transparent = 0, fully opaque = 1).
     max_alpha : float, default=1.0
         Maximum alpha value.
-        
+
     Returns
     -------
     float or list of float
         Calculated alpha value(s) constrained between min_alpha and max_alpha.
         Returns float if input was scalar, list if input was array-like.
-        
+
     Raises
     ------
     ValueError
         If no values provided or if min_alpha > max_alpha.
-        
+
     Examples
     --------
     >>> # Single value with explicit range
     >>> calculate_alpha(5, min_value=0, max_value=10)
     0.65
-    
+
     >>> # Array of values with auto range
     >>> calculate_alpha([1, 2, 3, 4, 5])
     [0.3, 0.475, 0.65, 0.825, 1.0]
-    
+
     >>> # Custom alpha range
     >>> calculate_alpha([1, 5, 10], min_alpha=0.5, max_alpha=0.9)
     [0.5, 0.7, 0.9]
     """
     # Validate alpha range
     if min_alpha > max_alpha:
-        raise ValueError(
-            f"min_alpha ({min_alpha}) must be <= max_alpha ({max_alpha})"
-        )
-    
+        raise ValueError(f"min_alpha ({min_alpha}) must be <= max_alpha ({max_alpha})")
+
     # Convert to array for uniform processing
     is_scalar = isinstance(value, (int, float))
     values = np.atleast_1d(value)
-    
+
     if len(values) == 0:
         raise ValueError("No values provided for alpha calculation.")
-    
+
     # Single value with no range specified returns max alpha
     if len(values) == 1 and (min_value is None or max_value is None):
         return max_alpha if is_scalar else [max_alpha]
-    
+
     # Determine range
     min_val = min_value if min_value is not None else np.min(values)
     max_val = max_value if max_value is not None else np.max(values)
-    
+
     # Handle edge case where range is zero
     if max_val == min_val:
         result = [min_alpha] * len(values)
         return result[0] if is_scalar else result
-    
+
     # Calculate alphas
     normalized = (values - min_val) / (max_val - min_val)
     alphas = min_alpha + (max_alpha - min_alpha) * normalized
-    
+
     # Ensure alpha stays within specified bounds
     alphas = np.clip(alphas, min_alpha, max_alpha)
-    
+
     # Return single value or list based on input type
     return float(alphas[0]) if is_scalar else alphas.tolist()
 
@@ -498,10 +497,10 @@ def generate_similar_colors(
 ) -> list[tuple[float, float, float]]:
     """
     Generate a list of similar colors based on a base color.
-    
+
     Creates color variations by adjusting hue and lightness in the HLS color space.
     Useful for creating cohesive color schemes for grouped data.
-    
+
     Parameters
     ----------
     base_color : tuple of float
@@ -512,55 +511,53 @@ def generate_similar_colors(
         Amount of hue variation per color step.
     lightness_variation : float, default=0.1
         Amount of lightness variation per color step.
-        
+
     Returns
     -------
     list of tuple
         List of RGB color tuples.
-        
+
     Examples
     --------
     >>> base = (0.2, 0.4, 0.8)  # Blue
     >>> colors = generate_similar_colors(base, 5)
     >>> len(colors)
     5
-    
+
     >>> # Use in scatter plot
     >>> for i, color in enumerate(colors):
     ...     plt.scatter(x[i], y[i], color=color)
     """
     base_hls = colorsys.rgb_to_hls(*base_color[:3])
     colors = []
-    
+
     for i in range(num_colors):
         # Small hue variations
         hue = (base_hls[0] + i * hue_variation) % 1.0
-        
+
         # Slight lightness variations, clamped to [0, 1]
         lightness = np.clip(
-            base_hls[1] + (i - num_colors / 2) * lightness_variation,
-            0,
-            1
+            base_hls[1] + (i - num_colors / 2) * lightness_variation, 0, 1
         )
-        
+
         # Convert back to RGB
         rgb = colorsys.hls_to_rgb(hue, lightness, base_hls[2])
         colors.append(rgb)
-    
+
     return colors
 
 
 def create_rgba_labels(
     values: npt.NDArray,
     alpha: float = 0.8,
-    cmap: str = 'rainbow',
+    cmap: str = "rainbow",
 ) -> npt.NDArray:
     """
     Create RGBA labels using a colormap.
-    
+
     Maps input values to RGBA colors using a specified colormap. Supports both
     1D and 2D input values. For 2D values, uses a custom 2D colormap.
-    
+
     Parameters
     ----------
     values : ndarray
@@ -571,17 +568,17 @@ def create_rgba_labels(
         The alpha level for the colors (0=transparent, 1=opaque).
     cmap : str, default='rainbow'
         Colormap name for 1D values (ignored for 2D).
-        
+
     Returns
     -------
     ndarray
         Array of RGBA colors with shape (n, 4).
-        
+
     Raises
     ------
     ValueError
         If values dimension is not 1 or 2.
-        
+
     Examples
     --------
     >>> # 1D values
@@ -589,7 +586,7 @@ def create_rgba_labels(
     >>> colors = create_rgba_labels(values_1d)
     >>> colors.shape
     (5, 4)
-    
+
     >>> # 2D values (e.g., x-y coordinates)
     >>> values_2d = np.array([[0.1, 0.2], [0.5, 0.5], [0.9, 0.8]])
     >>> colors = create_rgba_labels(values_2d)
@@ -599,13 +596,13 @@ def create_rgba_labels(
     values = np.atleast_1d(values)
     # Use sklearn's optimized min-max scaling
     normalized_values = minmax_scale(values, axis=0)
-    
+
     if values.ndim == 1:
         # Use matplotlib colormap for 1D
         cmap_obj = plt.colormaps.get_cmap(cmap)
         rgba_colors = np.array([cmap_obj(x) for x in normalized_values])
         rgba_colors[:, 3] = alpha  # Set alpha channel
-        
+
     elif values.ndim == 2 and values.shape[1] == 2:
         # Custom 2D colormap: first dimension -> red, second -> blue
         rgba_colors = np.zeros((len(values), 4))
@@ -613,26 +610,26 @@ def create_rgba_labels(
         rgba_colors[:, 1] = 0.5  # Green channel (constant)
         rgba_colors[:, 2] = normalized_values[:, 1]  # Blue channel
         rgba_colors[:, 3] = alpha  # Alpha channel
-        
+
     else:
         raise ValueError(
             f"Invalid values dimension: {values.shape}. "
             "Expected 1D array or 2D array with shape (n, 2)."
         )
-    
+
     return rgba_colors
 
 
 def save_plot(
     save_path: str | Path,
-    format: str = 'png',
+    format: str = "png",
     dpi: int = 300,
-    bbox_inches: str = 'tight',
+    bbox_inches: str = "tight",
     **kwargs,
 ) -> None:
     """
     Save current matplotlib figure to file.
-    
+
     Parameters
     ----------
     save_path : str or Path
@@ -645,24 +642,24 @@ def save_plot(
         Bounding box specification. 'tight' removes extra whitespace.
     **kwargs
         Additional arguments passed to plt.savefig().
-        
+
     Examples
     --------
     >>> plt.plot([1, 2, 3], [1, 4, 9])
     >>> save_plot('output/my_plot.png', dpi=300)
-    
+
     >>> # Save as PDF
     >>> save_plot('output/my_plot.pdf', format='pdf')
     """
     save_path = Path(save_path)
-    
+
     # Create directory if it doesn't exist
     save_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Add extension if not present
-    if save_path.suffix == '':
-        save_path = save_path.with_suffix(f'.{format}')
-    
+    if save_path.suffix == "":
+        save_path = save_path.with_suffix(f".{format}")
+
     # Suppress tight_layout warnings
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")
@@ -674,17 +671,17 @@ def save_plot(
 def make_list_if_not(value: Any | list[Any]) -> list[Any]:
     """
     Convert value to list if it isn't already.
-    
+
     Parameters
     ----------
     value : any
         Value to convert.
-        
+
     Returns
     -------
     list
         Input wrapped in list if not already a list.
-        
+
     Examples
     --------
     >>> make_list_if_not(5)

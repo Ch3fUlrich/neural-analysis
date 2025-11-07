@@ -22,7 +22,7 @@ __all__ = ["BackendType", "set_backend", "get_backend"]
 
 class BackendType(Enum):
     """Enumeration of supported visualization backends."""
-    
+
     MATPLOTLIB = "matplotlib"
     PLOTLY = "plotly"
 
@@ -34,17 +34,17 @@ _current_backend: BackendType = BackendType.MATPLOTLIB
 def set_backend(backend: Literal["matplotlib", "plotly"] | BackendType) -> None:
     """
     Set the visualization backend.
-    
+
     Parameters
     ----------
     backend : {'matplotlib', 'plotly'} or BackendType
         The backend to use for subsequent visualizations.
-        
+
     Raises
     ------
     ValueError
         If an invalid backend name is provided.
-        
+
     Examples
     --------
     >>> set_backend('matplotlib')
@@ -52,7 +52,7 @@ def set_backend(backend: Literal["matplotlib", "plotly"] | BackendType) -> None:
     >>> set_backend('plotly')
     """
     global _current_backend
-    
+
     if isinstance(backend, BackendType):
         _current_backend = backend
     elif isinstance(backend, str):
@@ -72,12 +72,12 @@ def set_backend(backend: Literal["matplotlib", "plotly"] | BackendType) -> None:
 def get_backend() -> BackendType:
     """
     Get the current visualization backend.
-    
+
     Returns
     -------
     BackendType
         The currently active backend.
-        
+
     Examples
     --------
     >>> backend = get_backend()

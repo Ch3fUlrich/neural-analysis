@@ -17,12 +17,16 @@ from sklearn.neighbors import LocalOutlierFactor
 try:
     from neural_analysis.utils.logging import get_logger, log_calls  # type: ignore
 except ImportError:
+
     def log_calls(**kwargs):  # type: ignore
         def decorator(func):  # type: ignore
             return func
+
         return decorator
+
     def get_logger(name: str):  # type: ignore
         return logging.getLogger(name)
+
 
 # Module logger
 logger = get_logger(__name__)
@@ -116,7 +120,7 @@ def filter_outlier(
     filtered_points = points_arr[mask]
     n_removed = n - filtered_points.shape[0]
     logger.info(
-        f"Outlier filtering complete: removed {n_removed}/{n} points ({100*n_removed/n:.1f}%)"
+        f"Outlier filtering complete: removed {n_removed}/{n} points ({100 * n_removed / n:.1f}%)"
     )
 
     return (filtered_points, mask) if return_mask else filtered_points
@@ -125,6 +129,7 @@ def filter_outlier(
 # -----------------------------
 # Method-specific helper masks
 # -----------------------------
+
 
 def _mask_outliers_iqr(points: np.ndarray, threshold: float = 1.5) -> np.ndarray:
     """Return boolean mask of inliers using IQR per feature (vectorized)."""
@@ -152,9 +157,9 @@ def _mask_outliers_zscore(points: np.ndarray, threshold: float = 3.0) -> np.ndar
     fallback_cols = mad == 0
     if np.any(fallback_cols):
         with np.errstate(divide="ignore", invalid="ignore"):
-            z_std = (points[:, fallback_cols] - np.mean(points[:, fallback_cols], axis=0)) / (
-                std[fallback_cols] + 1e-12
-            )
+            z_std = (
+                points[:, fallback_cols] - np.mean(points[:, fallback_cols], axis=0)
+            ) / (std[fallback_cols] + 1e-12)
         # Build full robust_z combining fallback columns
         robust_z = np.where(
             np.broadcast_to(fallback_cols, robust_z.shape),
@@ -171,9 +176,7 @@ def _mask_outliers_isolation(points: np.ndarray, contamination: float) -> np.nda
     """Return inlier mask using Isolation Forest (leverages n_jobs=-1)."""
     from sklearn.ensemble import IsolationForest
 
-    detector = IsolationForest(
-        contamination=contamination, random_state=42, n_jobs=-1
-    )
+    detector = IsolationForest(contamination=contamination, random_state=42, n_jobs=-1)
     labels = detector.fit_predict(points)
     return labels != -1
 
@@ -186,9 +189,7 @@ def _mask_outliers_lof(points: np.ndarray, contamination: float) -> np.ndarray:
     """
     n = points.shape[0]
     n_neighbors = min(20, max(2, n - 1))
-    detector = LocalOutlierFactor(
-        n_neighbors=n_neighbors, contamination=contamination
-    )
+    detector = LocalOutlierFactor(n_neighbors=n_neighbors, contamination=contamination)
     labels = detector.fit_predict(points)
     return labels != -1
 

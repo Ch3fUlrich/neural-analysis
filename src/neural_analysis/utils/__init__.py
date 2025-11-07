@@ -42,7 +42,13 @@ def __getattr__(name: str):
     if name == "do_critical":
         mod = importlib.import_module("neural_analysis.utils.validation")
         return getattr(mod, name)
-    if name in {"configure_logging", "get_logger", "log_section", "log_kv", "log_calls"}:
+    if name in {
+        "configure_logging",
+        "get_logger",
+        "log_section",
+        "log_kv",
+        "log_calls",
+    }:
         mod = importlib.import_module("neural_analysis.utils.logging")
         return getattr(mod, name)
     # Trajectory utilities

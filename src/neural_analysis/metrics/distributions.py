@@ -28,12 +28,16 @@ from .distance import (
 try:
     from neural_analysis.utils.logging import get_logger, log_calls  # type: ignore
 except ImportError:
+
     def log_calls(**kwargs):  # type: ignore
         def decorator(func):  # type: ignore
             return func
+
         return decorator
+
     def get_logger(name: str):  # type: ignore
         return logging.getLogger(name)
+
 
 # Module logger
 logger = get_logger(__name__)
@@ -104,9 +108,7 @@ def compare_distributions(
         p2 = p2.reshape(-1, 1)
 
     if p1.shape[1] != p2.shape[1]:
-        raise ValueError(
-            f"Feature dimension mismatch: {p1.shape[1]} vs {p2.shape[1]}"
-        )
+        raise ValueError(f"Feature dimension mismatch: {p1.shape[1]} vs {p2.shape[1]}")
 
     logger.info(
         f"Comparing distributions with metric='{metric}': "
@@ -205,7 +207,10 @@ def compare_distribution_groups(
 
                 # Use unified distribution_distance from distance.py
                 stats = distribution_distance(
-                    points, mode="within", metric=metric, summary="all"  # type: ignore
+                    points,
+                    mode="within",
+                    metric=metric,
+                    summary="all",  # type: ignore
                 )
                 means[idx] = stats["mean"]  # type: ignore
                 stds[idx] = stats["std"]  # type: ignore
@@ -222,9 +227,7 @@ def compare_distribution_groups(
                     dist = compare_distributions(group_i, group_j, metric=metric)  # type: ignore
                     dists_to_all[j] = dist
                 similarities[name_i] = dists_to_all
-                logger.debug(
-                    f"Group '{name_i}' distances to all: {dists_to_all}"
-                )
+                logger.debug(f"Group '{name_i}' distances to all: {dists_to_all}")
 
             logger.info(f"Between-group distances computed for {n_groups} groups")
             return similarities

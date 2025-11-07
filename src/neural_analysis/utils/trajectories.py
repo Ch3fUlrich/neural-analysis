@@ -17,7 +17,7 @@ def prepare_trajectory_segments(
 ) -> np.ndarray:
     """
     Prepare 2D or 3D trajectory data as line segments for visualization.
-    
+
     Parameters
     ----------
     x : np.ndarray
@@ -26,13 +26,13 @@ def prepare_trajectory_segments(
         Y coordinates (1D array, length n)
     z : np.ndarray, optional
         Z coordinates (1D array, length n). If provided, creates 3D segments.
-        
+
     Returns
     -------
     segments : np.ndarray
         Line segments array with shape (n-1, 2, 2) for 2D or (n-1, 2, 3) for 3D
         Each segment connects consecutive points
-        
+
     Examples
     --------
     >>> # 2D trajectory
@@ -40,7 +40,7 @@ def prepare_trajectory_segments(
     >>> y = np.array([0, 1, 0, 1])
     >>> segments = prepare_trajectory_segments(x, y)
     >>> # segments.shape = (3, 2, 2) - three line segments
-    
+
     >>> # 3D trajectory
     >>> z = np.array([0, 0.5, 1, 1.5])
     >>> segments = prepare_trajectory_segments(x, y, z)
@@ -49,11 +49,13 @@ def prepare_trajectory_segments(
     if z is None:
         # 2D trajectory
         if len(x) != len(y):
-            raise ValueError(f"x and y must have same length, got {len(x)} and {len(y)}")
-        
+            raise ValueError(
+                f"x and y must have same length, got {len(x)} and {len(y)}"
+            )
+
         if len(x) < 2:
             raise ValueError("Need at least 2 points for trajectory")
-        
+
         points = np.array([x, y]).T.reshape(-1, 1, 2)
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
     else:
@@ -62,23 +64,20 @@ def prepare_trajectory_segments(
             raise ValueError(
                 f"x, y, z must have same length, got {len(x)}, {len(y)}, {len(z)}"
             )
-        
+
         if len(x) < 2:
             raise ValueError("Need at least 2 points for trajectory")
-        
+
         points = np.array([x, y, z]).T.reshape(-1, 1, 3)
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
-    
+
     return segments
 
 
-def compute_colors(
-    n_points: int,
-    color_by: Literal["time"] = "time"
-) -> np.ndarray:
+def compute_colors(n_points: int, color_by: Literal["time"] = "time") -> np.ndarray:
     """
     Compute color values based on specified method.
-    
+
     Parameters
     ----------
     n_points : int
@@ -86,12 +85,12 @@ def compute_colors(
     color_by : Literal["time"], default="time"
         Method for color computation. Currently only "time" is supported.
         Future options may include "speed", "direction", etc.
-        
+
     Returns
     -------
     colors : np.ndarray
         Color values array (1D array of floats from 0 to n_points-1)
-        
+
     Examples
     --------
     >>> colors = compute_colors(100, color_by="time")
@@ -99,7 +98,7 @@ def compute_colors(
     """
     if n_points < 1:
         raise ValueError("Need at least 1 point")
-    
+
     if color_by == "time":
         return np.arange(n_points)
     else:

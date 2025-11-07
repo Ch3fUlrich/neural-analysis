@@ -53,12 +53,11 @@ Example Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, Sequence
-import numpy as np
-import numpy.typing as npt
-import pandas as pd
+from typing import TYPE_CHECKING, Any, Literal
 
 import matplotlib.pyplot as plt
+import numpy as np
+import numpy.typing as npt
 
 try:
     import plotly.graph_objects as go
@@ -69,23 +68,28 @@ except ImportError:
     go = None
     make_subplots = None
 
-from .core import PlotConfig, get_default_categorical_colors, resolve_colormap
-from .backend import BackendType, get_backend
-from . import renderers
-from .renderers import extract_xy_from_data, extract_xyz_from_data
-from neural_analysis.utils.trajectories import compute_colors
-from neural_analysis.utils.geometry import compute_kde_2d, compute_convex_hull
 from neural_analysis.plotting.renderers import (
-    render_trajectory_matplotlib,
-    render_kde_matplotlib,
     render_convex_hull_matplotlib,
-    render_trajectory_plotly,
+    render_convex_hull_plotly,
+    render_kde_matplotlib,
+    render_kde_plotly,
     render_trajectory3d_matplotlib,
     render_trajectory3d_plotly,
-    render_kde_plotly,
-    render_convex_hull_plotly,
+    render_trajectory_matplotlib,
+    render_trajectory_plotly,
 )
+from neural_analysis.utils.geometry import compute_convex_hull, compute_kde_2d
+from neural_analysis.utils.trajectories import compute_colors
 
+from . import renderers
+from .backend import get_backend
+from .core import PlotConfig, get_default_categorical_colors
+from .renderers import extract_xy_from_data, extract_xyz_from_data
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    import pandas as pd
 
 PlotType = Literal['scatter', 'line', 'histogram', 'heatmap', 'scatter3d', 'violin', 'box', 'bar', 
                    'trajectory', 'trajectory3d', 'kde', 'grouped_scatter', 'convex_hull', 'boolean_states']
@@ -474,7 +478,7 @@ class PlotGrid:
         """
         plot_specs = []
         
-        for idx, row in df.iterrows():
+        for _idx, row in df.iterrows():
             spec = PlotSpec(
                 data=row[data_col],
                 plot_type=row[plot_type_col],
@@ -839,7 +843,7 @@ class PlotGrid:
                                     text=text,
                                     xref=xref,
                                     yref=yref,
-                                    showarrow=True if 'arrowprops' in annot else False,
+                                    showarrow='arrowprops' in annot,
                                     arrowhead=2,
                                     arrowsize=1,
                                     arrowwidth=2,
@@ -868,11 +872,30 @@ class PlotGrid:
         label_to_use = spec.label if show_label else None
         
         if spec.plot_type == 'scatter':
+            # Handle dict data format (e.g., when color_by="time")
+            if isinstance(spec.data, dict):
+                x = spec.data['x']
+                y = spec.data['y']
+                if spec.data.get('z') is not None:
+                    # 3D data
+                    data_array = np.column_stack([x, y, spec.data['z']])
+                else:
+                    # 2D data
+                    data_array = np.column_stack([x, y])
+                # Compute colors if color_by is specified
+                if spec.color_by and spec.colors is None:
+                    colors = compute_colors(len(x), color_by=spec.color_by)
+                else:
+                    colors = spec.colors
+            else:
+                data_array = spec.data
+                colors = spec.colors
+            
             scatter = renderers.render_scatter_matplotlib(
                 ax=ax,
-                data=spec.data,
+                data=data_array,
                 color=spec.color,
-                colors=spec.colors,
+                colors=colors,
                 cmap=spec.cmap,
                 marker=spec.marker or 'o',
                 marker_size=spec.marker_size,
@@ -891,11 +914,26 @@ class PlotGrid:
         
         elif spec.plot_type == 'scatter3d':
             # 3D scatter plot - ax must be a 3D axis
+            # Handle dict data format (e.g., when color_by="time")
+            if isinstance(spec.data, dict):
+                x = spec.data['x']
+                y = spec.data['y']
+                z = spec.data['z']
+                data_array = np.column_stack([x, y, z])
+                # Compute colors if color_by is specified
+                if spec.color_by and spec.colors is None:
+                    colors = compute_colors(len(x), color_by=spec.color_by)
+                else:
+                    colors = spec.colors
+            else:
+                data_array = spec.data
+                colors = spec.colors
+            
             scatter = renderers.render_scatter_matplotlib(
                 ax=ax,
-                data=spec.data,
+                data=data_array,
                 color=spec.color,
-                colors=spec.colors,
+                colors=colors,
                 cmap=spec.cmap,
                 marker=spec.marker or 'o',
                 marker_size=spec.marker_size,
@@ -1807,7 +1845,7 @@ def _create_subplot_grid_matplotlib(
 
     # Add subplot titles
     if subplot_titles is not None:
-        for i, (ax, title) in enumerate(zip(axes_flat, subplot_titles)):
+        for _i, (ax, title) in enumerate(zip(axes_flat, subplot_titles)):
             ax.set_title(title, fontsize=12)
 
     # Apply overall title - only use suptitle for multiple subplots

@@ -33,21 +33,27 @@ except ImportError:
     def log_calls(**kwargs):  # type: ignore
         def decorator(func):  # type: ignore
             return func
+
         return decorator
+
     def get_logger(name: str):  # type: ignore
         return logging.getLogger(name)
+
 
 # Module logger
 logger = get_logger(__name__)
 
 try:
     import pandas as pd  # Optional, used when available
+
     HAS_PANDAS = True
 except Exception:  # pragma: no cover - optional dependency
     HAS_PANDAS = False
 
 
-Jsonable = Union[str, int, float, bool, None, Mapping[str, "Jsonable"], Iterable["Jsonable"]]
+Jsonable = Union[
+    str, int, float, bool, None, Mapping[str, "Jsonable"], Iterable["Jsonable"]
+]
 DatasetDict = dict[str, Any]
 
 
@@ -61,11 +67,18 @@ def _to_bytes_array(values: Iterable[str]) -> np.ndarray:
 
 
 def _from_bytes_array(values: np.ndarray) -> list[str]:
-    return [v.decode("utf-8") if isinstance(v, (bytes, bytearray)) else str(v) for v in values.tolist()]
+    return [
+        v.decode("utf-8") if isinstance(v, (bytes, bytearray)) else str(v)
+        for v in values.tolist()
+    ]
 
 
-def _save_dataframe(group, df: pd.DataFrame, compression: str, compression_opts: int) -> None:  # type: ignore[name-defined]
-    group.create_dataset("index_is_numeric", data=np.array([df.index.inferred_type != "string"]))
+def _save_dataframe(
+    group, df: pd.DataFrame, compression: str, compression_opts: int
+) -> None:  # type: ignore[name-defined]
+    group.create_dataset(
+        "index_is_numeric", data=np.array([df.index.inferred_type != "string"])
+    )
 
     # Save index
     if df.index.inferred_type == "string":
@@ -76,7 +89,11 @@ def _save_dataframe(group, df: pd.DataFrame, compression: str, compression_opts:
     # Store columns and per-column datasets to avoid object dtype
     columns_bytes = _to_bytes_array(df.columns)
     group.create_dataset("columns", data=columns_bytes)
-    cols_grp = group.create_group("columns_data") if "columns_data" not in group else group["columns_data"]
+    cols_grp = (
+        group.create_group("columns_data")
+        if "columns_data" not in group
+        else group["columns_data"]
+    )
     # Clear existing children if overwriting
     for key in list(cols_grp.keys()):
         del cols_grp[key]
@@ -84,12 +101,16 @@ def _save_dataframe(group, df: pd.DataFrame, compression: str, compression_opts:
         arr = df[col].to_numpy()
         if arr.dtype.kind in {"U", "O"}:
             arr = _to_bytes_array(arr)
-        cols_grp.create_dataset(col, data=arr, compression=compression, compression_opts=compression_opts)
+        cols_grp.create_dataset(
+            col, data=arr, compression=compression, compression_opts=compression_opts
+        )
 
 
 def _load_dataframe(group) -> pd.DataFrame:  # type: ignore[name-defined]
     columns = _from_bytes_array(group["columns"][...])
-    index_is_numeric = bool(group["index_is_numeric"][0]) if "index_is_numeric" in group else False
+    index_is_numeric = (
+        bool(group["index_is_numeric"][0]) if "index_is_numeric" in group else False
+    )
     if index_is_numeric:
         index = group["index"][...]
     else:
@@ -111,9 +132,14 @@ def _load_dataframe(group) -> pd.DataFrame:  # type: ignore[name-defined]
         if values.dtype == object:
             out = []
             for row in values:
-                out.append([
-                    x.decode("utf-8") if isinstance(x, (bytes, bytearray, np.bytes_)) else x for x in row
-                ])
+                out.append(
+                    [
+                        x.decode("utf-8")
+                        if isinstance(x, (bytes, bytearray, np.bytes_))
+                        else x
+                        for x in row
+                    ]
+                )
             values = np.array(out, dtype=object)
         df = pd.DataFrame(values, index=index, columns=columns)
     return df  # type: ignore[name-defined]
@@ -122,6 +148,7 @@ def _load_dataframe(group) -> pd.DataFrame:  # type: ignore[name-defined]
 # ============================================================================
 # NumPy I/O (NPY/NPZ)
 # ============================================================================
+
 
 def _resolve_npy_npz_path(path: str | Path) -> Path:
     p = Path(path)
@@ -148,7 +175,7 @@ def save_array(
     Returns the path to the saved file.
     """
     p = Path(path)
-    
+
     if isinstance(data, Mapping):
         if p.suffix != ".npz":
             p = p.with_suffix(".npz")
@@ -176,13 +203,13 @@ def save_array(
 def load_array(path: str | Path) -> np.ndarray | dict[str, np.ndarray] | None:
     """Load an array or dict of arrays from .npy/.npz. Returns None if missing."""
     p = _resolve_npy_npz_path(path)
-    
+
     if not p.exists():
         logger.warning(f"File not found: {p}")
         return None
-    
+
     logger.info(f"Loading array(s) from {p}")
-    
+
     if p.suffix == ".npz":
         with np.load(p, allow_pickle=False) as data:
             result = {k: data[k] for k in data.files}
@@ -242,7 +269,7 @@ def save_hdf5(
 
     is_dataframe = HAS_PANDAS and "DataFrame" in type(data).__name__
     data_type = "DataFrame" if is_dataframe else "array"
-    
+
     logger.info(
         f"Saving {data_type} to HDF5: {path}, mode='{mode}', "
         f"compression='{compression}', has_labels={labels is not None}, has_attrs={attrs is not None}"
@@ -261,7 +288,12 @@ def save_hdf5(
             arr = np.asarray(data)
             if "data" in f:
                 del f["data"]
-            f.create_dataset("data", data=arr, compression=compression, compression_opts=compression_opts)
+            f.create_dataset(
+                "data",
+                data=arr,
+                compression=compression,
+                compression_opts=compression_opts,
+            )
             logger.info(f"Saved array with shape {arr.shape} to {path}")
 
         if labels is not None:
@@ -291,12 +323,14 @@ def load_hdf5(
     provided item pairs.
     """
     p = Path(path)
-    
+
     if not p.exists():
         logger.warning(f"HDF5 file not found: {p}")
         return (None, []) if not return_attrs else ((None, []), {})
 
-    logger.info(f"Loading HDF5 from {p}, filter_pairs={filter_pairs is not None}, return_attrs={return_attrs}")
+    logger.info(
+        f"Loading HDF5 from {p}, filter_pairs={filter_pairs is not None}, return_attrs={return_attrs}"
+    )
 
     import h5py  # local import
 
@@ -308,7 +342,11 @@ def load_hdf5(
         # attrs
         for k, v in f.attrs.items():
             if isinstance(v, (np.bytes_, bytes, bytearray)):
-                txt = v.decode("utf-8") if isinstance(v, (bytes, bytearray)) else v.tobytes().decode("utf-8")
+                txt = (
+                    v.decode("utf-8")
+                    if isinstance(v, (bytes, bytearray))
+                    else v.tobytes().decode("utf-8")
+                )
                 try:
                     attrs_out[k] = json.loads(txt)
                 except Exception:
@@ -333,13 +371,19 @@ def load_hdf5(
                 if HAS_PANDAS and all(k in obj for k in ("columns", "index")):
                     df = _load_dataframe(obj)  # type: ignore[assignment]
                     logger.info(f"Loaded DataFrame with shape {df.shape} from {p}")  # type: ignore
-                    if filter_pairs is not None and HAS_PANDAS and {"item_i", "item_j"}.issubset(df.columns):
+                    if (
+                        filter_pairs is not None
+                        and HAS_PANDAS
+                        and {"item_i", "item_j"}.issubset(df.columns)
+                    ):
                         wanted = set(filter_pairs)
                         pairs = list(zip(df["item_i"].tolist(), df["item_j"].tolist()))
                         mask = np.array([pair in wanted for pair in pairs])
                         n_before = len(df)  # type: ignore
                         df = df[mask].reset_index(drop=True)  # type: ignore
-                        logger.info(f"Filtered DataFrame from {n_before} to {len(df)} rows using {len(filter_pairs)} pairs")  # type: ignore
+                        logger.info(
+                            f"Filtered DataFrame from {n_before} to {len(df)} rows using {len(filter_pairs)} pairs"
+                        )  # type: ignore
                     data_out = df
                 else:
                     # Unsupported group layout -> load children as dict of arrays
@@ -361,7 +405,7 @@ def load_hdf5(
             logger.debug(f"Loaded labels with shape {np.asarray(labels_out).shape}")
 
     logger.info(f"Successfully loaded HDF5 from {p}")
-    
+
     if return_attrs:
         return (data_out, labels_out), attrs_out
     return data_out, labels_out

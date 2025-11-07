@@ -11,8 +11,10 @@ import logging
 try:
     from .logging import get_logger
 except ImportError:
+
     def get_logger(name: str):  # type: ignore
         return logging.getLogger(name)
+
 
 __all__ = ["do_critical"]
 

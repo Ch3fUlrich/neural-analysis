@@ -110,14 +110,14 @@ class TestCompareDistributionGroups:
         result = compare_distribution_groups(
             groups, compare_type="between", metric="wasserstein"
         )
-        
+
         # Check structure
         assert set(result.keys()) == {"A", "B", "C"}
         assert result["A"].shape == (3,)
-        
+
         # Self-distance should be zero
         assert result["A"][0] == pytest.approx(0.0, abs=1e-6)
-        
+
         # A to B should be less than A to C (B is closer)
         assert result["A"][1] < result["A"][2]
 
@@ -131,11 +131,11 @@ class TestCompareDistributionGroups:
         result = compare_distribution_groups(
             groups, compare_type="inside", metric="euclidean"
         )
-        
+
         # Check structure
         assert "mean" in result and "std" in result
         assert result["mean"].shape == (2,)
-        
+
         # Loose group should have higher internal distance
         assert result["mean"][1] > result["mean"][0]
 
@@ -148,7 +148,7 @@ class TestCompareDistributionGroups:
         result = compare_distribution_groups(
             groups, compare_type="inside", metric="wasserstein"
         )
-        
+
         # Single-point group should have zero internal distance
         assert result["mean"][0] == pytest.approx(0.0)
 
@@ -158,7 +158,7 @@ class TestCompareDistributionGroups:
             "A": np.random.randn(30, 2),
             "B": np.random.randn(30, 2) + 1.0,
         }
-        
+
         for metric in ["wasserstein", "euclidean", "cosine"]:
             result = compare_distribution_groups(
                 groups, compare_type="between", metric=metric
@@ -183,6 +183,6 @@ class TestCompareDistributionGroups:
         result = compare_distribution_groups(
             groups, compare_type="between", metric="euclidean"
         )
-        
+
         assert (0, 0) in result
         assert result[(0, 0)].shape == (3,)

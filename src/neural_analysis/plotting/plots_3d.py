@@ -13,6 +13,8 @@ Functions support both matplotlib and plotly backends for flexibility between
 static publication-quality figures and interactive exploratory visualizations.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
@@ -27,6 +29,8 @@ if TYPE_CHECKING:
 
 # Optional imports
 try:
+    import plotly.graph_objects as _go
+
     PLOTLY_AVAILABLE = True
 except ImportError:
     PLOTLY_AVAILABLE = False
@@ -35,7 +39,6 @@ __all__ = [
     "plot_scatter_3d",
     "plot_trajectory_3d",
 ]
-
 
 
 def plot_scatter_3d(

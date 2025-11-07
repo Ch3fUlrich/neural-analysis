@@ -9,17 +9,24 @@ All functions in this module use the PlotGrid system internally for consistent
 behavior and code reuse.
 """
 
-from typing import Dict, List, Tuple, Optional, Literal
-import numpy as np
-import matplotlib.pyplot as plt
+from __future__ import annotations
 
-from .backend import BackendType, get_backend
+from typing import TYPE_CHECKING, Literal
+
+import numpy as np
+
+from .backend import get_backend
 from .core import PlotConfig
 from .grid_config import PlotGrid, PlotSpec
 
+if TYPE_CHECKING:
+    import matplotlib.pyplot as plt
+    import plotly.graph_objects as go
+
 # Optional imports
 try:
-    import plotly.graph_objects as go
+    import plotly.graph_objects as _go
+
     PLOTLY_AVAILABLE = True
 except ImportError:
     PLOTLY_AVAILABLE = False
@@ -30,6 +37,7 @@ __all__ = [
     "plot_grouped_scatter_2d",
     "plot_kde_2d",
 ]
+
 
 def plot_scatter_2d(
     x: np.ndarray,

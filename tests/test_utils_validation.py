@@ -35,7 +35,7 @@ class TestDoCritical:
         message = "Critical issue logged"
         with caplog.at_level(logging.CRITICAL), pytest.raises(ValueError):
             do_critical(ValueError, message)
-        
+
         # Check that message was logged at CRITICAL level
         assert any(
             record.levelname == "CRITICAL" and message in record.message
@@ -44,9 +44,10 @@ class TestDoCritical:
 
     def test_custom_exception(self):
         """Test with custom exception class."""
+
         class CustomError(Exception):
             pass
-        
+
         message = "Custom error occurred"
         with pytest.raises(CustomError, match=message):
             do_critical(CustomError, message)
@@ -62,6 +63,6 @@ class TestDoCritical:
         with caplog.at_level(logging.CRITICAL):
             with pytest.raises(RuntimeError, match="Line 1"):
                 do_critical(RuntimeError, message)
-        
+
         # Verify full message was logged
         assert any(message in record.message for record in caplog.records)

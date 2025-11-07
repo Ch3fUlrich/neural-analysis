@@ -150,7 +150,12 @@ def log_section(title: str, *, level: int = logging.INFO, char: str = "=") -> No
     log.log(level, line)
 
 
-def log_kv(prefix: str, mapping: Mapping[str, Any] | Iterable[tuple[str, Any]], *, level: int = logging.INFO) -> None:
+def log_kv(
+    prefix: str,
+    mapping: Mapping[str, Any] | Iterable[tuple[str, Any]],
+    *,
+    level: int = logging.INFO,
+) -> None:
     """Log key=value pairs in a compact, consistent style.
 
     Parameters
@@ -168,7 +173,9 @@ def log_kv(prefix: str, mapping: Mapping[str, Any] | Iterable[tuple[str, Any]], 
     log.log(level, msg)
 
 
-def log_calls(*, level: int = logging.DEBUG, timeit: bool = True) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+def log_calls(
+    *, level: int = logging.DEBUG, timeit: bool = True
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to log function entry/exit (and runtime).
 
     Examples
@@ -177,11 +184,15 @@ def log_calls(*, level: int = logging.DEBUG, timeit: bool = True) -> Callable[[C
     ... def my_fn(x):
     ...     return x * 2
     """
+
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         log = get_logger(func.__module__)
 
         def wrapper(*args: Any, **kwargs: Any):
-            log.log(level, f"→ {func.__name__}(args=%d, kwargs=%d)" % (len(args), len(kwargs)))
+            log.log(
+                level,
+                f"→ {func.__name__}(args=%d, kwargs=%d)" % (len(args), len(kwargs)),
+            )
             t0 = time.time()
             try:
                 result = func(*args, **kwargs)

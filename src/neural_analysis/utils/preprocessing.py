@@ -6,5 +6,3 @@ This shim preserves backwards-compatibility temporarily and will be removed.
 """
 
 from __future__ import annotations
-
-

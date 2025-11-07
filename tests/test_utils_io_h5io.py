@@ -30,28 +30,34 @@ def test_h5io_array_roundtrip(tmp_path: Path):
 
 def test_h5io_dataframe_roundtrip(tmp_path: Path):
     path = tmp_path / "df_demo.h5"
-    df = pd.DataFrame({
-        "id": [f"n{i}" for i in range(6)],
-        "rate": np.linspace(0, 1, 6),
-        "cond": ["A", "B", "A", "B", "A", "B"],
-    })
+    df = pd.DataFrame(
+        {
+            "id": [f"n{i}" for i in range(6)],
+            "rate": np.linspace(0, 1, 6),
+            "cond": ["A", "B", "A", "B", "A", "B"],
+        }
+    )
     labels = [f"trial_{i}" for i in range(len(df))]
 
     h5io(path, task="save", data=df, labels=labels)
     loaded, loaded_labels = h5io(path, task="load")
 
     assert hasattr(loaded, "equals")
-    pd.testing.assert_frame_equal(loaded.reset_index(drop=True), df.reset_index(drop=True))
+    pd.testing.assert_frame_equal(
+        loaded.reset_index(drop=True), df.reset_index(drop=True)
+    )
     assert list(loaded_labels) == labels
 
 
 def test_h5io_dataframe_filter_pairs(tmp_path: Path):
     path = tmp_path / "pairs_demo.h5"
-    df = pd.DataFrame({
-        "item_i": ["A", "A", "B", "C"],
-        "item_j": ["B", "C", "C", "D"],
-        "score": [0.1, 0.8, 0.5, 0.9],
-    })
+    df = pd.DataFrame(
+        {
+            "item_i": ["A", "A", "B", "C"],
+            "item_j": ["B", "C", "C", "D"],
+            "score": [0.1, 0.8, 0.5, 0.9],
+        }
+    )
 
     h5io(path, task="save", data=df, labels=None)
     wanted = [("A", "C"), ("B", "C")]

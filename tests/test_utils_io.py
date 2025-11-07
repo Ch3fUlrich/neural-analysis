@@ -94,6 +94,7 @@ class TestSaveLoadArray:
         loaded = load_array(path)
         assert np.allclose(arr2, loaded)
 
+
 class TestUpdateArray:
     """Tests for update_array function."""
 
@@ -112,16 +113,19 @@ class TestUpdateArray:
         assert np.allclose(loaded["arr1"], np.ones(5))
         assert np.allclose(loaded["arr2"], np.zeros(3))
 
+
 class TestSaveLoadHDF5:
     """Tests for save_hdf5 and load_hdf5 functions."""
 
     def test_save_load_dataframe(self, tmp_path):
         """Test saving and loading a DataFrame."""
-        df = pd.DataFrame({
-            "item_i": ["A", "B", "C"],
-            "item_j": ["X", "Y", "Z"],
-            "value": [1.0, 2.0, 3.0],
-        })
+        df = pd.DataFrame(
+            {
+                "item_i": ["A", "B", "C"],
+                "item_j": ["X", "Y", "Z"],
+                "value": [1.0, 2.0, 3.0],
+            }
+        )
         labels = ["A", "B", "C", "X", "Y", "Z"]
         path = tmp_path / "test.h5"
 
@@ -147,11 +151,13 @@ class TestSaveLoadHDF5:
 
     def test_load_hdf5_filter_pairs(self, tmp_path):
         """Test filtering DataFrame by item pairs."""
-        df = pd.DataFrame({
-            "item_i": ["A", "B", "C", "D"],
-            "item_j": ["X", "Y", "Z", "W"],
-            "value": [1.0, 2.0, 3.0, 4.0],
-        })
+        df = pd.DataFrame(
+            {
+                "item_i": ["A", "B", "C", "D"],
+                "item_j": ["X", "Y", "Z", "W"],
+                "value": [1.0, 2.0, 3.0, 4.0],
+            }
+        )
         path = tmp_path / "test.h5"
 
         save_hdf5(path, df)

@@ -9,7 +9,7 @@ Main modules:
 - backend: Backend selection and management
 - core: Core utilities, colors, and configuration
 - plots_1d: One-dimensional plotting functions
-- plots_2d: Two-dimensional plotting functions  
+- plots_2d: Two-dimensional plotting functions
 - plots_3d: Three-dimensional plotting functions
 - embeddings: Embedding visualizations (2D/3D)
 - heatmaps: Heatmap visualizations
@@ -64,7 +64,7 @@ from .statistical_plots import (
 __version__ = "0.1.0"
 __all__ = [
     "BackendType",
-    "set_backend", 
+    "set_backend",
     "get_backend",
     "PlotConfig",
     "plot_line",

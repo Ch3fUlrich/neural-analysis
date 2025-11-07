@@ -30,9 +30,9 @@ class TestEuclideanDistance:
 
     def test_2d_arrays_pairwise(self):
         """Test pairwise distance matrix for 2D arrays."""
-        X = np.array([[0, 0], [1, 0], [0, 1]])
-        Y = np.array([[0, 0], [2, 0]])
-        result = euclidean_distance(X, Y)
+        x_data = np.array([[0, 0], [1, 0], [0, 1]])
+        y_data = np.array([[0, 0], [2, 0]])
+        result = euclidean_distance(x_data, y_data)
         assert result.shape == (3, 2)
         # First point (0,0) to first point (0,0)
         assert result[0, 0] == pytest.approx(0.0)
@@ -81,8 +81,8 @@ class TestMahalanobisDistance:
         """Test with multiple points (2D input)."""
         mean = np.array([0, 0])
         cov = np.eye(2)
-        X = np.array([[1, 0], [0, 1], [1, 1]])
-        result = mahalanobis_distance(X, mean, cov)
+        x_data = np.array([[1, 0], [0, 1], [1, 1]])
+        result = mahalanobis_distance(x_data, mean, cov)
         assert result.shape == (3,)
         assert result[0] == pytest.approx(1.0)
         assert result[1] == pytest.approx(1.0)

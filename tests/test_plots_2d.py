@@ -148,18 +148,14 @@ class TestPlotTrajectory2D:
     def test_basic_trajectory_plotly(self, trajectory_data):
         """Test basic trajectory plot with plotly."""
         x, y = trajectory_data
-        fig = plot_trajectory_2d(
-            x, y, backend="plotly", config=PlotConfig(show=False)
-        )
+        fig = plot_trajectory_2d(x, y, backend="plotly", config=PlotConfig(show=False))
         assert isinstance(fig, go.Figure)
 
     def test_trajectory_color_by_time(self, trajectory_data):
         """Test trajectory with time-based coloring."""
         set_backend("matplotlib")
         x, y = trajectory_data
-        ax = plot_trajectory_2d(
-            x, y, color_by="time", config=PlotConfig(show=False)
-        )
+        ax = plot_trajectory_2d(x, y, color_by="time", config=PlotConfig(show=False))
         assert isinstance(ax, plt.Axes)
         plt.close()
 
@@ -167,9 +163,7 @@ class TestPlotTrajectory2D:
         """Test trajectory without scatter points."""
         set_backend("matplotlib")
         x, y = trajectory_data
-        ax = plot_trajectory_2d(
-            x, y, show_points=False, config=PlotConfig(show=False)
-        )
+        ax = plot_trajectory_2d(x, y, show_points=False, config=PlotConfig(show=False))
         assert isinstance(ax, plt.Axes)
         plt.close()
 
@@ -185,9 +179,7 @@ class TestPlotTrajectory2D:
         """Test trajectory without time-based coloring."""
         set_backend("matplotlib")
         x, y = trajectory_data
-        ax = plot_trajectory_2d(
-            x, y, color_by=None, config=PlotConfig(show=False)
-        )
+        ax = plot_trajectory_2d(x, y, color_by=None, config=PlotConfig(show=False))
         assert isinstance(ax, plt.Axes)
         plt.close()
 
