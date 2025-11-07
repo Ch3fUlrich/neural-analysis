@@ -137,6 +137,82 @@ def _compute_spatial_bins_2d(
     return x_bins, y_bins, firing_map
 
 
+def _compute_spatial_bins_3d(
+    positions: npt.NDArray[np.float64],
+    activity: npt.NDArray[np.float64],
+    arena_size: tuple[float, ...],
+    n_bins: int = 20,
+    cell_idx: int | None = None,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Compute 3D spatial binning of activity.
+    
+    Args:
+        positions: Position array (n_samples, 3)
+        activity: Activity array (n_samples, n_cells)
+        arena_size: Arena size tuple (x, y, z)
+        n_bins: Number of spatial bins per dimension
+        cell_idx: If None, average across all cells; otherwise specific cell
+    
+    Returns:
+        x_bins: X bin edges
+        y_bins: Y bin edges
+        z_bins: Z bin edges
+        firing_volume: 3D firing rate map (n_bins, n_bins, n_bins)
+    """
+    x_max, y_max, z_max = arena_size
+    
+    x_bins = np.linspace(0, x_max, n_bins + 1)
+    y_bins = np.linspace(0, y_max, n_bins + 1)
+    z_bins = np.linspace(0, z_max, n_bins + 1)
+    
+    firing_volume = np.full((n_bins, n_bins, n_bins), np.nan)
+    
+    # Compute average activity per spatial bin
+    for i in range(n_bins):
+        for j in range(n_bins):
+            for k in range(n_bins):
+                mask = (
+                    (positions[:, 0] >= x_bins[i]) & (positions[:, 0] < x_bins[i + 1]) &
+                    (positions[:, 1] >= y_bins[j]) & (positions[:, 1] < y_bins[j + 1]) &
+                    (positions[:, 2] >= z_bins[k]) & (positions[:, 2] < z_bins[k + 1])
+                )
+                if mask.sum() > 0:
+                    if cell_idx is not None:
+                        firing_volume[i, j, k] = activity[mask, cell_idx].mean()
+                    else:
+                        firing_volume[i, j, k] = activity[mask, :].mean()
+    
+    return x_bins, y_bins, z_bins, firing_volume
+
+
+def _compute_radial_power_spectrum(
+    power_spectrum_2d: npt.NDArray[np.float64],
+    n_bins: int,
+) -> npt.NDArray[np.float64]:
+    """Compute radial average of 2D power spectrum.
+    
+    Args:
+        power_spectrum_2d: 2D power spectrum (already shifted)
+        n_bins: Number of radial bins
+    
+    Returns:
+        radial_profile: 1D radial power profile
+    """
+    center = np.array(power_spectrum_2d.shape) // 2
+    y_coords, x_coords = np.ogrid[:power_spectrum_2d.shape[0], :power_spectrum_2d.shape[1]]
+    r = np.sqrt((x_coords - center[1])**2 + (y_coords - center[0])**2)
+    r = r.astype(int)
+    
+    # Compute radial profile
+    radial_profile = np.zeros(n_bins)
+    for i in range(n_bins):
+        mask = (r == i)
+        if mask.sum() > 0:
+            radial_profile[i] = power_spectrum_2d[mask].mean()
+    
+    return radial_profile
+
+
 # ==============================================================================
 # Main Plotting Function
 # ==============================================================================
@@ -350,7 +426,7 @@ def _create_raster_plot(
     max_cells: int,
     subplot_position: int,
 ) -> PlotSpec:
-    """Create raster plot specification as heatmap (matching notebook style)."""
+    """Create raster plot specification as heatmap with proper cell ID ticks."""
     n_samples, n_cells = activity.shape
 
     # Subsample cells if too many
@@ -359,13 +435,40 @@ def _create_raster_plot(
         cell_indices = np.arange(0, n_cells, step)[:max_cells]
         activity_sub = activity[:, cell_indices]
     else:
+        cell_indices = np.arange(n_cells)
         activity_sub = activity
 
     # Transpose to (n_cells, n_samples) for imshow-style display
-    # This matches the notebook: ax.imshow(activity.T, ...)
     raster_data = activity_sub.T
 
-    # Create as heatmap (like notebook's imshow)
+    # Create integer yticks for cell IDs (matching periodicity heatmap)
+    # Use evenly spaced ticks, showing actual cell indices
+    n_ticks = min(10, len(cell_indices))  # Max 10 ticks to avoid crowding
+    tick_step = max(1, len(cell_indices) // n_ticks)
+    tick_positions = np.arange(0, len(cell_indices), tick_step)
+    tick_labels = cell_indices[tick_positions].astype(int)
+
+    # Create integer xticks for time axis
+    n_time_ticks = min(6, n_samples // 50)  # Reasonable number of ticks
+    if n_time_ticks > 0:
+        time_tick_step = n_samples // n_time_ticks
+        time_ticks = np.arange(0, n_samples + 1, time_tick_step)
+        time_labels = time_ticks.astype(int)
+    else:
+        time_ticks = None
+        time_labels = None
+
+    # Create integer yticks for cell IDs
+    n_cell_ticks = min(10, n_cells)  # Max 10 ticks to avoid crowding
+    if n_cell_ticks > 0:
+        cell_tick_step = max(1, n_cells // n_cell_ticks)
+        cell_ticks = np.arange(0, n_cells + 1, cell_tick_step)
+        cell_labels = cell_ticks.astype(int)
+    else:
+        cell_ticks = None
+        cell_labels = None
+
+    # Create as heatmap with proper extent to align cell IDs
     spec = PlotSpec(
         data=raster_data,
         plot_type="heatmap",
@@ -379,6 +482,12 @@ def _create_raster_plot(
             "y_label": "Cell ID",
             "interpolation": "nearest",
             "aspect": "auto",
+            "extent": [0, n_samples, 0, n_cells],
+            "origin": "lower",
+            "set_xticks": time_ticks,
+            "set_xticklabels": time_labels,
+            "set_yticks": cell_ticks,
+            "set_yticklabels": cell_labels,
         },
     )
 
@@ -634,58 +743,65 @@ def _create_grid_field_plots(
     colors: list[str],
     subplot_position: int,
 ) -> list[PlotSpec]:
-    """Create grid cell periodicity analysis using FFT and Welch's method.
+    """Create grid cell periodicity analysis using FFT.
     
-    Instead of spatial firing fields, shows the periodic nature of grid cells
-    by computing spectral analysis of firing rates along spatial trajectories.
-    Displays a heatmap showing dominant frequencies for all cells.
+    Shows the periodic nature of grid cells by computing spectral analysis
+    of firing rates in spatial domain. Displays a heatmap showing dominant
+    frequencies for all cells with proper cell ID alignment.
     """
     specs = []
     positions = metadata.get("positions")
     n_dims = metadata.get("n_dims", 2)
     arena_size = metadata.get("arena_size", (2.0, 2.0))
-    grid_spacing = metadata.get("grid_spacing", 0.3)
 
     if positions is None:
         return specs
 
     n_cells = activity.shape[1]
+    n_bins_fft = 100 if n_dims == 1 else 50  # More bins for 1D
     
     if n_dims == 1:
-        # 1D periodicity: Compute FFT of firing rates along the track
-        # Bin activity along position
-        n_bins = 100
-        bin_edges = np.linspace(0, arena_size if not isinstance(arena_size, tuple) else arena_size[0], n_bins + 1)
-        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-        
-        # Compute periodicity for each cell
-        periodicity_matrix = np.zeros((n_cells, n_bins // 2))
+        # 1D periodicity: FFT of firing rates along the track
+        periodicity_matrix = np.zeros((n_cells, n_bins_fft // 2))
         
         for cell_idx in range(n_cells):
-            # Bin firing rates
-            firing_rates = np.zeros(n_bins)
-            counts = np.zeros(n_bins)
-            
-            pos_bins = np.digitize(positions[:, 0], bin_edges) - 1
-            pos_bins = np.clip(pos_bins, 0, n_bins - 1)
-            
-            for t, bin_idx in enumerate(pos_bins):
-                firing_rates[bin_idx] += activity[t, cell_idx]
-                counts[bin_idx] += 1
-            
-            # Normalize by occupancy
-            mask = counts > 0
-            firing_rates[mask] /= counts[mask]
+            # Use helper to bin activity
+            _, firing_rates = _compute_spatial_bins_1d(
+                positions, activity, arena_size, n_bins=n_bins_fft, cell_idx=cell_idx
+            )
             
             # Apply FFT
             fft_result = np.fft.fft(firing_rates)
-            power_spectrum = np.abs(fft_result[:n_bins // 2])
+            power_spectrum = np.abs(fft_result[:n_bins_fft // 2])
             
             periodicity_matrix[cell_idx, :] = power_spectrum
         
         # Create frequency axis (cycles per meter)
         track_length = arena_size if not isinstance(arena_size, tuple) else arena_size[0]
-        freqs = np.fft.fftfreq(n_bins, d=track_length / n_bins)[:n_bins // 2]
+        freqs = np.fft.fftfreq(n_bins_fft, d=track_length / n_bins_fft)[:n_bins_fft // 2]
+        
+        # Create integer xticks for frequency axis
+        n_freq_ticks = min(8, len(freqs) // 10)
+        if n_freq_ticks > 0:
+            freq_tick_step = len(freqs) // n_freq_ticks
+            freq_tick_positions = np.arange(0, len(freqs), freq_tick_step)
+            freq_tick_values = freqs[freq_tick_positions]
+            # Map to extent coordinates
+            freq_tick_coords = freqs[0] + (freqs[-1] - freqs[0]) * (freq_tick_positions / len(freqs))
+            freq_tick_labels = [f"{int(f)}" for f in freq_tick_values]
+        else:
+            freq_tick_coords = None
+            freq_tick_labels = None
+        
+        # Create integer yticks for cell IDs
+        n_cell_ticks = min(10, n_cells)
+        if n_cell_ticks > 0:
+            cell_tick_step = max(1, n_cells // n_cell_ticks)
+            cell_ticks = np.arange(0, n_cells + 1, cell_tick_step)
+            cell_labels = cell_ticks.astype(int)
+        else:
+            cell_ticks = None
+            cell_labels = None
         
         spec = PlotSpec(
             data=periodicity_matrix,
@@ -701,51 +817,63 @@ def _create_grid_field_plots(
                 "aspect": "auto",
                 "extent": [freqs[0], freqs[-1], 0, n_cells],
                 "origin": "lower",
+                "set_xticks": freq_tick_coords,
+                "set_xticklabels": freq_tick_labels,
+                "set_yticks": cell_ticks,
+                "set_yticklabels": cell_labels,
             },
         )
         specs.append(spec)
     
     elif n_dims == 2:
-        # 2D periodicity: Use Welch's method on autocorrelation
-        # Compute spatial autocorrelation and then FFT
-        n_bins = 50
-        
-        # Initialize periodicity matrix (cells x frequency bins)
-        periodicity_matrix = np.zeros((n_cells, n_bins))
+        # 2D periodicity: 2D FFT with radial averaging
+        periodicity_matrix = np.zeros((n_cells, n_bins_fft))
         
         for cell_idx in range(n_cells):
-            # Compute 2D firing rate map
-            x_bins, y_bins, firing_map = _compute_spatial_bins_2d(
-                positions, activity, arena_size, n_bins=n_bins, cell_idx=cell_idx
+            # Use helper to get 2D firing map
+            _, _, firing_map = _compute_spatial_bins_2d(
+                positions, activity, arena_size, n_bins=n_bins_fft, cell_idx=cell_idx
             )
             
-            # Apply 2D FFT to detect periodicity
+            # Replace NaN with 0 for FFT
+            firing_map = np.nan_to_num(firing_map, 0)
+            
+            # Apply 2D FFT
             fft_2d = np.fft.fft2(firing_map)
             power_spectrum_2d = np.abs(np.fft.fftshift(fft_2d))
             
-            # Take radial average to get 1D power spectrum
-            center = np.array(power_spectrum_2d.shape) // 2
-            y_coords, x_coords = np.ogrid[:power_spectrum_2d.shape[0], :power_spectrum_2d.shape[1]]
-            r = np.sqrt((x_coords - center[1])**2 + (y_coords - center[0])**2)
-            r = r.astype(int)
-            
-            # Compute radial profile
-            radial_profile = np.zeros(n_bins)
-            for i in range(n_bins):
-                mask = (r == i)
-                if mask.sum() > 0:
-                    radial_profile[i] = power_spectrum_2d[mask].mean()
+            # Use helper for radial averaging
+            radial_profile = _compute_radial_power_spectrum(power_spectrum_2d, n_bins_fft)
             
             periodicity_matrix[cell_idx, :] = radial_profile
         
         # Create frequency axis
-        if isinstance(arena_size, tuple):
-            spatial_extent = max(arena_size)
-        else:
-            spatial_extent = arena_size
-        
-        freqs = np.fft.fftfreq(n_bins * 2, d=spatial_extent / n_bins)[:n_bins]
+        spatial_extent = max(arena_size) if isinstance(arena_size, tuple) else arena_size
+        freqs = np.fft.fftfreq(n_bins_fft * 2, d=spatial_extent / n_bins_fft)[:n_bins_fft]
         freqs = np.abs(freqs)
+        
+        # Create integer xticks for frequency axis
+        n_freq_ticks = min(8, len(freqs) // 10)
+        if n_freq_ticks > 0:
+            freq_tick_step = len(freqs) // n_freq_ticks
+            freq_tick_positions = np.arange(0, len(freqs), freq_tick_step)
+            freq_tick_values = freqs[freq_tick_positions]
+            # Map to extent coordinates
+            freq_tick_coords = freqs[0] + (freqs[-1] - freqs[0]) * (freq_tick_positions / len(freqs))
+            freq_tick_labels = [f"{int(f)}" for f in freq_tick_values]
+        else:
+            freq_tick_coords = None
+            freq_tick_labels = None
+        
+        # Create integer yticks for cell IDs
+        n_cell_ticks = min(10, n_cells)
+        if n_cell_ticks > 0:
+            cell_tick_step = max(1, n_cells // n_cell_ticks)
+            cell_ticks = np.arange(0, n_cells + 1, cell_tick_step)
+            cell_labels = cell_ticks.astype(int)
+        else:
+            cell_ticks = None
+            cell_labels = None
         
         spec = PlotSpec(
             data=periodicity_matrix,
@@ -761,68 +889,88 @@ def _create_grid_field_plots(
                 "aspect": "auto",
                 "extent": [freqs[0], freqs[-1], 0, n_cells],
                 "origin": "lower",
+                "set_xticks": freq_tick_coords,
+                "set_xticklabels": freq_tick_labels,
+                "set_yticks": cell_ticks,
+                "set_yticklabels": cell_labels,
             },
         )
         specs.append(spec)
     
     elif n_dims == 3:
-        # 3D periodicity: Project to 2D and use similar approach
-        # Use XY plane projection
-        positions_2d = positions[:, :2]
-        arena_size_2d = arena_size[:2] if isinstance(arena_size, tuple) else (arena_size, arena_size)
-        
-        n_bins = 50
-        periodicity_matrix = np.zeros((n_cells, n_bins))
+        # 3D periodicity: True 3D FFT with radial averaging in 3D k-space
+        n_bins_3d = 30  # Smaller for 3D due to computational cost
+        periodicity_matrix = np.zeros((n_cells, n_bins_3d))
         
         for cell_idx in range(n_cells):
-            # Compute 2D firing rate map from XY projection
-            x_bins = np.linspace(0, arena_size_2d[0], n_bins + 1)
-            y_bins = np.linspace(0, arena_size_2d[1], n_bins + 1)
+            # Use helper to get 3D firing volume
+            _, _, _, firing_volume = _compute_spatial_bins_3d(
+                positions, activity, arena_size, n_bins=n_bins_3d, cell_idx=cell_idx
+            )
             
-            firing_map = np.zeros((n_bins, n_bins))
-            occupancy = np.zeros((n_bins, n_bins))
+            # Replace NaN with 0 for FFT
+            firing_volume = np.nan_to_num(firing_volume, 0)
             
-            x_indices = np.digitize(positions_2d[:, 0], x_bins) - 1
-            y_indices = np.digitize(positions_2d[:, 1], y_bins) - 1
+            # Apply 3D FFT
+            fft_3d = np.fft.fftn(firing_volume)
+            power_spectrum_3d = np.abs(np.fft.fftshift(fft_3d))
             
-            x_indices = np.clip(x_indices, 0, n_bins - 1)
-            y_indices = np.clip(y_indices, 0, n_bins - 1)
-            
-            for t in range(len(positions_2d)):
-                i, j = x_indices[t], y_indices[t]
-                firing_map[i, j] += activity[t, cell_idx]
-                occupancy[i, j] += 1
-            
-            mask = occupancy > 0
-            firing_map[mask] /= occupancy[mask]
-            
-            # Apply 2D FFT
-            fft_2d = np.fft.fft2(firing_map)
-            power_spectrum_2d = np.abs(np.fft.fftshift(fft_2d))
-            
-            # Radial average
-            center = np.array(power_spectrum_2d.shape) // 2
-            y_coords, x_coords = np.ogrid[:power_spectrum_2d.shape[0], :power_spectrum_2d.shape[1]]
-            r = np.sqrt((x_coords - center[1])**2 + (y_coords - center[0])**2)
+            # Compute 3D radial average (spherical shells in k-space)
+            center = np.array(power_spectrum_3d.shape) // 2
+            z_coords, y_coords, x_coords = np.ogrid[
+                :power_spectrum_3d.shape[0],
+                :power_spectrum_3d.shape[1],
+                :power_spectrum_3d.shape[2]
+            ]
+            r = np.sqrt(
+                (x_coords - center[2])**2 + 
+                (y_coords - center[1])**2 + 
+                (z_coords - center[0])**2
+            )
             r = r.astype(int)
             
-            radial_profile = np.zeros(n_bins)
-            for i in range(n_bins):
+            # Compute radial profile
+            radial_profile = np.zeros(n_bins_3d)
+            for i in range(n_bins_3d):
                 mask = (r == i)
                 if mask.sum() > 0:
-                    radial_profile[i] = power_spectrum_2d[mask].mean()
+                    radial_profile[i] = power_spectrum_3d[mask].mean()
             
             periodicity_matrix[cell_idx, :] = radial_profile
         
-        spatial_extent = max(arena_size_2d)
-        freqs = np.fft.fftfreq(n_bins * 2, d=spatial_extent / n_bins)[:n_bins]
+        # Create frequency axis
+        spatial_extent = max(arena_size) if isinstance(arena_size, tuple) else arena_size
+        freqs = np.fft.fftfreq(n_bins_3d * 2, d=spatial_extent / n_bins_3d)[:n_bins_3d]
         freqs = np.abs(freqs)
+        
+        # Create integer xticks for frequency axis
+        n_freq_ticks = min(6, len(freqs) // 5)
+        if n_freq_ticks > 0:
+            freq_tick_step = len(freqs) // n_freq_ticks
+            freq_tick_positions = np.arange(0, len(freqs), freq_tick_step)
+            freq_tick_values = freqs[freq_tick_positions]
+            # Map to extent coordinates
+            freq_tick_coords = freqs[0] + (freqs[-1] - freqs[0]) * (freq_tick_positions / len(freqs))
+            freq_tick_labels = [f"{int(f)}" for f in freq_tick_values]
+        else:
+            freq_tick_coords = None
+            freq_tick_labels = None
+        
+        # Create integer yticks for cell IDs
+        n_cell_ticks = min(10, n_cells)
+        if n_cell_ticks > 0:
+            cell_tick_step = max(1, n_cells // n_cell_ticks)
+            cell_ticks = np.arange(0, n_cells + 1, cell_tick_step)
+            cell_labels = cell_ticks.astype(int)
+        else:
+            cell_ticks = None
+            cell_labels = None
         
         spec = PlotSpec(
             data=periodicity_matrix,
             plot_type="heatmap",
             subplot_position=subplot_position,
-            title="Grid Cell Periodicity (3D → 2D FFT)",
+            title="Grid Cell Periodicity (3D FFT)",
             cmap="hot",
             colorbar=True,
             colorbar_label="Power",
@@ -832,6 +980,10 @@ def _create_grid_field_plots(
                 "aspect": "auto",
                 "extent": [freqs[0], freqs[-1], 0, n_cells],
                 "origin": "lower",
+                "set_xticks": freq_tick_coords,
+                "set_xticklabels": freq_tick_labels,
+                "set_yticks": cell_ticks,
+                "set_yticklabels": cell_labels,
             },
         )
         specs.append(spec)

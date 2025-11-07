@@ -919,31 +919,80 @@ def generate_place_cells(
     return activity, metadata
 
 
+def _compute_grid_pattern_with_harmonics(
+    positions: npt.NDArray[np.float64],
+    phase_offset: npt.NDArray[np.float64],
+    grid_spacing: float,
+    axes: list[npt.NDArray[np.float64]] | None = None,
+    harmonic_weights: tuple[float, ...] = (1.0, 0.4, 0.2),
+) -> npt.NDArray[np.float64]:
+    """Compute grid cell firing pattern with harmonics.
+    
+    Generates periodic firing pattern using sum of cosines with multiple harmonics
+    for biological realism (sharper firing fields).
+    
+    Args:
+        positions: Position array (n_samples, n_dims)
+        phase_offset: Phase offset for this cell (n_dims,)
+        grid_spacing: Distance between grid peaks in meters
+        axes: Optional list of grid axes for 2D hexagonal grids.
+            If None, uses axis-aligned pattern for 1D/3D.
+        harmonic_weights: Weights for fundamental, 2nd, 3rd harmonics.
+            Default: (1.0, 0.4, 0.2) for sharp biological fields.
+    
+    Returns:
+        Firing rates with harmonics applied (n_samples,)
+    """
+    n_dims = positions.shape[1]
+    
+    if axes is not None and n_dims == 2:
+        # 2D hexagonal grid with 3 axes at 60° apart
+        proj1 = np.dot(positions - phase_offset, axes[0])
+        proj2 = np.dot(positions - phase_offset, axes[1])
+        
+        # Sum of cosines pattern with harmonics
+        rates = np.zeros(len(positions))
+        for harmonic_idx, weight in enumerate(harmonic_weights, start=1):
+            freq = 2 * np.pi * harmonic_idx / grid_spacing
+            rates += weight * (
+                np.cos(freq * proj1) +
+                np.cos(freq * proj2) +
+                np.cos(freq * (proj1 - proj2))
+            )
+    else:
+        # 1D or 3D: axis-aligned grid pattern
+        rates = np.zeros(len(positions))
+        for dim in range(n_dims):
+            for harmonic_idx, weight in enumerate(harmonic_weights, start=1):
+                freq = 2 * np.pi * harmonic_idx / grid_spacing
+                rates += weight * np.cos(freq * (positions[:, dim] - phase_offset[dim]))
+    
+    return rates
+
+
 def generate_grid_cells(
     n_cells: int = 50,
     n_samples: int = 1000,
     positions: npt.NDArray | None = None,
     arena_size: float | tuple[float, ...] = (2.0, 2.0),
-    grid_spacing: float | list[float] = 0.4,
+    grid_spacing: float = 0.4,
     grid_orientation: float = 0.0,
     peak_rate: float = 10.0,
     noise_level: float = 0.1,
     sampling_rate: float = 20.0,
     seed: int | None = None,
     plot: bool = True,
-    multi_scale: bool = True,
 ) -> tuple[npt.NDArray[np.float64], dict]:
     """Generate grid cell firing data in 1D, 2D, or 3D.
 
     Grid cells fire at multiple locations arranged in regular grid pattern.
-    Supports multi-scale grid cells with multiple spatial frequencies (like in biology).
 
     Args:
         n_cells: Number of grid cells.
         n_samples: Number of time points.
         positions: Optional position trajectory, shape (n_samples, n_dims).
         arena_size: Size of arena. Float for 1D, tuple for 2D/3D.
-        grid_spacing: Distance between grid peaks in meters. Can be a list for multi-scale.
+        grid_spacing: Distance between grid peaks in meters.
         grid_orientation: Grid rotation in degrees (2D/3D only).
         peak_rate: Maximum firing rate in Hz.
         noise_level: Amount of Poisson noise.
@@ -951,18 +1000,16 @@ def generate_grid_cells(
             Controls temporal resolution of neural activity.
         seed: Random seed.
         plot: If True, create comprehensive visualization using PlotGrid system.
-        multi_scale: If True, create cells with multiple grid spacings (biological realism).
 
     Returns:
         activity: Neural activity matrix, shape (n_samples, n_cells).
         metadata: Dictionary with grid cell parameters.
 
     Examples:
-        >>> # 1D multi-scale grid cells with plotting
+        >>> # 1D grid cells with plotting
         >>> activity, meta = generate_grid_cells(30, 1000, arena_size=2.0, plot=True)
-        >>> # 2D grid cells with custom spacings
-        >>> activity, meta = generate_grid_cells(30, 1000, arena_size=(2.0, 2.0), 
-        ...                                       grid_spacing=[0.3, 0.4, 0.6], plot=False)
+        >>> # 2D grid cells without plotting
+        >>> activity, meta = generate_grid_cells(30, 1000, arena_size=(2.0, 2.0), plot=False)
     """
     rng = np.random.default_rng(seed)
     
@@ -987,15 +1034,31 @@ def generate_grid_cells(
     activity = np.zeros((n_samples, n_cells))
     
     if n_dims == 1:
-        # 1D: Periodic firing with random phase offsets
+        # 1D: Periodic firing with harmonics for biological realism
         phase_offsets = rng.uniform(0, grid_spacing, size=n_cells)
         
         for i in range(n_cells):
-            rates = np.cos(2 * np.pi * (positions[:, 0] - phase_offsets[i]) / grid_spacing)
-            rates = np.maximum(rates, 0) * peak_rate
+            # Use helper function for harmonic pattern
+            rates = _compute_grid_pattern_with_harmonics(
+                positions, 
+                np.array([phase_offsets[i]]), 
+                grid_spacing,
+                axes=None,
+                harmonic_weights=(0.6, 0.25, 0.15)
+            )
             
+            # Normalize to [0, 1] range, then scale
+            rates = (rates - rates.min()) / (rates.max() - rates.min() + 1e-10)
+            rates = rates * peak_rate
+            
+            # Add noise for biological realism (Poisson + Gaussian)
             if noise_level > 0:
-                rates = rng.poisson(rates * noise_level) / noise_level
+                # Sample from Poisson distribution (spike count variability)
+                rates = rng.poisson(rates)
+                # Add small Gaussian noise on top
+                rates = rates + rng.normal(0, noise_level * peak_rate * 0.1, size=rates.shape)
+                # Clip to non-negative
+                rates = np.maximum(0, rates)
             
             activity[:, i] = rates
         
@@ -1010,32 +1073,33 @@ def generate_grid_cells(
         }
     
     elif n_dims == 2:
-        # 2D: Hexagonal grid pattern
+        # 2D: Hexagonal grid pattern with harmonics
         phase_offsets = rng.uniform([0, 0], [grid_spacing, grid_spacing], size=(n_cells, 2))
         
         # Grid axes (60 degrees apart)
         theta = np.radians(grid_orientation)
         axis1 = np.array([np.cos(theta), np.sin(theta)])
         axis2 = np.array([np.cos(theta + np.pi/3), np.sin(theta + np.pi/3)])
+        axes = [axis1, axis2]
         
         for i in range(n_cells):
-            # Project positions onto grid axes
-            proj1 = np.dot(positions - phase_offsets[i], axis1)
-            proj2 = np.dot(positions - phase_offsets[i], axis2)
+            # Use helper function for harmonic pattern
+            rates = _compute_grid_pattern_with_harmonics(
+                positions, 
+                phase_offsets[i], 
+                grid_spacing,
+                axes=axes,
+                harmonic_weights=(1.0, 0.4, 0.2)
+            )
             
-            # Grid pattern (sum of cosines)
-            rates = (
-                np.cos(2 * np.pi * proj1 / grid_spacing) +
-                np.cos(2 * np.pi * proj2 / grid_spacing) +
-                np.cos(2 * np.pi * (proj1 - proj2) / grid_spacing)
-            ) / 3.0  # Normalize to [-1, 1]
+            # Normalize to [0, 1], then scale
+            rates = (rates - rates.min()) / (rates.max() - rates.min() + 1e-10)
+            rates = rates * peak_rate
             
-            # Rectify and scale
-            rates = np.maximum(rates, 0) * peak_rate
-            
-            # Add Poisson noise
+            # Add Poisson noise (proper spike count variability) + small Gaussian noise
             if noise_level > 0:
-                rates = rng.poisson(rates * noise_level) / noise_level
+                rates = rng.poisson(rates) + rng.normal(0, 0.1 * noise_level * peak_rate, size=rates.shape)
+                rates = np.maximum(0, rates)  # Clip to non-negative
             
             activity[:, i] = rates
         
@@ -1051,21 +1115,27 @@ def generate_grid_cells(
         }
     
     elif n_dims == 3:
-        # 3D: Simple cubic grid pattern (could be extended to FCC/BCC)
+        # 3D: Cubic grid pattern with harmonics
         phase_offsets = rng.uniform([0, 0, 0], [grid_spacing] * 3, size=(n_cells, 3))
         
         for i in range(n_cells):
-            # Grid pattern in each dimension
-            rates = (
-                np.cos(2 * np.pi * (positions[:, 0] - phase_offsets[i, 0]) / grid_spacing) +
-                np.cos(2 * np.pi * (positions[:, 1] - phase_offsets[i, 1]) / grid_spacing) +
-                np.cos(2 * np.pi * (positions[:, 2] - phase_offsets[i, 2]) / grid_spacing)
-            ) / 3.0
+            # Use helper function for harmonic pattern
+            rates = _compute_grid_pattern_with_harmonics(
+                positions, 
+                phase_offsets[i], 
+                grid_spacing,
+                axes=None,
+                harmonic_weights=(1.0, 0.4, 0.2)
+            )
             
-            rates = np.maximum(rates, 0) * peak_rate
+            # Normalize to [0, 1], then scale
+            rates = (rates - rates.min()) / (rates.max() - rates.min() + 1e-10)
+            rates = rates * peak_rate
             
+            # Add Poisson noise (proper spike count variability) + small Gaussian noise
             if noise_level > 0:
-                rates = rng.poisson(rates * noise_level) / noise_level
+                rates = rng.poisson(rates) + rng.normal(0, 0.1 * noise_level * peak_rate, size=rates.shape)
+                rates = np.maximum(0, rates)  # Clip to non-negative
             
             activity[:, i] = rates
         

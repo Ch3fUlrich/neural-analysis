@@ -775,6 +775,11 @@ def render_heatmap_matplotlib(
     y_labels = kwargs.pop('y_labels', None)
     show_values = kwargs.pop('show_values', False)
     value_format = kwargs.pop('value_format', '.2f')
+    # Extract custom tick settings
+    set_xticks = kwargs.pop('set_xticks', None)
+    set_xticklabels = kwargs.pop('set_xticklabels', None)
+    set_yticks = kwargs.pop('set_yticks', None)
+    set_yticklabels = kwargs.pop('set_yticklabels', None)
     # Pop axis labels - they're handled by PlotGrid after rendering
     kwargs.pop('x_label', None)
     kwargs.pop('y_label', None)
@@ -792,11 +797,20 @@ def render_heatmap_matplotlib(
         if colorbar_label:
             cbar.set_label(colorbar_label)
     
-    # Add axis labels if provided
-    if x_labels is not None:
+    # Apply custom tick settings if provided
+    if set_xticks is not None and set_xticklabels is not None:
+        ax.set_xticks(set_xticks)
+        ax.set_xticklabels(set_xticklabels)
+    elif x_labels is not None:
+        # Fallback to old x_labels if no custom ticks
         ax.set_xticks(range(len(x_labels)))
         ax.set_xticklabels(x_labels)
-    if y_labels is not None:
+    
+    if set_yticks is not None and set_yticklabels is not None:
+        ax.set_yticks(set_yticks)
+        ax.set_yticklabels(set_yticklabels)
+    elif y_labels is not None:
+        # Fallback to old y_labels if no custom ticks
         ax.set_yticks(range(len(y_labels)))
         ax.set_yticklabels(y_labels)
     
