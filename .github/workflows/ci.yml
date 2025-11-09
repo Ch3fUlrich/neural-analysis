@@ -37,13 +37,16 @@ jobs:
         # Verify installation
         uv run python -c "import neural_analysis; print('Package installed successfully')"
     
-    - name: Run ruff lint
-      run: uv run ruff check . --output-format=github
-      continue-on-error: false
+    - name: Run ruff lint (Python 3.12)
+      run: |
+        echo "Running ruff lint with Python 3.12"
+        uv run python --version
+        uv run ruff check . --output-format=github
     
-    - name: Run ruff format check
-      run: uv run ruff format --check .
-      continue-on-error: false
+    - name: Run ruff format check (Python 3.12)
+      run: |
+        echo "Running ruff format check with Python 3.12"
+        uv run ruff format --check .
     
     - name: Run mypy type check
       run: uv run mypy src/neural_analysis --ignore-missing-imports
