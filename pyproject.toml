@@ -51,6 +51,15 @@ build-backend = "hatchling.build"
 [tool.ruff]
 line-length = 88
 target-version = "py314"
+exclude = [
+    "todo",
+    "*.egg-info",
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+]
 
 [tool.ruff.lint]
 select = [
