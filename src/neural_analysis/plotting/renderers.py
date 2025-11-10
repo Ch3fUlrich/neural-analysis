@@ -780,6 +780,9 @@ def render_heatmap_matplotlib(
     set_xticklabels = kwargs.pop('set_xticklabels', None)
     set_yticks = kwargs.pop('set_yticks', None)
     set_yticklabels = kwargs.pop('set_yticklabels', None)
+    # Allow explicit axis limits
+    set_xlim = kwargs.pop('set_xlim', None)
+    set_ylim = kwargs.pop('set_ylim', None)
     # Pop axis labels - they're handled by PlotGrid after rendering
     kwargs.pop('x_label', None)
     kwargs.pop('y_label', None)
@@ -813,6 +816,19 @@ def render_heatmap_matplotlib(
         # Fallback to old y_labels if no custom ticks
         ax.set_yticks(range(len(y_labels)))
         ax.set_yticklabels(y_labels)
+
+    # Apply explicit axis limits if requested
+    if set_xlim is not None:
+        try:
+            ax.set_xlim(set_xlim)
+        except Exception:
+            # ignore invalid limits
+            pass
+    if set_ylim is not None:
+        try:
+            ax.set_ylim(set_ylim)
+        except Exception:
+            pass
     
     # Add value annotations if requested
     if show_values:
@@ -822,6 +838,146 @@ def render_heatmap_matplotlib(
                              ha="center", va="center", color="black")
     
     return im
+
+
+def render_heatmap_walls_matplotlib(
+    ax,
+    data: dict,
+    cmap: str = 'viridis',
+    alpha: float = 0.95,
+    colorbar: bool = True,
+    colorbar_label: str | None = None,
+    **kwargs
+):
+    """
+    Render three orthogonal heatmap projections on the walls of a 3D axes.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes._axes.Axes3D
+        3D axes to plot on
+    data : dict
+        Dictionary containing 'xy', 'xz', 'yz' 2D arrays and 'x_centers','y_centers','z_centers'
+    cmap : str
+        Colormap name
+    alpha : float
+        Opacity for wall surfaces
+    colorbar : bool
+        Whether to draw a colorbar
+    colorbar_label : str | None
+        Colorbar label
+    **kwargs:
+        Additional kwargs (ignored)
+
+    Returns
+    -------
+    list
+        List of artist objects created (surfaces and colorbar)
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib import cm
+    # Expect data dict with keys: 'xy','xz','yz','x_centers','y_centers','z_centers'
+    xy = data.get('xy')
+    xz = data.get('xz')
+    yz = data.get('yz')
+    x_centers = data.get('x_centers')
+    y_centers = data.get('y_centers')
+    z_centers = data.get('z_centers')
+
+    artists = []
+    # Compute vmin/vmax across projections
+    vals = []
+    for arr in (xy, xz, yz):
+        if arr is not None:
+            vals.append(np.nanmin(arr))
+            vals.append(np.nanmax(arr))
+    vmin = min(vals) if vals else 0.0
+    vmax = max(vals) if vals else 1.0
+
+    norm = plt.Normalize(vmin=vmin, vmax=vmax)
+    mapper = cm.ScalarMappable(norm=norm, cmap=cmap)
+
+    # Get wall positions (default to min values if not specified)
+    xy_position = data.get('xy_position', z_centers[0] if z_centers is not None else 0)
+    xz_position = data.get('xz_position', y_centers[0] if y_centers is not None else 0)
+    yz_position = data.get('yz_position', x_centers[0] if x_centers is not None else 0)
+
+    # XY wall at specified z position (default: minimum z)
+    if xy is not None and x_centers is not None and y_centers is not None:
+        xx, yy = np.meshgrid(x_centers, y_centers)
+        zz = np.full_like(xx, xy_position)
+        # Note: xy.T is correct - meshgrid returns (len(y), len(x)) shape
+        facecolors = mapper.to_rgba(xy.T)
+        surf = ax.plot_surface(
+            xx, yy, zz, 
+            facecolors=facecolors, 
+            shade=False, 
+            alpha=alpha,
+            antialiased=False
+        )
+        artists.append(surf)
+
+    # XZ wall at specified y position (default: minimum y)
+    if xz is not None and x_centers is not None and z_centers is not None:
+        xx_xz, zz_xz = np.meshgrid(x_centers, z_centers)
+        yy_xz = np.full_like(xx_xz, xz_position)
+        # Note: xz.T is correct for proper orientation
+        facecolors = mapper.to_rgba(xz.T)
+        surf = ax.plot_surface(
+            xx_xz, yy_xz, zz_xz, 
+            facecolors=facecolors, 
+            shade=False, 
+            alpha=alpha,
+            antialiased=False
+        )
+        artists.append(surf)
+
+    # YZ wall at specified x position (default: minimum x)
+    if yz is not None and y_centers is not None and z_centers is not None:
+        yy_yz, zz_yz = np.meshgrid(y_centers, z_centers)
+        xx_yz = np.full_like(yy_yz, yz_position)
+        # Note: yz should NOT be transposed (already correct orientation)
+        facecolors = mapper.to_rgba(yz)
+        surf = ax.plot_surface(
+            xx_yz, yy_yz, zz_yz, 
+            facecolors=facecolors, 
+            shade=False, 
+            alpha=alpha,
+            antialiased=False
+        )
+        artists.append(surf)
+
+    # Set equal aspect ratio and viewing angle
+    try:
+        # Get arena size from data ranges
+        x_range = x_centers[-1] - x_centers[0] if len(x_centers) > 1 else 1.0
+        y_range = y_centers[-1] - y_centers[0] if len(y_centers) > 1 else 1.0
+        z_range = z_centers[-1] - z_centers[0] if len(z_centers) > 1 else 1.0
+        ax.set_box_aspect([x_range, y_range, z_range])
+        
+        # Set axis limits to span the full range of the data
+        if x_centers is not None and len(x_centers) > 1:
+            ax.set_xlim(x_centers[0], x_centers[-1])
+        if y_centers is not None and len(y_centers) > 1:
+            ax.set_ylim(y_centers[0], y_centers[-1])
+        if z_centers is not None and len(z_centers) > 1:
+            ax.set_zlim(z_centers[0], z_centers[-1])
+        
+        ax.view_init(elev=25, azim=45)
+    except Exception:
+        pass
+
+    # Add colorbar if requested
+    if colorbar:
+        try:
+            cbar = plt.colorbar(mapper, ax=ax, shrink=0.5, aspect=10)
+            if colorbar_label:
+                cbar.set_label(colorbar_label)
+            artists.append(cbar)
+        except Exception:
+            pass
+
+    return artists
 
 
 def render_heatmap_plotly(

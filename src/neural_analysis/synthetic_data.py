@@ -192,8 +192,8 @@ def _generate_swiss_roll(
     seed: int | None,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Generate Swiss roll manifold using scikit-learn."""
-    X, t = make_swiss_roll(n_samples=n_samples, noise=noise, random_state=seed)
-    return X, t
+    x, t = make_swiss_roll(n_samples=n_samples, noise=noise, random_state=seed)
+    return x, t
 
 
 def _generate_s_curve(
@@ -935,8 +935,10 @@ def _compute_grid_pattern_with_harmonics(
         positions: Position array (n_samples, n_dims)
         phase_offset: Phase offset for this cell (n_dims,)
         grid_spacing: Distance between grid peaks in meters
-        axes: Optional list of grid axes for 2D hexagonal grids.
-            If None, uses axis-aligned pattern for 1D/3D.
+        axes: Optional list of grid axes for 2D/3D hexagonal grids.
+            If None, uses axis-aligned pattern for 1D.
+            For 2D: 2 axes at 60° apart (hexagonal)
+            For 3D: 4 axes forming tetrahedral symmetry (FCC-like)
         harmonic_weights: Weights for fundamental, 2nd, 3rd harmonics.
             Default: (1.0, 0.4, 0.2) for sharp biological fields.
     
@@ -959,8 +961,19 @@ def _compute_grid_pattern_with_harmonics(
                 np.cos(freq * proj2) +
                 np.cos(freq * (proj1 - proj2))
             )
+    elif axes is not None and n_dims == 3:
+        # 3D hexagonal/tetrahedral grid (FCC-like structure)
+        # Project onto 4 axes with tetrahedral symmetry
+        rates = np.zeros(len(positions))
+        centered_pos = positions - phase_offset
+        
+        for harmonic_idx, weight in enumerate(harmonic_weights, start=1):
+            freq = 2 * np.pi * harmonic_idx / grid_spacing
+            for axis in axes:
+                proj = np.dot(centered_pos, axis)
+                rates += weight * np.cos(freq * proj)
     else:
-        # 1D or 3D: axis-aligned grid pattern
+        # 1D: axis-aligned grid pattern
         rates = np.zeros(len(positions))
         for dim in range(n_dims):
             for harmonic_idx, weight in enumerate(harmonic_weights, start=1):
@@ -1115,16 +1128,66 @@ def generate_grid_cells(
         }
     
     elif n_dims == 3:
-        # 3D: Cubic grid pattern with harmonics
-        phase_offsets = rng.uniform([0, 0, 0], [grid_spacing] * 3, size=(n_cells, 3))
+        # 3D: Hexagonal/tetrahedral grid pattern (FCC-like) with harmonics
+        # Create hierarchy of grid spacings (biological realism: dorsal-ventral gradient)
+        # Generate multiple scales from fine to coarse
+        grid_spacings = np.zeros(n_cells)
+        cells_per_scale = max(1, n_cells // 5)  # Divide into ~5 scale groups
+        
+        for scale_idx in range(5):
+            start_idx = scale_idx * cells_per_scale
+            end_idx = min((scale_idx + 1) * cells_per_scale, n_cells)
+            if start_idx >= n_cells:
+                break
+            # Scale factor: 1.0, 1.4, 2.0, 2.8, 4.0 (roughly sqrt(2) progression)
+            scale_factor = 1.4 ** scale_idx
+            grid_spacings[start_idx:end_idx] = grid_spacing * scale_factor
+        
+        # Fill any remaining cells
+        if end_idx < n_cells:
+            grid_spacings[end_idx:] = grid_spacing * (1.4 ** 4)
+        
+        phase_offsets = rng.uniform(
+            [0, 0, 0], 
+            [grid_spacing] * 3, 
+            size=(n_cells, 3)
+        )
+        
+        # Define 4 tetrahedral axes for 3D hexagonal packing (FCC crystal structure)
+        # These create face-centered cubic (FCC) symmetry, similar to 3D grid cells
+        theta = np.radians(grid_orientation)
+        cos_t, sin_t = np.cos(theta), np.sin(theta)
+        
+        # Four axes pointing toward vertices of a tetrahedron
+        axis1 = np.array([1, 1, 1]) / np.sqrt(3)
+        axis2 = np.array([1, -1, -1]) / np.sqrt(3)
+        axis3 = np.array([-1, 1, -1]) / np.sqrt(3)
+        axis4 = np.array([-1, -1, 1]) / np.sqrt(3)
+        
+        # Apply rotation if specified (rotate around z-axis)
+        if grid_orientation != 0:
+            rotation_z = np.array([
+                [cos_t, -sin_t, 0],
+                [sin_t, cos_t, 0],
+                [0, 0, 1]
+            ])
+            axis1 = rotation_z @ axis1
+            axis2 = rotation_z @ axis2
+            axis3 = rotation_z @ axis3
+            axis4 = rotation_z @ axis4
+        
+        axes = [axis1, axis2, axis3, axis4]
         
         for i in range(n_cells):
-            # Use helper function for harmonic pattern
+            # Use cell-specific grid spacing for frequency diversity
+            cell_grid_spacing = grid_spacings[i]
+            
+            # Use helper function for harmonic pattern with tetrahedral axes
             rates = _compute_grid_pattern_with_harmonics(
                 positions, 
                 phase_offsets[i], 
-                grid_spacing,
-                axes=None,
+                cell_grid_spacing,
+                axes=axes,
                 harmonic_weights=(1.0, 0.4, 0.2)
             )
             
@@ -1132,18 +1195,22 @@ def generate_grid_cells(
             rates = (rates - rates.min()) / (rates.max() - rates.min() + 1e-10)
             rates = rates * peak_rate
             
-            # Add Poisson noise (proper spike count variability) + small Gaussian noise
+            # Add Gaussian noise only (Poisson at high rates approaches Gaussian)
+            # For 3D, use only Gaussian noise to preserve spatial structure better
             if noise_level > 0:
-                rates = rng.poisson(rates) + rng.normal(0, 0.1 * noise_level * peak_rate, size=rates.shape)
+                # Scale noise by peak rate for biological realism
+                rates = rates + rng.normal(0, noise_level * peak_rate, size=rates.shape)
                 rates = np.maximum(0, rates)  # Clip to non-negative
             
             activity[:, i] = rates
         
         metadata = {
             'phase_offsets': phase_offsets,
+            'grid_spacings': grid_spacings,  # Cell-specific spacings
+            'grid_spacing': grid_spacing,  # Base spacing
             'positions': positions,
             'cell_type': 'grid',
-            'grid_spacing': grid_spacing,
+            'grid_orientation': grid_orientation,
             'arena_size': arena_size,
             'n_dims': n_dims,
             'sampling_rate': sampling_rate,
@@ -1539,6 +1606,7 @@ def generate_s_curve(
 def map_to_ring(
     activity: npt.NDArray[np.float64],
     positions: npt.NDArray[np.float64],
+    plot: bool = True,
 ) -> npt.NDArray[np.float64]:
     """Map population activity to ring manifold (1D circular).
     
@@ -1549,6 +1617,10 @@ def map_to_ring(
     Args:
         activity: Neural activity matrix, shape (n_samples, n_cells).
         positions: Position or angle values, shape (n_samples,) or (n_samples, 1).
+        plot: If True, create visualization using PlotGrid system showing:
+            - Original 1D trajectory (line plot colored by time)
+            - Ring embedding colored by time
+            - Ring embedding colored by position
     
     Returns:
         ring_coords: Coordinates on ring, shape (n_samples, 2).
@@ -1556,18 +1628,95 @@ def map_to_ring(
     
     Examples:
         >>> activity, meta = generate_place_cells(50, 1000, arena_size=2.0)
-        >>> ring_coords = map_to_ring(activity, meta['positions'])
+        >>> ring_coords = map_to_ring(activity, meta['positions'], plot=True)
     """
     # Flatten positions if needed
     if positions.ndim > 1:
-        positions = positions.ravel()
+        positions_flat = positions.ravel()
+    else:
+        positions_flat = positions
     
     # Normalize positions to [0, 2π]
-    pos_min, pos_max = positions.min(), positions.max()
-    angles = 2 * np.pi * (positions - pos_min) / (pos_max - pos_min)
+    pos_min, pos_max = positions_flat.min(), positions_flat.max()
+    angles = 2 * np.pi * (positions_flat - pos_min) / (pos_max - pos_min)
     
     # Map to ring
     ring_coords = np.column_stack([np.cos(angles), np.sin(angles)])
+    
+    # Create visualization if requested
+    if plot:
+        from neural_analysis.plotting.grid_config import PlotSpec, PlotGrid
+        from neural_analysis.plotting.grid_config import PlotConfig, GridLayoutConfig
+        
+        plot_specs = []
+        
+        # 1. Original 1D trajectory (line plot with time on x-axis)
+        time_array = np.arange(len(positions_flat))
+        spec1 = PlotSpec(
+            data={"x": time_array, "y": positions_flat},
+            plot_type="line",
+            subplot_position=0,
+            title="1D Position Trajectory",
+            color="#3498DB",
+            line_width=1.5,
+            alpha=0.8,
+            kwargs={
+                "x_label": "Time (samples)",
+                "y_label": "Position (m)",
+            },
+        )
+        plot_specs.append(spec1)
+        
+        # 2. Ring embedding colored by time
+        spec2 = PlotSpec(
+            data={"x": ring_coords[:, 0], "y": ring_coords[:, 1]},
+            plot_type="scatter",
+            subplot_position=1,
+            title="Ring Embedding (S¹) - Colored by Time",
+            color_by=time_array,
+            cmap="viridis",
+            marker_size=10,
+            alpha=0.7,
+            colorbar=True,
+            colorbar_label="Time (samples)",
+            equal_aspect=True,
+            kwargs={
+                "x_label": "cos(θ)",
+                "y_label": "sin(θ)",
+            },
+        )
+        plot_specs.append(spec2)
+        
+        # 3. Ring embedding colored by position
+        spec3 = PlotSpec(
+            data={"x": ring_coords[:, 0], "y": ring_coords[:, 1]},
+            plot_type="scatter",
+            subplot_position=2,
+            title="Ring Embedding - Colored by Position",
+            color_by=positions_flat,
+            cmap="plasma",
+            marker_size=10,
+            alpha=0.7,
+            colorbar=True,
+            colorbar_label="Position (m)",
+            equal_aspect=True,
+            kwargs={
+                "x_label": "cos(θ)",
+                "y_label": "sin(θ)",
+            },
+        )
+        plot_specs.append(spec3)
+        
+        # Create grid
+        grid = PlotGrid(
+            plot_specs=plot_specs,
+            config=PlotConfig(figsize=(15, 5)),
+            layout=GridLayoutConfig(rows=1, cols=3),
+            backend="matplotlib",
+        )
+        
+        grid.plot()
+    
     return ring_coords
 
 
@@ -1576,6 +1725,7 @@ def map_to_torus(
     positions: npt.NDArray[np.float64],
     major_radius: float = 2.0,
     minor_radius: float = 1.0,
+    plot: bool = True,
 ) -> npt.NDArray[np.float64]:
     """Map population activity to torus manifold (2D periodic).
     
@@ -1587,6 +1737,10 @@ def map_to_torus(
         positions: 2D positions, shape (n_samples, 2).
         major_radius: Major radius of torus (distance from center to tube center).
         minor_radius: Minor radius of torus (tube radius).
+        plot: If True, create visualization using PlotGrid system showing:
+            - Original 2D trajectory
+            - Torus embedding colored by time
+            - Torus embedding colored by X position
     
     Returns:
         torus_coords: Coordinates on torus, shape (n_samples, 3).
@@ -1594,7 +1748,7 @@ def map_to_torus(
     
     Examples:
         >>> activity, meta = generate_grid_cells(30, 1000, arena_size=(2.0, 2.0))
-        >>> torus_coords = map_to_torus(activity, meta['positions'])
+        >>> torus_coords = map_to_torus(activity, meta['positions'], plot=True)
     """
     if positions.shape[1] != 2:
         raise ValueError("Positions must be 2D for torus mapping")
@@ -1615,6 +1769,89 @@ def map_to_torus(
     z = minor_radius * np.sin(phi)
     
     torus_coords = np.column_stack([x, y, z])
+    
+    # Create visualization if requested
+    if plot:
+        from neural_analysis.plotting.grid_config import (
+            GridLayoutConfig,
+            PlotConfig,
+            PlotGrid,
+            PlotSpec,
+        )
+        
+        plot_specs = []
+        time_array = np.arange(len(positions))
+        
+        # 1. Original 2D trajectory
+        spec1 = PlotSpec(
+            data={"x": positions[:, 0], "y": positions[:, 1]},
+            plot_type="trajectory",
+            subplot_position=0,
+            title="2D Position Trajectory",
+            color_by=time_array,
+            cmap="viridis",
+            marker_size=5,
+            alpha=0.7,
+            colorbar=True,
+            colorbar_label="Time (samples)",
+            equal_aspect=True,
+            kwargs={
+                "x_label": "X Position (m)",
+                "y_label": "Y Position (m)",
+            },
+        )
+        plot_specs.append(spec1)
+        
+        # 2. Torus embedding colored by time (3D)
+        spec2 = PlotSpec(
+            data={"x": torus_coords[:, 0], "y": torus_coords[:, 1], "z": torus_coords[:, 2]},
+            plot_type="scatter3d",
+            subplot_position=1,
+            title="Torus Embedding (T²) - Colored by Time",
+            color_by=time_array,
+            cmap="viridis",
+            marker_size=5,
+            alpha=0.7,
+            colorbar=True,
+            colorbar_label="Time (samples)",
+            kwargs={
+                "x_label": "X",
+                "y_label": "Y",
+                "z_label": "Z",
+            },
+        )
+        plot_specs.append(spec2)
+        
+        # 3. Torus embedding colored by X position (3D)
+        spec3 = PlotSpec(
+            data={"x": torus_coords[:, 0], "y": torus_coords[:, 1], "z": torus_coords[:, 2]},
+            plot_type="scatter3d",
+            subplot_position=2,
+            title="Torus - Colored by X Position",
+            color_by=positions[:, 0],
+            cmap="plasma",
+            marker_size=5,
+            alpha=0.7,
+            colorbar=True,
+            colorbar_label="X Position (m)",
+            kwargs={
+                "x_label": "X",
+                "y_label": "Y",
+                "z_label": "Z",
+            },
+        )
+        plot_specs.append(spec3)
+        
+        # Create grid
+        grid = PlotGrid(
+            plot_specs=plot_specs,
+            config=PlotConfig(figsize=(16, 5)),
+            layout=GridLayoutConfig(rows=1, cols=3),
+            backend="matplotlib",
+        )
+        
+        grid.plot()
+    
     return torus_coords
 
 
@@ -1753,6 +1990,19 @@ def generate_mixed_population_flexible(
     # Combine all activities
     combined_activity = np.column_stack(all_activity)
     
+    # Merge cell-specific metadata arrays into single arrays
+    # Initialize with None for all cells
+    n_total_cells = combined_activity.shape[1]
+    preferred_directions = np.full(n_total_cells, np.nan)
+    
+    # Fill in metadata for each cell type
+    for cell_type, idxs in cell_indices.items():
+        meta = cell_metadata[cell_type]
+        
+        # Handle preferred_directions (for head direction cells)
+        if 'preferred_directions' in meta and meta['preferred_directions'] is not None:
+            preferred_directions[idxs] = meta['preferred_directions']
+    
     # Create comprehensive metadata
     metadata = {
         'cell_types': np.array(all_cell_types),
@@ -1760,8 +2010,11 @@ def generate_mixed_population_flexible(
         'cell_config': cell_config,
         'positions': positions,
         'head_direction': head_direction,
+        'head_directions': head_direction,  # Add plural form for compatibility
         'arena_size': arena_size,
         'n_samples': n_samples,
+        'n_dims': 2,  # Mixed populations currently only support 2D
+        'preferred_directions': preferred_directions,
         'individual_metadata': cell_metadata,
     }
     

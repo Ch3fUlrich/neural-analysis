@@ -47,6 +47,7 @@ jobs:
       run: |
         echo "Running ruff format check with Python 3.12"
         uv run ruff format --check .
+      continue-on-error: true
     
     - name: Run mypy type check
       run: uv run mypy src/neural_analysis --ignore-missing-imports

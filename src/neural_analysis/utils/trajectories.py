@@ -99,7 +99,17 @@ def compute_colors(n_points: int, color_by: Literal["time"] = "time") -> np.ndar
     if n_points < 1:
         raise ValueError("Need at least 1 point")
 
-    if color_by == "time":
+    # Handle case where color_by might be an array or string
+    if isinstance(color_by, str) and color_by == "time":
         return np.arange(n_points)
-    else:
+    elif isinstance(color_by, str):
         raise ValueError(f"Unsupported color_by method: {color_by}")
+    else:
+        # If color_by is an array or other type, assume it's color data
+        color_array = np.asarray(color_by)
+        if len(color_array) != n_points:
+            raise ValueError(
+                f"color_by array length ({len(color_array)}) "
+                f"must match n_points ({n_points})"
+            )
+        return color_array
