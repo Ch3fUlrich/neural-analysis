@@ -1312,7 +1312,7 @@ def shape_distance(
                     )
                     # Solve linear assignment problem
                     row_ind, col_ind = linear_sum_assignment(cost_matrix)
-                    disparity = cost_matrix[row_ind, col_ind].sum() / min_cells
+                    disparity = cost_matrix[row_ind, col_ind].sum()
                     # Note: Normalization by min_cells aligns with whitened matrix norms
             except Exception as e:
                 print(f"Method {method} failed: {e}, trying again.")
