@@ -22,7 +22,7 @@ from neural_analysis.utils.io import (
 class TestSaveLoadArray:
     """Tests for save_array and load_array functions."""
 
-    def test_save_load_single_array_npy(self, tmp_path):
+    def test_save_load_single_array_npy(self, tmp_path) -> None:
         """Test saving and loading a single array in .npy format."""
         arr = np.random.rand(10, 5)
         path = tmp_path / "test.npy"
@@ -33,7 +33,7 @@ class TestSaveLoadArray:
         assert loaded is not None
         assert np.allclose(arr, loaded)
 
-    def test_save_load_dict_npz(self, tmp_path):
+    def test_save_load_dict_npz(self, tmp_path) -> None:
         """Test saving and loading multiple arrays in .npz format."""
         data = {
             "embeddings": np.random.rand(100, 2),
@@ -51,7 +51,7 @@ class TestSaveLoadArray:
         for key in data:
             assert np.allclose(data[key], loaded[key])
 
-    def test_save_array_auto_extension(self, tmp_path):
+    def test_save_array_auto_extension(self, tmp_path) -> None:
         """Test automatic extension assignment based on data type."""
         # Single array → .npy
         arr = np.ones(10)
@@ -65,7 +65,7 @@ class TestSaveLoadArray:
         save_array(path2, data)
         assert (tmp_path / "multi.npz").exists()
 
-    def test_save_array_creates_directories(self, tmp_path):
+    def test_save_array_creates_directories(self, tmp_path) -> None:
         """Test that parent directories are created automatically."""
         deep_path = tmp_path / "level1" / "level2" / "level3" / "data.npy"
         arr = np.ones(5)
@@ -76,7 +76,7 @@ class TestSaveLoadArray:
         loaded = load_array(deep_path)
         assert np.allclose(arr, loaded)
 
-    def test_save_array_overwrite_protection(self, tmp_path):
+    def test_save_array_overwrite_protection(self, tmp_path) -> None:
         """Test that overwrite protection works."""
         path = tmp_path / "test.npy"
         arr1 = np.ones(5)
@@ -98,7 +98,7 @@ class TestSaveLoadArray:
 class TestUpdateArray:
     """Tests for update_array function."""
 
-    def test_update_existing_npz(self, tmp_path):
+    def test_update_existing_npz(self, tmp_path) -> None:
         """Test updating existing .npz file adds new arrays."""
         path = tmp_path / "test.npz"
         initial_data = {"arr1": np.ones(5)}
@@ -117,7 +117,7 @@ class TestUpdateArray:
 class TestSaveLoadHDF5:
     """Tests for save_hdf5 and load_hdf5 functions."""
 
-    def test_save_load_dataframe(self, tmp_path):
+    def test_save_load_dataframe(self, tmp_path) -> None:
         """Test saving and loading a DataFrame."""
         df = pd.DataFrame(
             {
@@ -136,7 +136,7 @@ class TestSaveLoadHDF5:
         pd.testing.assert_frame_equal(df, loaded_df)
         assert loaded_labels == labels
 
-    def test_save_load_array(self, tmp_path):
+    def test_save_load_array(self, tmp_path) -> None:
         """Test saving and loading a numpy array."""
         arr = np.random.rand(50, 10)
         labels = [f"neuron_{i}" for i in range(50)]
@@ -149,7 +149,7 @@ class TestSaveLoadHDF5:
         assert np.allclose(arr, loaded_arr)
         assert loaded_labels == labels
 
-    def test_load_hdf5_filter_pairs(self, tmp_path):
+    def test_load_hdf5_filter_pairs(self, tmp_path) -> None:
         """Test filtering DataFrame by item pairs."""
         df = pd.DataFrame(
             {
@@ -170,7 +170,7 @@ class TestSaveLoadHDF5:
         assert len(loaded_df) == 2
         assert set(loaded_df["item_i"]) == {"A", "C"}
 
-    def test_load_hdf5_missing_file(self, tmp_path):
+    def test_load_hdf5_missing_file(self, tmp_path) -> None:
         """Test loading non-existent file returns None."""
         path = tmp_path / "nonexistent.h5"
         data, labels = load_hdf5(path)
@@ -182,7 +182,7 @@ class TestSaveLoadHDF5:
 class TestComparisonBatch:
     """Tests for save_comparison_batch and get_missing_comparisons functions."""
 
-    def test_save_comparison_batch_creates_dataframe(self, tmp_path):
+    def test_save_comparison_batch_creates_dataframe(self, tmp_path) -> None:
         """Test that save_comparison_batch creates a DataFrame from result rows."""
         from neural_analysis.utils.io import save_comparison_batch
 
@@ -211,7 +211,7 @@ class TestComparisonBatch:
         assert isinstance(df_results.loc[1, "pairs"], dict)
         assert df_results.loc[1, "pairs"]["0,0"] == 0.1
 
-    def test_save_comparison_batch_appends(self, tmp_path):
+    def test_save_comparison_batch_appends(self, tmp_path) -> None:
         """Test that save_comparison_batch appends to existing DataFrame."""
         from neural_analysis.utils.io import save_comparison_batch
 
@@ -241,7 +241,7 @@ class TestComparisonBatch:
         df_results = save_comparison_batch(more_rows, df_results, None)
         assert len(df_results) == 2
 
-    def test_save_comparison_batch_saves_to_file(self, tmp_path):
+    def test_save_comparison_batch_saves_to_file(self, tmp_path) -> None:
         """Test that save_comparison_batch saves to HDF5 file."""
         from neural_analysis.utils.io import save_comparison_batch
 
@@ -268,7 +268,7 @@ class TestComparisonBatch:
         assert df_results["metric"].tolist() == loaded_df["metric"].tolist()
         assert df_results["value"].tolist() == loaded_df["value"].tolist()
 
-    def test_save_comparison_batch_empty_rows(self, tmp_path):
+    def test_save_comparison_batch_empty_rows(self, tmp_path) -> None:
         """Test that save_comparison_batch handles empty result rows."""
         from neural_analysis.utils.io import save_comparison_batch
 
@@ -290,7 +290,7 @@ class TestComparisonBatch:
         df_results = save_comparison_batch([], df_existing, None)
         pd.testing.assert_frame_equal(df_results, df_existing)
 
-    def test_get_missing_comparisons_all_missing(self, tmp_path):
+    def test_get_missing_comparisons_all_missing(self, tmp_path) -> None:
         """Test get_missing_comparisons when no cache exists."""
         from neural_analysis.utils.io import get_missing_comparisons
 
@@ -304,7 +304,7 @@ class TestComparisonBatch:
         assert ("A", "B", "wasserstein") in missing
         assert ("C", "D", "procrustes") in missing
 
-    def test_get_missing_comparisons_partial_cache(self, tmp_path):
+    def test_get_missing_comparisons_partial_cache(self, tmp_path) -> None:
         """Test get_missing_comparisons with partial cached results."""
         from neural_analysis.utils.io import get_missing_comparisons
 
@@ -336,7 +336,7 @@ class TestComparisonBatch:
         assert ("A", "B", "procrustes") in missing
         assert ("E", "F", "wasserstein") in missing
 
-    def test_get_missing_comparisons_empty_dataframe(self, tmp_path):
+    def test_get_missing_comparisons_empty_dataframe(self, tmp_path) -> None:
         """Test get_missing_comparisons with empty DataFrame."""
         from neural_analysis.utils.io import get_missing_comparisons
 

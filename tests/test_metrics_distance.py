@@ -15,20 +15,20 @@ from neural_analysis.metrics import (
 class TestEuclideanDistance:
     """Test suite for euclidean_distance function."""
 
-    def test_1d_vectors(self):
+    def test_1d_vectors(self) -> None:
         """Test distance between 1D vectors."""
         x = np.array([0, 0])
         y = np.array([3, 4])
         result = euclidean_distance(x, y)
         assert result == pytest.approx(5.0)
 
-    def test_identical_vectors(self):
+    def test_identical_vectors(self) -> None:
         """Test distance between identical vectors is zero."""
         x = np.array([1, 2, 3])
         result = euclidean_distance(x, x)
         assert result == pytest.approx(0.0)
 
-    def test_2d_arrays_pairwise(self):
+    def test_2d_arrays_pairwise(self) -> None:
         """Test pairwise distance matrix for 2D arrays."""
         x_data = np.array([[0, 0], [1, 0], [0, 1]])
         y_data = np.array([[0, 0], [2, 0]])
@@ -39,7 +39,7 @@ class TestEuclideanDistance:
         # Second point (1,0) to second point (2,0)
         assert result[1, 1] == pytest.approx(1.0)
 
-    def test_negative_values(self):
+    def test_negative_values(self) -> None:
         """Test with negative coordinates."""
         x = np.array([-1, -1])
         y = np.array([1, 1])
@@ -47,7 +47,7 @@ class TestEuclideanDistance:
         expected = np.sqrt(8)
         assert result == pytest.approx(expected)
 
-    def test_high_dimensional(self):
+    def test_high_dimensional(self) -> None:
         """Test with high-dimensional vectors."""
         np.random.seed(42)
         x = np.random.randn(100)
@@ -60,7 +60,7 @@ class TestEuclideanDistance:
 class TestMahalanobisDistance:
     """Test suite for mahalanobis_distance function."""
 
-    def test_identity_covariance(self):
+    def test_identity_covariance(self) -> None:
         """Test Mahalanobis equals Euclidean when cov is identity."""
         mean = np.array([0, 0])
         cov = np.eye(2)
@@ -69,7 +69,7 @@ class TestMahalanobisDistance:
         expected = np.sqrt(2)
         assert result == pytest.approx(expected)
 
-    def test_single_point(self):
+    def test_single_point(self) -> None:
         """Test with a single point."""
         mean = np.array([0, 0, 0])
         cov = np.eye(3)
@@ -77,7 +77,7 @@ class TestMahalanobisDistance:
         result = mahalanobis_distance(x, mean, cov)
         assert result == pytest.approx(1.0)
 
-    def test_multiple_points(self):
+    def test_multiple_points(self) -> None:
         """Test with multiple points (2D input)."""
         mean = np.array([0, 0])
         cov = np.eye(2)
@@ -88,7 +88,7 @@ class TestMahalanobisDistance:
         assert result[1] == pytest.approx(1.0)
         assert result[2] == pytest.approx(np.sqrt(2))
 
-    def test_with_inv_cov(self):
+    def test_with_inv_cov(self) -> None:
         """Test with inverse covariance directly."""
         mean = np.array([0, 0])
         inv_cov = np.eye(2)
@@ -96,7 +96,7 @@ class TestMahalanobisDistance:
         result = mahalanobis_distance(x, mean, inv_cov=inv_cov)
         assert result == pytest.approx(np.sqrt(2))
 
-    def test_correlated_covariance(self):
+    def test_correlated_covariance(self) -> None:
         """Test with correlated features."""
         mean = np.array([0, 0])
         cov = np.array([[1, 0.5], [0.5, 1]])
@@ -105,7 +105,7 @@ class TestMahalanobisDistance:
         # Should differ from Euclidean due to correlation
         assert result > 0
 
-    def test_missing_covariance_raises(self):
+    def test_missing_covariance_raises(self) -> None:
         """Test that missing both cov and inv_cov raises error."""
         mean = np.array([0, 0])
         x = np.array([1, 1])
@@ -116,27 +116,27 @@ class TestMahalanobisDistance:
 class TestCosineSimilarity:
     """Test suite for cosine_similarity function."""
 
-    def test_identical_vectors(self):
+    def test_identical_vectors(self) -> None:
         """Test cosine similarity of identical vectors is 1."""
         v = np.array([1, 2, 3])
         result = cosine_similarity(v, v)
         assert result == pytest.approx(1.0)
 
-    def test_orthogonal_vectors(self):
+    def test_orthogonal_vectors(self) -> None:
         """Test cosine similarity of orthogonal vectors is 0."""
         v1 = np.array([1, 0, 0])
         v2 = np.array([0, 1, 0])
         result = cosine_similarity(v1, v2)
         assert result == pytest.approx(0.0, abs=1e-7)
 
-    def test_opposite_vectors(self):
+    def test_opposite_vectors(self) -> None:
         """Test cosine similarity of opposite vectors is -1."""
         v1 = np.array([1, 0])
         v2 = np.array([-1, 0])
         result = cosine_similarity(v1, v2)
         assert result == pytest.approx(-1.0)
 
-    def test_45_degree_angle(self):
+    def test_45_degree_angle(self) -> None:
         """Test cosine similarity at 45 degrees."""
         v1 = np.array([1, 0])
         v2 = np.array([1, 1])
@@ -144,14 +144,14 @@ class TestCosineSimilarity:
         expected = 1 / np.sqrt(2)
         assert result == pytest.approx(expected)
 
-    def test_scaled_vectors(self):
+    def test_scaled_vectors(self) -> None:
         """Test that scaling doesn't affect similarity."""
         v1 = np.array([1, 2, 3])
         v2 = np.array([2, 4, 6])
         result = cosine_similarity(v1, v2)
         assert result == pytest.approx(1.0)
 
-    def test_2d_input_flattened(self):
+    def test_2d_input_flattened(self) -> None:
         """Test that 2D input is flattened correctly."""
         v1 = np.array([[1, 0]])
         v2 = np.array([[0, 1]])

@@ -26,7 +26,7 @@ from neural_analysis.topology import (
 class TestHelperFunctions:
     """Test suite for helper functions."""
 
-    def test_filter_noisy_outliers(self):
+    def test_filter_noisy_outliers(self) -> None:
         """Test outlier filtering."""
         # Create data with clear outliers
         np.random.seed(42)
@@ -41,7 +41,7 @@ class TestHelperFunctions:
         assert noise_idx.dtype == np.int64 or noise_idx.dtype == np.intp
         assert len(noise_idx) <= len(data)
 
-    def test_meshgrid2(self):
+    def test_meshgrid2(self) -> None:
         """Test meshgrid creation."""
         arrs = (np.array([1, 2]), np.array([3, 4, 5]))
         result = _meshgrid2(arrs)
@@ -51,7 +51,7 @@ class TestHelperFunctions:
         assert result[0].shape == (2, 3)
         assert result[1].shape == (2, 3)
 
-    def test_create_ndim_grid_1d(self):
+    def test_create_ndim_grid_1d(self) -> None:
         """Test 1D grid creation."""
         label = np.linspace(0, 1, 100).reshape(-1, 1)
         n_bins = [10]
@@ -68,7 +68,7 @@ class TestHelperFunctions:
         assert coords.shape[1] == 1
         assert coords.shape[2] == 3
 
-    def test_create_ndim_grid_2d(self):
+    def test_create_ndim_grid_2d(self) -> None:
         """Test 2D grid creation."""
         np.random.seed(42)
         label = np.random.rand(100, 2)
@@ -85,7 +85,7 @@ class TestHelperFunctions:
         assert coords.shape[0] == 20
         assert coords.shape[1] == 2
 
-    def test_create_ndim_grid_discrete(self):
+    def test_create_ndim_grid_discrete(self) -> None:
         """Test grid creation with discrete labels."""
         label = np.array([[0], [1], [0], [2], [1], [2]])
         n_bins = [3]
@@ -107,7 +107,7 @@ class TestHelperFunctions:
 class TestCloudOverlap:
     """Test suite for cloud overlap functions."""
 
-    def test_cloud_overlap_neighbors_euclidean(self):
+    def test_cloud_overlap_neighbors_euclidean(self) -> None:
         """Test neighbor-based overlap with Euclidean distance."""
         np.random.seed(42)
         cloud1 = np.random.randn(50, 3)
@@ -122,7 +122,7 @@ class TestCloudOverlap:
         assert 0 <= overlap_1_2 <= 1
         assert 0 <= overlap_2_1 <= 1
 
-    def test_cloud_overlap_neighbors_large_k(self):
+    def test_cloud_overlap_neighbors_large_k(self) -> None:
         """Test overlap with k larger than total points."""
         np.random.seed(42)
         cloud1 = np.random.randn(10, 2)
@@ -136,7 +136,7 @@ class TestCloudOverlap:
         assert isinstance(overlap_1_2, float)
         assert isinstance(overlap_2_1, float)
 
-    def test_cloud_overlap_radius_euclidean(self):
+    def test_cloud_overlap_radius_euclidean(self) -> None:
         """Test radius-based overlap with Euclidean distance."""
         np.random.seed(42)
         cloud1 = np.random.randn(50, 3)
@@ -151,7 +151,7 @@ class TestCloudOverlap:
         assert 0 <= overlap_1_2 <= 1
         assert 0 <= overlap_2_1 <= 1
 
-    def test_cloud_overlap_invalid_metric(self):
+    def test_cloud_overlap_invalid_metric(self) -> None:
         """Test that invalid distance metric raises error."""
         np.random.seed(42)
         cloud1 = np.random.randn(20, 2)
@@ -166,7 +166,7 @@ class TestCloudOverlap:
 class TestComputeStructureIndex:
     """Test suite for main structure index computation."""
 
-    def test_compute_structure_index_basic(self):
+    def test_compute_structure_index_basic(self) -> None:
         """Test basic structure index computation."""
         np.random.seed(42)
         # Create structured data
@@ -190,7 +190,7 @@ class TestComputeStructureIndex:
         assert isinstance(shuf_si, np.ndarray)
         assert len(shuf_si) == 10
 
-    def test_compute_structure_index_2d_labels(self):
+    def test_compute_structure_index_2d_labels(self) -> None:
         """Test with 2D labels."""
         np.random.seed(42)
         data = np.random.randn(150, 5)
@@ -203,7 +203,7 @@ class TestComputeStructureIndex:
         assert isinstance(si, (float, np.floating))
         assert isinstance(overlap_mat, np.ndarray)
 
-    def test_compute_structure_index_discrete_labels(self):
+    def test_compute_structure_index_discrete_labels(self) -> None:
         """Test with discrete labels."""
         np.random.seed(42)
         data = np.random.randn(100, 3)
@@ -222,7 +222,7 @@ class TestComputeStructureIndex:
         assert isinstance(si, (float, np.floating))
         assert overlap_mat.shape[0] <= 3  # May be fewer if bins are filtered
 
-    def test_compute_structure_index_with_nans(self):
+    def test_compute_structure_index_with_nans(self) -> None:
         """Test handling of NaN values."""
         np.random.seed(42)
         data = np.random.randn(100, 3)
@@ -238,7 +238,7 @@ class TestComputeStructureIndex:
         assert isinstance(si, (float, np.floating))
         # Should handle NaNs gracefully
 
-    def test_compute_structure_index_radius(self):
+    def test_compute_structure_index_radius(self) -> None:
         """Test structure index with radius-based overlap."""
         np.random.seed(42)
         data = np.random.randn(100, 3)
@@ -250,7 +250,7 @@ class TestComputeStructureIndex:
 
         assert isinstance(si, (float, np.floating))
 
-    def test_compute_structure_index_invalid_both_k_and_r(self):
+    def test_compute_structure_index_invalid_both_k_and_r(self) -> None:
         """Test that specifying both n_neighbors and radius raises error."""
         np.random.seed(42)
         data = np.random.randn(50, 2)
@@ -261,7 +261,7 @@ class TestComputeStructureIndex:
                 data, label, n_bins=3, n_neighbors=10, radius=1.0, verbose=False
             )
 
-    def test_compute_structure_index_few_bins(self):
+    def test_compute_structure_index_few_bins(self) -> None:
         """Test with very few unique labels."""
         np.random.seed(42)
         data = np.random.randn(100, 3)
@@ -275,7 +275,7 @@ class TestComputeStructureIndex:
         assert np.isnan(si)
         assert np.isnan(overlap_mat).all()
 
-    def test_compute_structure_index_dims_subset(self):
+    def test_compute_structure_index_dims_subset(self) -> None:
         """Test computing SI on subset of dimensions."""
         np.random.seed(42)
         data = np.random.randn(100, 5)
@@ -297,7 +297,7 @@ class TestComputeStructureIndex:
 class TestSweepFunctionality:
     """Test suite for parameter sweep and batch processing functionality."""
 
-    def test_compute_structure_index_sweep_basic(self):
+    def test_compute_structure_index_sweep_basic(self) -> None:
         """Test basic parameter sweep."""
         np.random.seed(42)
         data = np.random.randn(100, 3)
@@ -332,7 +332,7 @@ class TestSweepFunctionality:
             # Verify file was created
             assert save_path.exists()
 
-    def test_compute_structure_index_sweep_caching(self):
+    def test_compute_structure_index_sweep_caching(self) -> None:
         """Test that sweep uses cached results."""
         np.random.seed(42)
         data = np.random.randn(100, 3)
@@ -373,7 +373,7 @@ class TestSweepFunctionality:
             # Should get same result from cache
             assert si_first == pytest.approx(si_second)
 
-    def test_load_structure_index_results(self):
+    def test_load_structure_index_results(self) -> None:
         """Test loading saved results."""
         np.random.seed(42)
         data = np.random.randn(100, 3)
@@ -410,7 +410,7 @@ class TestSweepFunctionality:
                     original_results[key]["SI"]
                 )
 
-    def test_load_structure_index_results_filtered(self):
+    def test_load_structure_index_results_filtered(self) -> None:
         """Test loading with filters."""
         np.random.seed(42)
         data = np.random.randn(100, 3)
@@ -447,7 +447,7 @@ class TestSweepFunctionality:
 class TestDrawOverlapGraph:
     """Test suite for graph drawing function."""
 
-    def test_draw_overlap_graph_basic(self):
+    def test_draw_overlap_graph_basic(self) -> None:
         """Test basic graph drawing."""
         import matplotlib.pyplot as plt
 
@@ -462,7 +462,7 @@ class TestDrawOverlapGraph:
         assert len(ax.collections) > 0 or len(ax.patches) > 0
         plt.close(fig)
 
-    def test_draw_overlap_graph_with_names(self):
+    def test_draw_overlap_graph_with_names(self) -> None:
         """Test graph drawing with node names."""
         import matplotlib.pyplot as plt
 
@@ -476,7 +476,7 @@ class TestDrawOverlapGraph:
         assert len(ax.collections) > 0 or len(ax.patches) > 0
         plt.close(fig)
 
-    def test_draw_overlap_graph_custom_params(self):
+    def test_draw_overlap_graph_custom_params(self) -> None:
         """Test graph drawing with custom parameters."""
         import matplotlib.pyplot as plt
 
@@ -501,7 +501,7 @@ class TestDrawOverlapGraph:
 class TestEdgeCases:
     """Test suite for edge cases and error handling."""
 
-    def test_small_sample_size(self):
+    def test_small_sample_size(self) -> None:
         """Test with very small sample size."""
         np.random.seed(42)
         data = np.random.randn(20, 2)
@@ -514,7 +514,7 @@ class TestEdgeCases:
         # Should handle small datasets
         assert isinstance(si, (float, np.floating))
 
-    def test_high_dimensional_data(self):
+    def test_high_dimensional_data(self) -> None:
         """Test with high-dimensional data."""
         np.random.seed(42)
         data = np.random.randn(100, 20)
@@ -526,7 +526,7 @@ class TestEdgeCases:
 
         assert isinstance(si, (float, np.floating))
 
-    def test_single_feature_data(self):
+    def test_single_feature_data(self) -> None:
         """Test with 1D data."""
         np.random.seed(42)
         data = np.random.randn(100, 1)

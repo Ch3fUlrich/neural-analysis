@@ -15,7 +15,7 @@ from neural_analysis.plotting import (
 class TestPlotScatter3D:
     """Tests for plot_scatter_3d function."""
 
-    def test_basic_scatter_matplotlib(self):
+    def test_basic_scatter_matplotlib(self) -> None:
         """Test basic 3D scatter plot with matplotlib."""
         x = np.random.randn(50)
         y = np.random.randn(50)
@@ -28,7 +28,7 @@ class TestPlotScatter3D:
         assert hasattr(ax, "get_xlabel")
         plt.close("all")
 
-    def test_scatter_with_color_array(self):
+    def test_scatter_with_color_array(self) -> None:
         """Test scatter with color array."""
         x = np.random.randn(50)
         y = np.random.randn(50)
@@ -43,7 +43,7 @@ class TestPlotScatter3D:
         assert ax is not None
         plt.close("all")
 
-    def test_scatter_mismatched_lengths(self):
+    def test_scatter_mismatched_lengths(self) -> None:
         """Test error on mismatched array lengths."""
         x = np.random.randn(50)
         y = np.random.randn(40)
@@ -58,7 +58,7 @@ class TestPlotScatter3D:
 class TestPlotTrajectory3D:
     """Tests for plot_trajectory_3d function."""
 
-    def test_basic_trajectory_matplotlib(self):
+    def test_basic_trajectory_matplotlib(self) -> None:
         """Test basic 3D trajectory with matplotlib."""
         t = np.linspace(0, 4 * np.pi, 100)
         x = np.sin(t)
@@ -71,7 +71,7 @@ class TestPlotTrajectory3D:
         assert ax is not None
         plt.close("all")
 
-    def test_trajectory_color_by_time(self):
+    def test_trajectory_color_by_time(self) -> None:
         """Test trajectory with time-based coloring."""
         t = np.linspace(0, 2 * np.pi, 50)
         x = np.sin(t)
@@ -86,7 +86,7 @@ class TestPlotTrajectory3D:
         assert ax is not None
         plt.close("all")
 
-    def test_trajectory_without_points(self):
+    def test_trajectory_without_points(self) -> None:
         """Test trajectory without scatter points."""
         t = np.linspace(0, 2 * np.pi, 50)
         x = np.sin(t)
@@ -101,7 +101,7 @@ class TestPlotTrajectory3D:
         assert ax is not None
         plt.close("all")
 
-    def test_trajectory_mismatched_lengths(self):
+    def test_trajectory_mismatched_lengths(self) -> None:
         """Test error on mismatched array lengths."""
         x = np.random.randn(50)
         y = np.random.randn(40)
@@ -116,7 +116,7 @@ class TestPlotTrajectory3D:
 class TestBackendSelection:
     """Tests for backend selection."""
 
-    def test_scatter_backend_override(self):
+    def test_scatter_backend_override(self) -> None:
         """Test backend override for scatter."""
         set_backend("matplotlib")
 
@@ -134,7 +134,7 @@ class TestBackendSelection:
 class TestEdgeCases:
     """Tests for edge cases."""
 
-    def test_single_point_scatter(self):
+    def test_single_point_scatter(self) -> None:
         """Test scatter with single point."""
         x = np.array([1.0])
         y = np.array([2.0])
@@ -146,7 +146,7 @@ class TestEdgeCases:
         assert ax is not None
         plt.close("all")
 
-    def test_large_dataset(self):
+    def test_large_dataset(self) -> None:
         """Test with larger dataset."""
         n = 5000
         x = np.random.randn(n)

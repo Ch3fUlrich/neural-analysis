@@ -11,7 +11,7 @@ from neural_analysis.metrics import filter_outlier
 class TestFilterOutlier:
     """Test suite for filter_outlier function."""
 
-    def test_no_outliers_iqr(self):
+    def test_no_outliers_iqr(self) -> None:
         """Test that clean data passes through with IQR method."""
         np.random.seed(42)
         points = np.random.randn(100, 3)
@@ -19,7 +19,7 @@ class TestFilterOutlier:
         # Most points should remain
         assert filtered.shape[0] >= 85
 
-    def test_extreme_outliers_removed_iqr(self):
+    def test_extreme_outliers_removed_iqr(self) -> None:
         """Test that extreme outliers are removed with IQR."""
         np.random.seed(42)
         clean = np.random.randn(95, 2)
@@ -30,7 +30,7 @@ class TestFilterOutlier:
         assert filtered.shape[0] < points.shape[0]
         assert filtered.shape[0] >= 85
 
-    def test_zscore_method(self):
+    def test_zscore_method(self) -> None:
         """Test Z-score outlier detection."""
         np.random.seed(42)
         clean = np.random.randn(95, 3)
@@ -40,7 +40,7 @@ class TestFilterOutlier:
         # Should remove extreme outliers
         assert filtered.shape[0] < points.shape[0]
 
-    def test_lof_method(self):
+    def test_lof_method(self) -> None:
         """Test Local Outlier Factor method."""
         np.random.seed(42)
         clean = np.random.randn(90, 3)
@@ -50,7 +50,7 @@ class TestFilterOutlier:
         # Should remove approximately 10% of points
         assert 80 <= filtered.shape[0] <= 92
 
-    def test_isolation_method(self):
+    def test_isolation_method(self) -> None:
         """Test Isolation Forest method."""
         np.random.seed(42)
         clean = np.random.randn(95, 3)
@@ -60,7 +60,7 @@ class TestFilterOutlier:
         # Should remove approximately 5% of points
         assert 90 <= filtered.shape[0] <= 98
 
-    def test_elliptic_method(self):
+    def test_elliptic_method(self) -> None:
         """Test Elliptic Envelope (Mahalanobis) method."""
         np.random.seed(42)
         # Need enough samples for covariance estimation
@@ -71,7 +71,7 @@ class TestFilterOutlier:
         # Should remove outliers
         assert filtered.shape[0] < points.shape[0]
 
-    def test_return_mask(self):
+    def test_return_mask(self) -> None:
         """Test that return_mask option works."""
         np.random.seed(42)
         points = np.vstack([np.random.randn(95, 3), np.random.randn(5, 3) * 10])
@@ -86,13 +86,13 @@ class TestFilterOutlier:
         # Check that filtered points match mask
         np.testing.assert_array_equal(filtered, points[mask])
 
-    def test_too_few_points_returns_all(self):
+    def test_too_few_points_returns_all(self) -> None:
         """Test that < 10 points returns all points unchanged."""
         points = np.random.randn(5, 3)
         filtered = filter_outlier(points, method="lof")
         np.testing.assert_array_equal(filtered, points)
 
-    def test_1d_data(self):
+    def test_1d_data(self) -> None:
         """Test with 1D data."""
         np.random.seed(42)
         clean = np.random.randn(95, 1)
@@ -101,7 +101,7 @@ class TestFilterOutlier:
         filtered = filter_outlier(points, method="zscore", threshold=3.0)
         assert filtered.shape[0] < points.shape[0]
 
-    def test_high_dimensional_data(self):
+    def test_high_dimensional_data(self) -> None:
         """Test with high-dimensional data."""
         np.random.seed(42)
         points = np.random.randn(200, 50)
@@ -111,7 +111,7 @@ class TestFilterOutlier:
         # Should detect and remove some outliers
         assert filtered.shape[0] < combined.shape[0]
 
-    def test_constant_feature_zscore(self):
+    def test_constant_feature_zscore(self) -> None:
         """Test Z-score with constant feature (std=0)."""
         points = np.array([[1, 5], [1, 6], [1, 7], [1, 100]])
         # First column is constant; second has outlier
@@ -119,7 +119,7 @@ class TestFilterOutlier:
         # Should keep first column intact, filter second
         assert filtered.shape[0] == 3
 
-    def test_elliptic_insufficient_samples(self):
+    def test_elliptic_insufficient_samples(self) -> None:
         """Test elliptic method with n <= d returns all points."""
         # 10 samples, 15 dimensions
         points = np.random.randn(10, 15)
@@ -127,13 +127,13 @@ class TestFilterOutlier:
         # Should return all due to insufficient samples for covariance
         assert filtered.shape[0] == points.shape[0]
 
-    def test_invalid_method_raises(self):
+    def test_invalid_method_raises(self) -> None:
         """Test that invalid method raises error."""
         points = np.random.randn(100, 3)
         with pytest.raises(ValueError, match="Unknown method"):
             filter_outlier(points, method="invalid_method")
 
-    def test_preserves_shape(self):
+    def test_preserves_shape(self) -> None:
         """Test that feature dimensionality is preserved."""
         np.random.seed(42)
         points = np.random.randn(100, 7)

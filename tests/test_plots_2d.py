@@ -33,7 +33,7 @@ class TestPlotScatter2D:
         y = np.random.randn(50)
         return x, y
 
-    def test_basic_scatter_matplotlib(self, sample_data):
+    def test_basic_scatter_matplotlib(self, sample_data) -> None:
         """Test basic scatter plot with matplotlib."""
         set_backend("matplotlib")
         x, y = sample_data
@@ -42,13 +42,13 @@ class TestPlotScatter2D:
         plt.close()
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not available")
-    def test_basic_scatter_plotly(self, sample_data):
+    def test_basic_scatter_plotly(self, sample_data) -> None:
         """Test basic scatter plot with plotly."""
         x, y = sample_data
         fig = plot_scatter_2d(x, y, backend="plotly", config=PlotConfig(show=False))
         assert isinstance(fig, go.Figure)
 
-    def test_scatter_with_color_array(self, sample_data):
+    def test_scatter_with_color_array(self, sample_data) -> None:
         """Test scatter with color array."""
         set_backend("matplotlib")
         x, y = sample_data
@@ -59,7 +59,7 @@ class TestPlotScatter2D:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_scatter_with_color_string(self, sample_data):
+    def test_scatter_with_color_string(self, sample_data) -> None:
         """Test scatter with single color."""
         set_backend("matplotlib")
         x, y = sample_data
@@ -67,7 +67,7 @@ class TestPlotScatter2D:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_scatter_with_variable_sizes(self, sample_data):
+    def test_scatter_with_variable_sizes(self, sample_data) -> None:
         """Test scatter with variable point sizes."""
         set_backend("matplotlib")
         x, y = sample_data
@@ -76,7 +76,7 @@ class TestPlotScatter2D:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_scatter_with_config(self, sample_data):
+    def test_scatter_with_config(self, sample_data) -> None:
         """Test scatter with plot configuration."""
         set_backend("matplotlib")
         x, y = sample_data
@@ -93,14 +93,14 @@ class TestPlotScatter2D:
         assert ax.get_ylabel() == "Y axis"
         plt.close()
 
-    def test_scatter_mismatched_lengths(self):
+    def test_scatter_mismatched_lengths(self) -> None:
         """Test that mismatched x and y lengths raise error."""
         x = np.array([1, 2, 3])
         y = np.array([1, 2])
         with pytest.raises(ValueError, match="x and y must have same length"):
             plot_scatter_2d(x, y)
 
-    def test_scatter_with_colorbar_label(self, sample_data):
+    def test_scatter_with_colorbar_label(self, sample_data) -> None:
         """Test scatter with colorbar label."""
         set_backend("matplotlib")
         x, y = sample_data
@@ -116,7 +116,7 @@ class TestPlotScatter2D:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_scatter_with_custom_alpha(self, sample_data):
+    def test_scatter_with_custom_alpha(self, sample_data) -> None:
         """Test scatter with custom transparency."""
         set_backend("matplotlib")
         x, y = sample_data
@@ -136,7 +136,7 @@ class TestPlotTrajectory2D:
         y = np.cos(t)
         return x, y
 
-    def test_basic_trajectory_matplotlib(self, trajectory_data):
+    def test_basic_trajectory_matplotlib(self, trajectory_data) -> None:
         """Test basic trajectory plot with matplotlib."""
         set_backend("matplotlib")
         x, y = trajectory_data
@@ -145,13 +145,13 @@ class TestPlotTrajectory2D:
         plt.close()
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not available")
-    def test_basic_trajectory_plotly(self, trajectory_data):
+    def test_basic_trajectory_plotly(self, trajectory_data) -> None:
         """Test basic trajectory plot with plotly."""
         x, y = trajectory_data
         fig = plot_trajectory_2d(x, y, backend="plotly", config=PlotConfig(show=False))
         assert isinstance(fig, go.Figure)
 
-    def test_trajectory_color_by_time(self, trajectory_data):
+    def test_trajectory_color_by_time(self, trajectory_data) -> None:
         """Test trajectory with time-based coloring."""
         set_backend("matplotlib")
         x, y = trajectory_data
@@ -159,7 +159,7 @@ class TestPlotTrajectory2D:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_trajectory_without_points(self, trajectory_data):
+    def test_trajectory_without_points(self, trajectory_data) -> None:
         """Test trajectory without scatter points."""
         set_backend("matplotlib")
         x, y = trajectory_data
@@ -167,7 +167,7 @@ class TestPlotTrajectory2D:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_trajectory_custom_linewidth(self, trajectory_data):
+    def test_trajectory_custom_linewidth(self, trajectory_data) -> None:
         """Test trajectory with custom linewidth."""
         set_backend("matplotlib")
         x, y = trajectory_data
@@ -175,7 +175,7 @@ class TestPlotTrajectory2D:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_trajectory_without_time_color(self, trajectory_data):
+    def test_trajectory_without_time_color(self, trajectory_data) -> None:
         """Test trajectory without time-based coloring."""
         set_backend("matplotlib")
         x, y = trajectory_data
@@ -183,7 +183,7 @@ class TestPlotTrajectory2D:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_trajectory_mismatched_lengths(self):
+    def test_trajectory_mismatched_lengths(self) -> None:
         """Test that mismatched x and y lengths raise error."""
         x = np.array([1, 2, 3])
         y = np.array([1, 2])
@@ -205,7 +205,7 @@ class TestPlotGroupedScatter2D:
         }
         return groups
 
-    def test_basic_grouped_scatter_matplotlib(self, grouped_data):
+    def test_basic_grouped_scatter_matplotlib(self, grouped_data) -> None:
         """Test basic grouped scatter with matplotlib."""
         set_backend("matplotlib")
         ax = plot_grouped_scatter_2d(grouped_data, PlotConfig(show=False))
@@ -213,14 +213,14 @@ class TestPlotGroupedScatter2D:
         plt.close()
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not available")
-    def test_basic_grouped_scatter_plotly(self, grouped_data):
+    def test_basic_grouped_scatter_plotly(self, grouped_data) -> None:
         """Test basic grouped scatter with plotly."""
         fig = plot_grouped_scatter_2d(
             grouped_data, backend="plotly", config=PlotConfig(show=False)
         )
         assert isinstance(fig, go.Figure)
 
-    def test_grouped_scatter_with_hulls(self, grouped_data):
+    def test_grouped_scatter_with_hulls(self, grouped_data) -> None:
         """Test grouped scatter with convex hulls."""
         set_backend("matplotlib")
         ax = plot_grouped_scatter_2d(
@@ -229,7 +229,7 @@ class TestPlotGroupedScatter2D:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_grouped_scatter_custom_colors(self, grouped_data):
+    def test_grouped_scatter_custom_colors(self, grouped_data) -> None:
         """Test grouped scatter with custom colors."""
         set_backend("matplotlib")
         colors = ["red", "blue", "green"]
@@ -239,18 +239,18 @@ class TestPlotGroupedScatter2D:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_grouped_scatter_empty_dict(self):
+    def test_grouped_scatter_empty_dict(self) -> None:
         """Test that empty group_data raises error."""
         with pytest.raises(ValueError, match="group_data cannot be empty"):
             plot_grouped_scatter_2d({})
 
-    def test_grouped_scatter_mismatched_group(self):
+    def test_grouped_scatter_mismatched_group(self) -> None:
         """Test that mismatched x,y in a group raises error."""
         groups = {"A": (np.array([1, 2, 3]), np.array([1, 2]))}
         with pytest.raises(ValueError, match="x and y must have same length"):
             plot_grouped_scatter_2d(groups)
 
-    def test_grouped_scatter_small_groups(self):
+    def test_grouped_scatter_small_groups(self) -> None:
         """Test grouped scatter with groups too small for hulls."""
         groups = {
             "A": (np.array([1, 2]), np.array([1, 2])),  # Only 2 points
@@ -264,7 +264,7 @@ class TestPlotGroupedScatter2D:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_grouped_scatter_with_config(self, grouped_data):
+    def test_grouped_scatter_with_config(self, grouped_data) -> None:
         """Test grouped scatter with plot configuration."""
         set_backend("matplotlib")
         config = PlotConfig(
@@ -289,7 +289,7 @@ class TestPlotKDE2D:
         y = np.random.randn(200)
         return x, y
 
-    def test_basic_kde_matplotlib(self, kde_data):
+    def test_basic_kde_matplotlib(self, kde_data) -> None:
         """Test basic KDE plot with matplotlib."""
         set_backend("matplotlib")
         x, y = kde_data
@@ -298,13 +298,13 @@ class TestPlotKDE2D:
         plt.close()
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not available")
-    def test_basic_kde_plotly(self, kde_data):
+    def test_basic_kde_plotly(self, kde_data) -> None:
         """Test basic KDE plot with plotly."""
         x, y = kde_data
         fig = plot_kde_2d(x, y, backend="plotly", config=PlotConfig(show=False))
         assert isinstance(fig, go.Figure)
 
-    def test_kde_with_points(self, kde_data):
+    def test_kde_with_points(self, kde_data) -> None:
         """Test KDE with underlying points shown."""
         set_backend("matplotlib")
         x, y = kde_data
@@ -312,7 +312,7 @@ class TestPlotKDE2D:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_kde_contour_only(self, kde_data):
+    def test_kde_contour_only(self, kde_data) -> None:
         """Test KDE with contours only (no fill)."""
         set_backend("matplotlib")
         x, y = kde_data
@@ -320,7 +320,7 @@ class TestPlotKDE2D:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_kde_custom_levels(self, kde_data):
+    def test_kde_custom_levels(self, kde_data) -> None:
         """Test KDE with custom number of levels."""
         set_backend("matplotlib")
         x, y = kde_data
@@ -328,14 +328,14 @@ class TestPlotKDE2D:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_kde_mismatched_lengths(self):
+    def test_kde_mismatched_lengths(self) -> None:
         """Test that mismatched x and y lengths raise error."""
         x = np.array([1, 2, 3])
         y = np.array([1, 2])
         with pytest.raises(ValueError, match="x and y must have same length"):
             plot_kde_2d(x, y)
 
-    def test_kde_insufficient_points(self):
+    def test_kde_insufficient_points(self) -> None:
         """Test that too few points raise error."""
         x = np.array([1])
         y = np.array([1])
@@ -346,7 +346,7 @@ class TestPlotKDE2D:
 class TestBackendSelection:
     """Tests for backend selection across 2D functions."""
 
-    def test_scatter_backend_override(self):
+    def test_scatter_backend_override(self) -> None:
         """Test backend override for scatter plot."""
         set_backend("matplotlib")  # Set default to matplotlib
         x = np.random.randn(10)
@@ -357,7 +357,7 @@ class TestBackendSelection:
             fig = plot_scatter_2d(x, y, backend="plotly", config=PlotConfig(show=False))
             assert isinstance(fig, go.Figure)
 
-    def test_invalid_backend_raises_error(self):
+    def test_invalid_backend_raises_error(self) -> None:
         """Test that invalid backend raises error."""
         x = np.random.randn(10)
         y = np.random.randn(10)
@@ -370,7 +370,7 @@ class TestBackendSelection:
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
-    def test_empty_arrays(self):
+    def test_empty_arrays(self) -> None:
         """Test behavior with empty arrays."""
         x = np.array([])
         y = np.array([])
@@ -380,7 +380,7 @@ class TestEdgeCases:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_single_point_scatter(self):
+    def test_single_point_scatter(self) -> None:
         """Test scatter with single point."""
         x = np.array([1.0])
         y = np.array([2.0])
@@ -389,7 +389,7 @@ class TestEdgeCases:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_single_point_trajectory(self):
+    def test_single_point_trajectory(self) -> None:
         """Test trajectory with single point."""
         x = np.array([1.0])
         y = np.array([2.0])
@@ -398,7 +398,7 @@ class TestEdgeCases:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_large_dataset(self):
+    def test_large_dataset(self) -> None:
         """Test with large dataset."""
         np.random.seed(42)
         x = np.random.randn(10000)
@@ -408,7 +408,7 @@ class TestEdgeCases:
         assert isinstance(ax, plt.Axes)
         plt.close()
 
-    def test_inf_and_nan_values(self):
+    def test_inf_and_nan_values(self) -> None:
         """Test handling of inf and nan values."""
         x = np.array([1, 2, np.inf, 4, np.nan])
         y = np.array([1, 2, 3, np.inf, np.nan])

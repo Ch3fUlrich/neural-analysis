@@ -51,7 +51,7 @@ def sample_boolean_states():
 class TestPlotLine:
     """Tests for plot_line function."""
 
-    def test_basic_line_plot(self, sample_data_1d):
+    def test_basic_line_plot(self, sample_data_1d) -> None:
         """Test basic line plot creation."""
         x, y, _ = sample_data_1d
         config = PlotConfig(show=False)
@@ -61,7 +61,7 @@ class TestPlotLine:
         assert len(ax.lines) == 1
         plt.close("all")
 
-    def test_line_plot_with_std(self, sample_data_1d):
+    def test_line_plot_with_std(self, sample_data_1d) -> None:
         """Test line plot with error bands."""
         x, y, std = sample_data_1d
         config = PlotConfig(show=False)
@@ -73,7 +73,7 @@ class TestPlotLine:
         assert len(ax.collections) > 0
         plt.close("all")
 
-    def test_line_plot_with_markers(self, sample_data_1d):
+    def test_line_plot_with_markers(self, sample_data_1d) -> None:
         """Test line plot with markers."""
         x, y, _ = sample_data_1d
         config = PlotConfig(show=False)
@@ -84,7 +84,7 @@ class TestPlotLine:
         assert isinstance(ax, plt.Axes)
         plt.close("all")
 
-    def test_line_plot_with_label(self, sample_data_1d):
+    def test_line_plot_with_label(self, sample_data_1d) -> None:
         """Test line plot with label and legend."""
         x, y, _ = sample_data_1d
         config = PlotConfig(show=False, legend=True)
@@ -95,7 +95,7 @@ class TestPlotLine:
         assert legend.get_texts()[0].get_text() == "Test Data"
         plt.close("all")
 
-    def test_line_plot_no_x(self, sample_data_1d):
+    def test_line_plot_no_x(self, sample_data_1d) -> None:
         """Test line plot without explicit x values."""
         _, y, _ = sample_data_1d
         config = PlotConfig(show=False)
@@ -110,7 +110,7 @@ class TestPlotLine:
         assert x_data[-1] == len(y) - 1
         plt.close("all")
 
-    def test_line_plot_configuration(self, sample_data_1d):
+    def test_line_plot_configuration(self, sample_data_1d) -> None:
         """Test that PlotConfig is applied correctly."""
         _, y, _ = sample_data_1d
         config = PlotConfig(
@@ -131,7 +131,7 @@ class TestPlotLine:
         assert ax.get_ylim() == (-2, 2)
         plt.close("all")
 
-    def test_line_plot_invalid_data(self):
+    def test_line_plot_invalid_data(self) -> None:
         """Test error handling for invalid data."""
         with pytest.raises(ValueError, match="Data must be 1D"):
             data_2d = np.random.rand(10, 5)
@@ -140,7 +140,7 @@ class TestPlotLine:
 
         plt.close("all")
 
-    def test_line_plot_mismatched_x_data(self, sample_data_1d):
+    def test_line_plot_mismatched_x_data(self, sample_data_1d) -> None:
         """Test error handling for mismatched x and data lengths."""
         _, y, _ = sample_data_1d
         x_wrong = np.linspace(0, 10, 50)  # Different length
@@ -151,7 +151,7 @@ class TestPlotLine:
 
         plt.close("all")
 
-    def test_line_plot_custom_style(self, sample_data_1d):
+    def test_line_plot_custom_style(self, sample_data_1d) -> None:
         """Test custom line styling."""
         _, y, _ = sample_data_1d
         config = PlotConfig(show=False)
@@ -174,7 +174,7 @@ class TestPlotLine:
 class TestPlotMultipleLines:
     """Tests for plot_multiple_lines function."""
 
-    def test_multiple_lines_basic(self):
+    def test_multiple_lines_basic(self) -> None:
         """Test plotting multiple lines."""
         x = np.linspace(0, 10, 100)
         data_dict = {"sine": np.sin(x), "cosine": np.cos(x), "tangent": np.tan(x)}
@@ -185,7 +185,7 @@ class TestPlotMultipleLines:
         assert len(ax.lines) == 3
         plt.close("all")
 
-    def test_multiple_lines_with_colors(self):
+    def test_multiple_lines_with_colors(self) -> None:
         """Test multiple lines with custom colors."""
         x = np.linspace(0, 10, 100)
         data_dict = {
@@ -202,7 +202,7 @@ class TestPlotMultipleLines:
         assert ax.lines[1].get_color() == "blue"
         plt.close("all")
 
-    def test_multiple_lines_legend(self):
+    def test_multiple_lines_legend(self) -> None:
         """Test legend with multiple lines."""
         x = np.linspace(0, 10, 100)
         data_dict = {
@@ -223,7 +223,7 @@ class TestPlotMultipleLines:
 class TestPlotBooleanStates:
     """Tests for plot_boolean_states function."""
 
-    def test_basic_boolean_plot(self, sample_boolean_states):
+    def test_basic_boolean_plot(self, sample_boolean_states) -> None:
         """Test basic boolean state visualization."""
         config = PlotConfig(show=False)
         ax = plot_boolean_states(
@@ -234,7 +234,7 @@ class TestPlotBooleanStates:
         assert ax.get_ylim() == (0, 1)
         plt.close("all")
 
-    def test_boolean_plot_custom_colors(self, sample_boolean_states):
+    def test_boolean_plot_custom_colors(self, sample_boolean_states) -> None:
         """Test boolean plot with custom colors."""
         config = PlotConfig(show=False)
         ax = plot_boolean_states(
@@ -248,7 +248,7 @@ class TestPlotBooleanStates:
         assert isinstance(ax, plt.Axes)
         plt.close("all")
 
-    def test_boolean_plot_custom_labels(self, sample_boolean_states):
+    def test_boolean_plot_custom_labels(self, sample_boolean_states) -> None:
         """Test boolean plot with custom labels."""
         config = PlotConfig(show=False, legend=True)
         ax = plot_boolean_states(
@@ -266,7 +266,7 @@ class TestPlotBooleanStates:
         assert "Stationary" in legend_texts
         plt.close("all")
 
-    def test_boolean_plot_with_x(self, sample_boolean_states):
+    def test_boolean_plot_with_x(self, sample_boolean_states) -> None:
         """Test boolean plot with custom x values."""
         x = np.linspace(0, 100, len(sample_boolean_states))
         config = PlotConfig(show=False)
@@ -277,7 +277,7 @@ class TestPlotBooleanStates:
         assert isinstance(ax, plt.Axes)
         plt.close("all")
 
-    def test_boolean_all_true(self):
+    def test_boolean_all_true(self) -> None:
         """Test with all True values."""
         states = np.ones(10, dtype=bool)
         config = PlotConfig(show=False)
@@ -286,7 +286,7 @@ class TestPlotBooleanStates:
         assert isinstance(ax, plt.Axes)
         plt.close("all")
 
-    def test_boolean_all_false(self):
+    def test_boolean_all_false(self) -> None:
         """Test with all False values."""
         states = np.zeros(10, dtype=bool)
         config = PlotConfig(show=False)
@@ -299,7 +299,7 @@ class TestPlotBooleanStates:
 class TestBackendSelection:
     """Tests for backend selection."""
 
-    def test_matplotlib_backend(self, sample_data_1d):
+    def test_matplotlib_backend(self, sample_data_1d) -> None:
         """Test explicit matplotlib backend selection."""
         _, y, _ = sample_data_1d
         config = PlotConfig(show=False)
@@ -308,7 +308,7 @@ class TestBackendSelection:
         assert isinstance(result, plt.Axes)
         plt.close("all")
 
-    def test_global_backend_used(self, sample_data_1d):
+    def test_global_backend_used(self, sample_data_1d) -> None:
         """Test that global backend setting is used."""
         _, y, _ = sample_data_1d
         set_backend("matplotlib")
@@ -322,7 +322,7 @@ class TestBackendSelection:
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
-    def test_empty_data(self):
+    def test_empty_data(self) -> None:
         """Test with empty data array."""
         data = np.array([])
         config = PlotConfig(show=False)
@@ -332,7 +332,7 @@ class TestEdgeCases:
         assert isinstance(ax, plt.Axes)
         plt.close("all")
 
-    def test_single_point(self):
+    def test_single_point(self) -> None:
         """Test with single data point."""
         data = np.array([5.0])
         config = PlotConfig(show=False)
@@ -341,7 +341,7 @@ class TestEdgeCases:
         assert isinstance(ax, plt.Axes)
         plt.close("all")
 
-    def test_nan_values(self):
+    def test_nan_values(self) -> None:
         """Test with NaN values in data."""
         data = np.array([1.0, 2.0, np.nan, 4.0, 5.0])
         config = PlotConfig(show=False)
@@ -351,7 +351,7 @@ class TestEdgeCases:
         assert isinstance(ax, plt.Axes)
         plt.close("all")
 
-    def test_inf_values(self):
+    def test_inf_values(self) -> None:
         """Test with infinite values in data."""
         data = np.array([1.0, 2.0, np.inf, 4.0, 5.0])
         config = PlotConfig(show=False)

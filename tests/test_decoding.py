@@ -19,7 +19,7 @@ from neural_analysis.learning.decoding import (
 class TestPopulationVectorDecoder:
     """Tests for population vector decoder."""
 
-    def test_weighted_average_2d(self):
+    def test_weighted_average_2d(self) -> None:
         """Test weighted average decoding in 2D."""
         # Generate place cells
         activity, meta = generate_place_cells(
@@ -44,7 +44,7 @@ class TestPopulationVectorDecoder:
         mean_error = errors.mean()
         assert mean_error < 0.3, f"High decoding error: {mean_error}"
 
-    def test_peak_method_1d(self):
+    def test_peak_method_1d(self) -> None:
         """Test peak decoding in 1D."""
         activity, meta = generate_place_cells(
             n_cells=20,
@@ -65,7 +65,7 @@ class TestPopulationVectorDecoder:
         errors = np.abs(decoded - meta["positions"])
         assert errors.mean() < 0.4
 
-    def test_weighted_average_3d(self):
+    def test_weighted_average_3d(self) -> None:
         """Test weighted average decoding in 3D."""
         activity, meta = generate_place_cells(
             n_cells=50,
@@ -86,7 +86,7 @@ class TestPopulationVectorDecoder:
         errors = np.linalg.norm(decoded - meta["positions"], axis=1)
         assert errors.mean() < 0.4
 
-    def test_zero_activity_handling(self):
+    def test_zero_activity_handling(self) -> None:
         """Test decoder handles zero activity correctly."""
         activity = np.zeros((10, 20))  # All zeros
         field_centers = np.random.rand(20, 2)
@@ -100,7 +100,7 @@ class TestPopulationVectorDecoder:
         expected = np.tile(expected_single, (10, 1))
         np.testing.assert_allclose(decoded, expected, rtol=1e-5)
 
-    def test_invalid_method(self):
+    def test_invalid_method(self) -> None:
         """Test that invalid method raises error."""
         activity = np.random.rand(100, 20)
         field_centers = np.random.rand(20, 2)
@@ -112,7 +112,7 @@ class TestPopulationVectorDecoder:
 class TestKNNDecoder:
     """Tests for k-NN decoder."""
 
-    def test_knn_highd_2d(self):
+    def test_knn_highd_2d(self) -> None:
         """Test k-NN decoding on high-D activity in 2D."""
         activity, meta = generate_place_cells(
             n_cells=40,
@@ -138,7 +138,7 @@ class TestKNNDecoder:
         mean_error = errors.mean()
         assert mean_error < 0.25, f"High k-NN error: {mean_error}"
 
-    def test_knn_lowd_2d(self):
+    def test_knn_lowd_2d(self) -> None:
         """Test k-NN decoding on low-D embedding in 2D."""
         from sklearn.decomposition import PCA
 
@@ -168,7 +168,7 @@ class TestKNNDecoder:
         errors = np.linalg.norm(decoded - test_pos, axis=1)
         assert errors.mean() < 0.3
 
-    def test_knn_1d_labels(self):
+    def test_knn_1d_labels(self) -> None:
         """Test k-NN with 1D labels."""
         activity, meta = generate_place_cells(
             n_cells=30,
@@ -189,7 +189,7 @@ class TestKNNDecoder:
         errors = np.abs(decoded - test_pos)
         assert errors.mean() < 0.25
 
-    def test_knn_uniform_weights(self):
+    def test_knn_uniform_weights(self) -> None:
         """Test k-NN with uniform weights."""
         activity, meta = generate_place_cells(
             n_cells=35,
@@ -209,7 +209,7 @@ class TestKNNDecoder:
         errors = np.linalg.norm(decoded - test_pos, axis=1)
         assert errors.mean() < 0.35
 
-    def test_knn_different_k(self):
+    def test_knn_different_k(self) -> None:
         """Test k-NN with different k values."""
         activity, meta = generate_place_cells(
             n_cells=40,
@@ -233,7 +233,7 @@ class TestKNNDecoder:
 class TestCrossValidatedKNN:
     """Tests for cross-validated k-NN decoder."""
 
-    def test_cv_knn_2d(self):
+    def test_cv_knn_2d(self) -> None:
         """Test cross-validated k-NN in 2D."""
         activity, meta = generate_place_cells(
             n_cells=45,
@@ -259,7 +259,7 @@ class TestCrossValidatedKNN:
         assert metrics["mean_r2"] > 0.7, f"Low R²: {metrics['mean_r2']}"
         assert metrics["mean_error"] < 0.3, f"High error: {metrics['mean_error']}"
 
-    def test_cv_knn_with_predictions(self):
+    def test_cv_knn_with_predictions(self) -> None:
         """Test cross-validated k-NN returns predictions."""
         activity, meta = generate_place_cells(
             n_cells=30,
@@ -286,7 +286,7 @@ class TestCrossValidatedKNN:
 class TestCompareHighDLowD:
     """Tests for comparing high-D vs low-D decoding."""
 
-    def test_compare_pca(self):
+    def test_compare_pca(self) -> None:
         """Test comparison with PCA embedding."""
         from sklearn.decomposition import PCA
 
@@ -324,7 +324,7 @@ class TestCompareHighDLowD:
         assert comparison["n_cells"] == 80
         assert comparison["n_components"] == 10
 
-    def test_compare_noisy_data(self):
+    def test_compare_noisy_data(self) -> None:
         """Test comparison with noisy data."""
         from sklearn.decomposition import PCA
 
@@ -354,7 +354,7 @@ class TestCompareHighDLowD:
 class TestEvaluateDecoder:
     """Tests for evaluate_decoder function."""
 
-    def test_evaluate_knn(self):
+    def test_evaluate_knn(self) -> None:
         """Test evaluate_decoder with k-NN."""
         activity, meta = generate_place_cells(
             n_cells=40,
@@ -380,7 +380,7 @@ class TestEvaluateDecoder:
         assert metrics["r2_score"] > 0.7
         assert metrics["mean_error"] < 0.3
 
-    def test_evaluate_population_vector(self):
+    def test_evaluate_population_vector(self) -> None:
         """Test evaluate_decoder with population vector."""
         activity, meta = generate_place_cells(
             n_cells=35,
@@ -410,7 +410,7 @@ class TestEvaluateDecoder:
         # Population vector should give reasonable results
         assert metrics["r2_score"] > 0.5
 
-    def test_evaluate_invalid_decoder(self):
+    def test_evaluate_invalid_decoder(self) -> None:
         """Test evaluate_decoder with invalid decoder type."""
         activity = np.random.rand(100, 20)
         labels = np.random.rand(100, 2)
@@ -418,7 +418,7 @@ class TestEvaluateDecoder:
         with pytest.raises(ValueError, match="Unknown decoder"):
             evaluate_decoder(activity, labels, activity, labels, decoder="invalid")
 
-    def test_evaluate_population_vector_missing_centers(self):
+    def test_evaluate_population_vector_missing_centers(self) -> None:
         """Test population vector without field_centers raises error."""
         activity = np.random.rand(100, 20)
         labels = np.random.rand(100, 2)
@@ -432,7 +432,7 @@ class TestEvaluateDecoder:
 class TestIntegrationDecoding:
     """Integration tests with mixed populations."""
 
-    def test_decode_mixed_population(self):
+    def test_decode_mixed_population(self) -> None:
         """Test decoding from mixed cell population."""
         activity, meta = generate_mixed_population_flexible(n_samples=1000, seed=42)
 
@@ -447,7 +447,7 @@ class TestIntegrationDecoding:
         errors = np.linalg.norm(decoded - test_pos, axis=1)
         assert errors.mean() < 0.7  # Adjusted for mixed population
 
-    def test_cv_mixed_population(self):
+    def test_cv_mixed_population(self) -> None:
         """Test cross-validated decoding on mixed population."""
         activity, meta = generate_mixed_population_flexible(n_samples=1200, seed=789)
 

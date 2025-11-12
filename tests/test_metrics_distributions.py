@@ -11,14 +11,14 @@ from neural_analysis.metrics import compare_distribution_groups, compare_distrib
 class TestCompareDistributions:
     """Test suite for compare_distributions function."""
 
-    def test_identical_distributions(self):
+    def test_identical_distributions(self) -> None:
         """Test that identical distributions have zero distance (or 1.0 for cosine)."""
         p = np.random.randn(100, 3)
         # Wasserstein should be zero for identical distributions
         dist = compare_distributions(p, p, metric="wasserstein")
         assert dist == pytest.approx(0.0, abs=1e-6)
 
-    def test_shifted_distributions_wasserstein(self):
+    def test_shifted_distributions_wasserstein(self) -> None:
         """Test Wasserstein distance increases with shift."""
         p1 = np.random.randn(100, 3)
         p2 = p1 + 2.0
@@ -26,7 +26,7 @@ class TestCompareDistributions:
         # Distance should be positive and roughly proportional to shift
         assert dist > 1.0
 
-    def test_kolmogorov_smirnov_metric(self):
+    def test_kolmogorov_smirnov_metric(self) -> None:
         """Test K-S statistic on shifted distributions."""
         p1 = np.random.randn(100, 2)
         p2 = np.random.randn(100, 2) + 1.5
@@ -34,7 +34,7 @@ class TestCompareDistributions:
         # K-S should be > 0 for shifted distributions
         assert 0.0 < dist <= 1.0
 
-    def test_jensen_shannon_metric(self):
+    def test_jensen_shannon_metric(self) -> None:
         """Test Jensen-Shannon divergence."""
         np.random.seed(42)
         p1 = np.random.randn(200, 2)
@@ -43,7 +43,7 @@ class TestCompareDistributions:
         # JS divergence should be in [0, 1] (in bits)
         assert 0.0 <= dist <= 1.0
 
-    def test_euclidean_metric(self):
+    def test_euclidean_metric(self) -> None:
         """Test Euclidean distance between centroids."""
         p1 = np.random.randn(100, 3)
         p2 = p1 + np.array([3, 4, 0])
@@ -51,7 +51,7 @@ class TestCompareDistributions:
         # Distance between centroids should be ~5.0
         assert dist == pytest.approx(5.0, rel=0.2)
 
-    def test_mahalanobis_metric(self):
+    def test_mahalanobis_metric(self) -> None:
         """Test Mahalanobis distance."""
         np.random.seed(42)
         p1 = np.random.randn(100, 3)
@@ -60,7 +60,7 @@ class TestCompareDistributions:
         # Should be positive for different distributions
         assert dist > 0
 
-    def test_cosine_metric(self):
+    def test_cosine_metric(self) -> None:
         """Test cosine similarity."""
         p1 = np.random.randn(100, 3) + np.array([1, 0, 0])
         p2 = np.random.randn(100, 3) + np.array([2, 0, 0])
@@ -70,28 +70,28 @@ class TestCompareDistributions:
         assert 0.0 <= sim <= 1.0
         assert isinstance(sim, (float, np.floating))
 
-    def test_1d_distributions(self):
+    def test_1d_distributions(self) -> None:
         """Test with 1D distributions."""
         p1 = np.random.randn(100)
         p2 = np.random.randn(100) + 1.0
         dist = compare_distributions(p1, p2, metric="wasserstein")
         assert dist > 0
 
-    def test_empty_distribution_returns_nan(self):
+    def test_empty_distribution_returns_nan(self) -> None:
         """Test that empty distributions return NaN."""
         p1 = np.array([]).reshape(0, 3)
         p2 = np.random.randn(100, 3)
         dist = compare_distributions(p1, p2, metric="wasserstein")
         assert np.isnan(dist)
 
-    def test_dimension_mismatch_raises(self):
+    def test_dimension_mismatch_raises(self) -> None:
         """Test that mismatched dimensions raise error."""
         p1 = np.random.randn(100, 3)
         p2 = np.random.randn(100, 4)
         with pytest.raises(ValueError, match="Feature dimension mismatch"):
             compare_distributions(p1, p2, metric="wasserstein")
 
-    def test_invalid_metric_raises(self):
+    def test_invalid_metric_raises(self) -> None:
         """Test that invalid metric raises error."""
         p1 = np.random.randn(100, 3)
         p2 = np.random.randn(100, 3)
@@ -102,7 +102,7 @@ class TestCompareDistributions:
 class TestCompareDistributionGroups:
     """Test suite for compare_distribution_groups function."""
 
-    def test_between_groups_basic(self):
+    def test_between_groups_basic(self) -> None:
         """Test between-group comparison."""
         groups = {
             "A": np.random.randn(50, 3),
@@ -123,7 +123,7 @@ class TestCompareDistributionGroups:
         # A to B should be less than A to C (B is closer)
         assert result["A"][1] < result["A"][2]
 
-    def test_inside_groups(self):
+    def test_inside_groups(self) -> None:
         """Test within-group variability."""
         np.random.seed(42)
         groups = {
@@ -141,7 +141,7 @@ class TestCompareDistributionGroups:
         # Loose group should have higher internal distance
         assert result["mean"][1] > result["mean"][0]
 
-    def test_single_point_group(self):
+    def test_single_point_group(self) -> None:
         """Test with group containing only one point."""
         groups = {
             "single": np.array([[1, 2, 3]]),
@@ -156,7 +156,7 @@ class TestCompareDistributionGroups:
         # Single-point group should have zero internal distance
         assert result["mean"][0] == pytest.approx(0.0)
 
-    def test_different_metrics(self):
+    def test_different_metrics(self) -> None:
         """Test that different metrics work."""
         groups = {
             "A": np.random.randn(30, 2),
@@ -169,7 +169,7 @@ class TestCompareDistributionGroups:
             )
             assert "A" in result and "B" in result
 
-    def test_invalid_compare_type_raises(self):
+    def test_invalid_compare_type_raises(self) -> None:
         """Test that invalid compare_type raises error."""
         groups = {"A": np.random.randn(50, 3)}
         with pytest.raises(ValueError, match="Unknown compare_type"):
@@ -177,7 +177,7 @@ class TestCompareDistributionGroups:
                 groups, compare_type="invalid", metric="wasserstein"
             )
 
-    def test_tuple_keys(self):
+    def test_tuple_keys(self) -> None:
         """Test that tuple keys work as group identifiers."""
         groups = {
             (0, 0): np.random.randn(50, 3),
@@ -195,7 +195,7 @@ class TestCompareDistributionGroups:
 class TestShapeDistance:
     """Test suite for shape distance functions."""
 
-    def test_procrustes_identical(self):
+    def test_procrustes_identical(self) -> None:
         """Test Procrustes distance for identical shapes."""
         from neural_analysis.metrics.distributions import shape_distance
 
@@ -205,7 +205,7 @@ class TestShapeDistance:
         dist = shape_distance(points1, points2, method="procrustes")
         assert dist == pytest.approx(0.0, abs=1e-6)
 
-    def test_procrustes_rotated(self):
+    def test_procrustes_rotated(self) -> None:
         """Test Procrustes handles rotation."""
         from neural_analysis.metrics.distributions import shape_distance
 
@@ -225,7 +225,7 @@ class TestShapeDistance:
         # Should be near zero after alignment
         assert dist < 0.1
 
-    def test_one_to_one_method(self):
+    def test_one_to_one_method(self) -> None:
         """Test one-to-one matching distance."""
         from neural_analysis.metrics.distributions import shape_distance
 
@@ -235,7 +235,7 @@ class TestShapeDistance:
         dist = shape_distance(points1, points2, method="one-to-one")
         assert dist > 0
 
-    def test_soft_matching_method(self):
+    def test_soft_matching_method(self) -> None:
         """Test soft matching distance."""
         from neural_analysis.metrics.distributions import shape_distance
 
@@ -245,7 +245,7 @@ class TestShapeDistance:
         dist = shape_distance(points1, points2, method="soft-matching")
         assert dist > 0
 
-    def test_mismatched_dimensions_raises(self):
+    def test_mismatched_dimensions_raises(self) -> None:
         """Test that mismatched dimensions raise error."""
         from neural_analysis.metrics.distributions import shape_distance
 
@@ -255,7 +255,7 @@ class TestShapeDistance:
         with pytest.raises(ValueError, match="same shape"):
             shape_distance(points1, points2, method="procrustes")
 
-    def test_invalid_method_raises(self):
+    def test_invalid_method_raises(self) -> None:
         """Test that invalid method raises error."""
         from neural_analysis.metrics.distributions import shape_distance
 
@@ -269,7 +269,7 @@ class TestShapeDistance:
 class TestBatchComparison:
     """Test suite for batch comparison function."""
 
-    def test_batch_comparison_basic(self):
+    def test_batch_comparison_basic(self) -> None:
         """Test basic batch comparison functionality."""
         from neural_analysis.metrics.distributions import batch_comparison
 
@@ -289,7 +289,7 @@ class TestBatchComparison:
         assert "distance" in df.columns
         assert len(df) == 9  # 3x3 comparisons
 
-    def test_batch_with_shape_distance(self):
+    def test_batch_with_shape_distance(self) -> None:
         """Test batch comparison with shape distance."""
         from neural_analysis.metrics.distributions import (
             batch_comparison,

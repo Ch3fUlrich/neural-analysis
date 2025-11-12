@@ -34,7 +34,7 @@ except ImportError:
 class TestHeatmap:
     """Tests for heatmap plotting functions."""
 
-    def test_plot_heatmap_matplotlib(self):
+    def test_plot_heatmap_matplotlib(self) -> None:
         """Test basic heatmap with matplotlib."""
         data = np.random.rand(5, 5)
         config = PlotConfig(title="Test Heatmap")
@@ -52,7 +52,7 @@ class TestHeatmap:
         plt.close("all")
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not installed")
-    def test_plot_heatmap_plotly(self):
+    def test_plot_heatmap_plotly(self) -> None:
         """Test basic heatmap with plotly."""
         data = np.random.rand(5, 5)
         config = PlotConfig(title="Test Heatmap")
@@ -68,7 +68,7 @@ class TestHeatmap:
         assert fig is not None
         assert isinstance(fig, go.Figure)
 
-    def test_plot_heatmap_with_values(self):
+    def test_plot_heatmap_with_values(self) -> None:
         """Test heatmap with value annotations."""
         data = np.array([[1.23, 4.56], [7.89, 0.12]])
 
@@ -79,13 +79,13 @@ class TestHeatmap:
         assert ax is not None
         plt.close("all")
 
-    def test_heatmap_invalid_method_raises(self):
+    def test_heatmap_invalid_method_raises(self) -> None:
         """Test that invalid method raises error."""
         # This test is for the old plot_correlation_matrix function
         # which has been removed. Keeping as placeholder for future validation tests.
         pass
 
-    def test_heatmap_non_2d_raises(self):
+    def test_heatmap_non_2d_raises(self) -> None:
         """Test that non-2D data raises error."""
         data = np.random.rand(5)
 
@@ -96,7 +96,7 @@ class TestHeatmap:
 class TestSubplots:
     """Tests for subplot creation and management."""
 
-    def test_create_subplot_grid_matplotlib(self):
+    def test_create_subplot_grid_matplotlib(self) -> None:
         """Test basic subplot grid with matplotlib."""
         fig, axes = create_subplot_grid(
             rows=2, cols=2, config=PlotConfig(title="Test Grid"), backend="matplotlib"
@@ -109,7 +109,7 @@ class TestSubplots:
         plt.close("all")
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not installed")
-    def test_create_subplot_grid_plotly(self):
+    def test_create_subplot_grid_plotly(self) -> None:
         """Test basic subplot grid with plotly."""
         fig = create_subplot_grid(
             rows=2, cols=2, config=PlotConfig(title="Test Grid"), backend="plotly"
@@ -119,7 +119,7 @@ class TestSubplots:
         assert isinstance(fig, go.Figure)
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not installed")
-    def test_create_subplot_grid_with_titles(self):
+    def test_create_subplot_grid_with_titles(self) -> None:
         """Test subplot grid with titles."""
         titles = ["A", "B", "C", "D"]
         fig = create_subplot_grid(
@@ -129,7 +129,7 @@ class TestSubplots:
         assert fig is not None
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not installed")
-    def test_add_trace_to_subplot(self):
+    def test_add_trace_to_subplot(self) -> None:
         """Test adding traces to subplots."""
         fig = create_subplot_grid(rows=1, cols=2, backend="plotly")
 
@@ -140,12 +140,12 @@ class TestSubplots:
         assert len(fig_updated.data) == 1
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not installed")
-    def test_add_trace_invalid_fig_raises(self):
+    def test_add_trace_invalid_fig_raises(self) -> None:
         """Test that invalid figure raises error."""
         with pytest.raises(TypeError, match="must be a plotly"):
             add_trace_to_subplot("not a figure", go.Scatter(), row=1, col=1)
 
-    def test_create_subplot_grid_shared_axes_matplotlib(self):
+    def test_create_subplot_grid_shared_axes_matplotlib(self) -> None:
         """Test shared axes in matplotlib."""
         fig, axes = create_subplot_grid(
             rows=2, cols=2, shared_xaxes=True, shared_yaxes=True, backend="matplotlib"
@@ -156,7 +156,7 @@ class TestSubplots:
         plt.close("all")
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not installed")
-    def test_create_subplot_grid_shared_axes_plotly(self):
+    def test_create_subplot_grid_shared_axes_plotly(self) -> None:
         """Test shared axes in plotly."""
         fig = create_subplot_grid(
             rows=2, cols=2, shared_xaxes="all", shared_yaxes="all", backend="plotly"
@@ -165,7 +165,7 @@ class TestSubplots:
         assert fig is not None
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not installed")
-    def test_create_subplot_grid_with_specs(self):
+    def test_create_subplot_grid_with_specs(self) -> None:
         """Test subplot grid with custom specs."""
         specs = [
             [{"type": "scatter"}, {"type": "scatter"}],
@@ -181,7 +181,7 @@ class TestIntegration:
     """Integration tests combining multiple features."""
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not installed")
-    def test_distance_matrix_in_subplot(self):
+    def test_distance_matrix_in_subplot(self) -> None:
         """Test plotting heatmap within a subplot."""
         # This tests the interaction between modules
 
@@ -196,7 +196,7 @@ class TestIntegration:
 
         assert heatmap_fig is not None
 
-    def test_matplotlib_workflow(self):
+    def test_matplotlib_workflow(self) -> None:
         """Test complete matplotlib workflow."""
         # Create data
         data = np.random.rand(5, 5)

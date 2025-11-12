@@ -15,7 +15,7 @@ from neural_analysis.metrics import (
 class TestCorrelationMatrix:
     """Tests for correlation_matrix function."""
 
-    def test_pearson_correlation(self):
+    def test_pearson_correlation(self) -> None:
         """Test Pearson correlation computation."""
         # Create correlated data
         rng = np.random.default_rng(42)
@@ -31,7 +31,7 @@ class TestCorrelationMatrix:
         assert corr[0, 1] > 0.7  # x and y should be highly correlated
         assert np.allclose(corr, corr.T)  # Should be symmetric
 
-    def test_spearman_correlation(self):
+    def test_spearman_correlation(self) -> None:
         """Test Spearman correlation computation."""
         data = np.random.randn(50, 4)
 
@@ -41,7 +41,7 @@ class TestCorrelationMatrix:
         assert np.allclose(np.diag(corr), 1.0)
         assert np.allclose(corr, corr.T)
 
-    def test_kendall_correlation(self):
+    def test_kendall_correlation(self) -> None:
         """Test Kendall tau correlation computation."""
         data = np.random.randn(30, 3)
 
@@ -51,7 +51,7 @@ class TestCorrelationMatrix:
         assert np.allclose(np.diag(corr), 1.0)
         assert np.allclose(corr, corr.T)
 
-    def test_correlation_bounds(self):
+    def test_correlation_bounds(self) -> None:
         """Test that correlation values are in [-1, 1]."""
         data = np.random.randn(100, 5)
 
@@ -59,7 +59,7 @@ class TestCorrelationMatrix:
             corr = correlation_matrix(data, method=method)
             assert np.all(corr >= -1.0) and np.all(corr <= 1.0)
 
-    def test_perfect_correlation(self):
+    def test_perfect_correlation(self) -> None:
         """Test perfect correlation detection."""
         x = np.arange(100)
         y = 2 * x + 5  # Perfect linear relationship
@@ -69,14 +69,14 @@ class TestCorrelationMatrix:
 
         assert np.isclose(corr[0, 1], 1.0, atol=1e-10)
 
-    def test_invalid_method_raises(self):
+    def test_invalid_method_raises(self) -> None:
         """Test that invalid method raises error."""
         data = np.random.randn(50, 3)
 
         with pytest.raises(ValueError, match="Unknown method"):
             correlation_matrix(data, method="invalid")
 
-    def test_non_2d_raises(self):
+    def test_non_2d_raises(self) -> None:
         """Test that non-2D data raises error."""
         data = np.random.rand(100)
 
@@ -87,7 +87,7 @@ class TestCorrelationMatrix:
 class TestCosineSimilarityMatrix:
     """Tests for cosine_similarity_matrix function."""
 
-    def test_cosine_similarity_basic(self):
+    def test_cosine_similarity_basic(self) -> None:
         """Test basic cosine similarity computation."""
         # Create orthogonal vectors
         v1 = np.array([1, 0, 0])
@@ -102,7 +102,7 @@ class TestCosineSimilarityMatrix:
         assert np.isclose(sim[0, 1], 0.0, atol=1e-10)  # Orthogonal = 0
         assert np.isclose(sim[0, 2], 1 / np.sqrt(2), atol=1e-6)  # 45 degrees
 
-    def test_cosine_centered_equals_correlation(self):
+    def test_cosine_centered_equals_correlation(self) -> None:
         """Test that centered cosine similarity equals Pearson correlation."""
         data = np.random.randn(100, 4)
 
@@ -111,7 +111,7 @@ class TestCosineSimilarityMatrix:
 
         assert np.allclose(sim_centered, corr, atol=1e-10)
 
-    def test_cosine_symmetric(self):
+    def test_cosine_symmetric(self) -> None:
         """Test that cosine similarity matrix is symmetric."""
         data = np.random.randn(50, 5)
 
@@ -119,7 +119,7 @@ class TestCosineSimilarityMatrix:
 
         assert np.allclose(sim, sim.T)
 
-    def test_cosine_bounds(self):
+    def test_cosine_bounds(self) -> None:
         """Test that cosine similarity is in [-1, 1]."""
         data = np.random.randn(100, 6)
 
@@ -128,7 +128,7 @@ class TestCosineSimilarityMatrix:
         # Allow small numerical errors
         assert np.all(sim >= -1.0 - 1e-10) and np.all(sim <= 1.0 + 1e-10)
 
-    def test_cosine_zero_vector_handling(self):
+    def test_cosine_zero_vector_handling(self) -> None:
         """Test handling of zero vectors."""
         v1 = np.array([1, 2, 3])
         v2 = np.array([0, 0, 0])  # Zero vector
@@ -139,7 +139,7 @@ class TestCosineSimilarityMatrix:
 
         assert sim.shape == (2, 2)
 
-    def test_non_2d_raises(self):
+    def test_non_2d_raises(self) -> None:
         """Test that non-2D data raises error."""
         data = np.random.rand(100)
 
@@ -150,7 +150,7 @@ class TestCosineSimilarityMatrix:
 class TestAngularSimilarityMatrix:
     """Tests for angular_similarity_matrix function."""
 
-    def test_angular_similarity_basic(self):
+    def test_angular_similarity_basic(self) -> None:
         """Test basic angular similarity computation."""
         # Create vectors at known angles
         v1 = np.array([1, 0])
@@ -165,7 +165,7 @@ class TestAngularSimilarityMatrix:
         assert np.isclose(sim[0, 1], 1 - (np.pi / 4) / np.pi, atol=1e-6)  # 45°
         assert np.isclose(sim[0, 2], 0.5, atol=1e-6)  # 90°
 
-    def test_angular_bounds(self):
+    def test_angular_bounds(self) -> None:
         """Test that angular similarity is in [0, 1]."""
         data = np.random.randn(100, 5)
 
@@ -173,7 +173,7 @@ class TestAngularSimilarityMatrix:
 
         assert np.all(sim >= 0.0) and np.all(sim <= 1.0)
 
-    def test_angular_symmetric(self):
+    def test_angular_symmetric(self) -> None:
         """Test that angular similarity matrix is symmetric."""
         data = np.random.randn(50, 4)
 
@@ -181,7 +181,7 @@ class TestAngularSimilarityMatrix:
 
         assert np.allclose(sim, sim.T)
 
-    def test_angular_opposite_vectors(self):
+    def test_angular_opposite_vectors(self) -> None:
         """Test angular similarity for opposite vectors."""
         v1 = np.array([1, 0, 0])
         v2 = np.array([-1, 0, 0])  # Opposite direction
@@ -192,7 +192,7 @@ class TestAngularSimilarityMatrix:
         # Opposite vectors have angle = π, so similarity = 1 - π/π = 0
         assert np.isclose(sim[0, 1], 0.0, atol=1e-6)
 
-    def test_non_2d_raises(self):
+    def test_non_2d_raises(self) -> None:
         """Test that non-2D data raises error."""
         data = np.random.rand(100)
 
@@ -203,7 +203,7 @@ class TestAngularSimilarityMatrix:
 class TestIntegration:
     """Integration tests for similarity metrics."""
 
-    def test_correlation_vs_cosine(self):
+    def test_correlation_vs_cosine(self) -> None:
         """Test relationship between correlation and centered cosine."""
         data = np.random.randn(100, 4)
 
@@ -213,7 +213,7 @@ class TestIntegration:
         # They should be identical
         assert np.allclose(corr, cosine_centered)
 
-    def test_all_methods_return_square_matrix(self):
+    def test_all_methods_return_square_matrix(self) -> None:
         """Test that all methods return square symmetric matrices."""
         data = np.random.randn(50, 5)
 
@@ -225,7 +225,7 @@ class TestIntegration:
             assert mat.shape == (5, 5)
             assert np.allclose(mat, mat.T)
 
-    def test_neural_data_simulation(self):
+    def test_neural_data_simulation(self) -> None:
         """Test with simulated neural tuning curves."""
         # Simulate preferred directions (neurons tuned to angles)
         angles = np.linspace(0, 2 * np.pi, 8, endpoint=False)
