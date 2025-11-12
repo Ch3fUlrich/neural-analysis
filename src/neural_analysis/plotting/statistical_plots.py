@@ -48,9 +48,7 @@ def plot_bar(
     colors: Sequence[str] | None = None,
     orientation: Literal["v", "h"] = "v",
     config: PlotConfig | None = None,
-    backend: Literal["matplotlib", "plotly"] | None = None,
-    **kwargs,
-) -> Any:
+    backend: Literal["matplotlib", "plotly"] | None = None, **kwargs) -> Any:
     """
     Create a bar plot for comparing multiple groups.
 
@@ -175,9 +173,7 @@ def plot_violin(
     showmeans: bool = True,
     showmedians: bool = True,
     config: PlotConfig | None = None,
-    backend: Literal["matplotlib", "plotly"] | None = None,
-    **kwargs,
-) -> Any:
+    backend: Literal["matplotlib", "plotly"] | None = None, **kwargs) -> Any:
     """
     Create violin plots for comparing distributions.
 
@@ -264,9 +260,7 @@ def plot_box(
     colors: Sequence[str] | None = None,
     notch: bool = False,
     config: PlotConfig | None = None,
-    backend: Literal["matplotlib", "plotly"] | None = None,
-    **kwargs,
-) -> Any:
+    backend: Literal["matplotlib", "plotly"] | None = None, **kwargs) -> Any:
     """
     Create box plots for comparing distributions.
 
@@ -341,9 +335,7 @@ def plot_grouped_distributions(
     colors: Sequence[str] | None = None,
     config: PlotConfig | None = None,
     layout: GridLayoutConfig | None = None,
-    backend: Literal["matplotlib", "plotly"] | None = None,
-    **kwargs,
-) -> Any:
+    backend: Literal["matplotlib", "plotly"] | None = None, **kwargs) -> Any:
     """
     Create multiple distribution plots grouped by category.
 
@@ -428,9 +420,7 @@ def plot_comparison_distributions(
     cols: int | None = None,
     colors: Sequence[str] | None = None,
     config: PlotConfig | None = None,
-    backend: Literal["matplotlib", "plotly"] | None = None,
-    **kwargs,
-) -> Any:
+    backend: Literal["matplotlib", "plotly"] | None = None, **kwargs) -> Any:
     """
     Create separate distribution plots for each group in a grid.
 

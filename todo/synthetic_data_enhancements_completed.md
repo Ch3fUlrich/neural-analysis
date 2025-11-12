@@ -181,8 +181,8 @@ activity, meta = generate_mixed_population_flexible(
 ### Usage Example
 
 ```python
-from neural_analysis.synthetic_data import generate_place_cells
-from neural_analysis.decoding import (
+from neural_analysis.data.synthetic_data import generate_place_cells
+from neural_analysis.learning.decoding import (
     knn_decoder,
     compare_highd_lowd_decoding,
 )

@@ -273,7 +273,7 @@ def apply_layout_matplotlib(ax, config: PlotConfig) -> None:
 
 def apply_layout_plotly(fig, config: PlotConfig) -> None:
     """Apply common layout (title, labels, limits, grid) for Plotly."""
-    layout_updates: dict = {}
+    layout_updates: dict[str, Any] = {}
     if config.title:
         layout_updates["title"] = config.title
     if config.xlabel:
@@ -300,7 +300,7 @@ def apply_layout_plotly(fig, config: PlotConfig) -> None:
 
 def apply_layout_plotly_3d(fig, config: PlotConfig) -> None:
     """Apply common layout for Plotly 3D plots (scene configuration)."""
-    layout_updates: dict = {}
+    layout_updates: dict[str, Any] = {}
     if config.title:
         layout_updates["title"] = config.title
 
@@ -403,7 +403,7 @@ def finalize_plot_plotly(fig, config: PlotConfig) -> None:
 
 
 def calculate_alpha(
-    value: int | float | list[int | float] | npt.NDArray,
+    value: int | float | list[int | float] | npt.NDArray[np.floating[Any]],
     min_value: int | float | None = None,
     max_value: int | float | None = None,
     min_alpha: float = 0.3,
@@ -548,10 +548,10 @@ def generate_similar_colors(
 
 
 def create_rgba_labels(
-    values: npt.NDArray,
+    values: npt.NDArray[np.floating[Any]],
     alpha: float = 0.8,
     cmap: str = "rainbow",
-) -> npt.NDArray:
+) -> npt.NDArray[np.floating[Any]]:
     """
     Create RGBA labels using a colormap.
 
@@ -624,9 +624,7 @@ def save_plot(
     save_path: str | Path,
     format: str = "png",
     dpi: int = 300,
-    bbox_inches: str = "tight",
-    **kwargs,
-) -> None:
+    bbox_inches: str = "tight", **kwargs) -> None:
     """
     Save current matplotlib figure to file.
 
@@ -664,8 +662,7 @@ def save_plot(
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")
         plt.savefig(
-            save_path, format=format, dpi=dpi, bbox_inches=bbox_inches, **kwargs
-        )
+            save_path, format=format, dpi=dpi, bbox_inches=bbox_inches, **kwargs)
 
 
 def make_list_if_not(value: Any | list[Any]) -> list[Any]:

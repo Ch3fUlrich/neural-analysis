@@ -57,7 +57,7 @@ def plot_structure_index(
         Structure index value
     bin_label : tuple, optional
         Bin label information (assignments, coordinates)
-    sweep_results : dict, optional
+    sweep_results : dict[str, Any], optional
         Results from parameter sweep. Keys are (n_bins, n_neighbors) tuples.
     save_path : str or Path, optional
         Path to save figure
@@ -418,11 +418,11 @@ def plot_structure_index_comparison(
 
     Parameters
     ----------
-    results_dict : dict
+    results_dict : dict[str, Any]
         Dictionary mapping dataset names to their sweep results
     parameter : str, default='n_neighbors'
         Parameter to plot on x-axis ('n_neighbors' or 'n_bins')
-    fixed_params : dict, optional
+    fixed_params : dict[str, Any], optional
         Fixed parameter values, e.g., {'n_bins': 10}
     save_path : str or Path, optional
         Path to save figure

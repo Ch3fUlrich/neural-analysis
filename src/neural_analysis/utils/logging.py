@@ -188,7 +188,7 @@ def log_calls(
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         log = get_logger(func.__module__)
 
-        def wrapper(*args: Any, **kwargs: Any):
+        def wrapper(*args: Any, **kwargs):
             log.log(
                 level,
                 f"→ {func.__name__}(args=%d, kwargs=%d)" % (len(args), len(kwargs)),

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `neural_analysis.decoding` module provides functions for decoding behavioral variables (position, head direction, etc.) from neural activity or low-dimensional embeddings.
+The `neural_analysis.learning.decoding` module provides functions for decoding behavioral variables (position, head direction, etc.) from neural activity or low-dimensional embeddings.
 
 **Key Features:**
 - Population vector decoder (weighted average, peak methods)
@@ -20,8 +20,8 @@ pip install numpy scikit-learn
 ## Quick Start
 
 ```python
-from neural_analysis.synthetic_data import generate_place_cells
-from neural_analysis.decoding import knn_decoder, population_vector_decoder
+from neural_analysis.data.synthetic_data import generate_place_cells
+from neural_analysis.learning.decoding import knn_decoder, population_vector_decoder
 
 # Generate synthetic place cells
 activity, meta = generate_place_cells(n_cells=50, n_samples=1000, n_dims=2)
@@ -63,7 +63,7 @@ Classic neuroscience method that uses known tuning properties (field centers) to
 
 **Example:**
 ```python
-from neural_analysis.decoding import population_vector_decoder
+from neural_analysis.learning.decoding import population_vector_decoder
 
 decoded = population_vector_decoder(
     activity, meta['field_centers'], method='weighted_average'
@@ -93,7 +93,7 @@ k-Nearest Neighbors decoder that works on both high-D activity and low-D embeddi
 
 **Example:**
 ```python
-from neural_analysis.decoding import knn_decoder
+from neural_analysis.learning.decoding import knn_decoder
 
 # Decode from high-D activity
 decoded_highd = knn_decoder(train_act, train_pos, test_act, k=5)
@@ -134,7 +134,7 @@ k-NN decoder with k-fold cross-validation for robust performance estimation.
 
 **Example:**
 ```python
-from neural_analysis.decoding import cross_validated_knn_decoder
+from neural_analysis.learning.decoding import cross_validated_knn_decoder
 
 metrics = cross_validated_knn_decoder(
     activity, meta['positions'], k=5, n_folds=5
@@ -170,7 +170,7 @@ Compare decoding performance on high-D activity vs low-D embedding.
 
 **Example:**
 ```python
-from neural_analysis.decoding import compare_highd_lowd_decoding
+from neural_analysis.learning.decoding import compare_highd_lowd_decoding
 from sklearn.decomposition import PCA
 
 activity, meta = generate_place_cells(100, 1500, n_dims=2)
@@ -209,7 +209,7 @@ Unified interface for evaluating different decoder types on train/test split.
 
 **Example:**
 ```python
-from neural_analysis.decoding import evaluate_decoder
+from neural_analysis.learning.decoding import evaluate_decoder
 
 # Evaluate k-NN
 metrics_knn = evaluate_decoder(
@@ -235,8 +235,8 @@ print(f"Population vector R²: {metrics_pv['r2_score']:.3f}")
 
 ```python
 import numpy as np
-from neural_analysis.synthetic_data import generate_place_cells
-from neural_analysis.decoding import (
+from neural_analysis.data.synthetic_data import generate_place_cells
+from neural_analysis.learning.decoding import (
     knn_decoder,
     population_vector_decoder,
 )
@@ -269,8 +269,8 @@ print(f"Population vector error: {error_pv:.4f} m")
 ### Example 2: Cross-Validation
 
 ```python
-from neural_analysis.synthetic_data import generate_place_cells
-from neural_analysis.decoding import cross_validated_knn_decoder
+from neural_analysis.data.synthetic_data import generate_place_cells
+from neural_analysis.learning.decoding import cross_validated_knn_decoder
 
 # Generate data
 activity, meta = generate_place_cells(
@@ -293,8 +293,8 @@ import numpy as np
 from sklearn.decomposition import PCA
 import umap
 
-from neural_analysis.synthetic_data import generate_place_cells
-from neural_analysis.decoding import compare_highd_lowd_decoding
+from neural_analysis.data.synthetic_data import generate_place_cells
+from neural_analysis.learning.decoding import compare_highd_lowd_decoding
 
 # Generate data
 activity, meta = generate_place_cells(
@@ -327,8 +327,8 @@ for name, embedding in embeddings.items():
 ### Example 4: Mixed Cell Populations
 
 ```python
-from neural_analysis.synthetic_data import generate_mixed_population_flexible
-from neural_analysis.decoding import cross_validated_knn_decoder
+from neural_analysis.data.synthetic_data import generate_mixed_population_flexible
+from neural_analysis.learning.decoding import cross_validated_knn_decoder
 
 # Generate mixed population (place + grid + HD + random cells)
 activity, meta = generate_mixed_population_flexible(
@@ -424,6 +424,6 @@ print(f"Mean error: {metrics['mean_error']:.4f} ± {metrics['std_error']:.4f} m"
 
 ## See Also
 
-- `neural_analysis.synthetic_data`: Generate synthetic neural data
+- `neural_analysis.data.synthetic_data`: Generate synthetic neural data
 - Jupyter notebook: `notebooks/synthetic_datasets_demo.ipynb`
 - Examples: `scripts/test_decoding_simple.py`

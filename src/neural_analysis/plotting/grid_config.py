@@ -221,7 +221,7 @@ class PlotSpec:
         Additional plot-specific arguments passed to underlying renderers
     """
 
-    data: np.ndarray | pd.DataFrame | dict
+    data: np.ndarray | pd.DataFrame | dict[str, Any]
     plot_type: PlotType
     subplot_position: int | None = None
     title: str | None = None
@@ -240,7 +240,7 @@ class PlotSpec:
     cmap: str | None = None
     colorbar: bool = False
     colorbar_label: str | None = None
-    colors: np.ndarray | list | None = None
+    colors: np.ndarray | list[Any] | None = None
     sizes: np.ndarray | float | None = None
     show_hulls: bool = False
     hull_alpha: float | None = None
@@ -250,13 +250,13 @@ class PlotSpec:
     equal_aspect: bool = False
 
     # Reference lines for line plots
-    vlines: list[dict] | None = (
+    vlines: list[dict[str, Any]] | None = (
         None  # Vertical reference lines: [{'x': value, 'color': 'red', 'linestyle': '--', 'linewidth': 2, 'label': 'label'}]
     )
-    hlines: list[dict] | None = (
+    hlines: list[dict[str, Any]] | None = (
         None  # Horizontal reference lines: [{'y': value, 'color': 'blue', 'linestyle': ':', 'linewidth': 1, 'label': 'label'}]
     )
-    annotations: list[dict] | None = (
+    annotations: list[dict[str, Any]] | None = (
         None  # Annotations: [{'text': 'label', 'xy': (x, y), 'xytext': (x, y), 'fontsize': 10, 'bbox': {...}, 'arrowprops': {...}}]
     )
 
@@ -486,7 +486,7 @@ class PlotGrid:
         label_col: str | None = "label",
         color_col: str | None = "color",
         group_by: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> PlotGrid:
         """
         Create PlotGrid from a pandas DataFrame.
@@ -562,9 +562,9 @@ class PlotGrid:
     @classmethod
     def from_dict(
         cls,
-        data_dict: dict[str, np.ndarray],
+        data_dict: dict[str, npt.NDArray[np.floating[Any]]],
         plot_type: PlotType = "scatter",
-        **kwargs,
+        **kwargs: Any,
     ) -> PlotGrid:
         """
         Create PlotGrid from a dictionary of {label: data}.
@@ -598,7 +598,7 @@ class PlotGrid:
         self,
         data: np.ndarray | pd.DataFrame,
         plot_type: PlotType,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """
         Add a plot to the grid.
@@ -648,7 +648,7 @@ class PlotGrid:
         # Group specs by subplot position
         if any(spec.subplot_position is not None for spec in self.plot_specs):
             # Group by explicit positions
-            grouped_specs = {}
+            grouped_specs: dict[int, list[PlotSpec]] = {}
             for spec in self.plot_specs:
                 pos = (
                     spec.subplot_position
@@ -670,12 +670,14 @@ class PlotGrid:
         rows, cols = self.layout.auto_size_grid(n_subplots)
 
         # Get subplot titles (use first spec's title for each group)
+        subplot_titles: list[str] | None
         if self.layout.subplot_titles is None:
-            subplot_titles = [
-                group[0].title for group in subplot_groups if group[0].title
+            titles_list: list[str] = [
+                group[0].title
+                for group in subplot_groups
+                if group[0].title is not None
             ]
-            if not subplot_titles:
-                subplot_titles = None
+            subplot_titles = titles_list if titles_list else None
         else:
             subplot_titles = self.layout.subplot_titles
 
@@ -727,8 +729,8 @@ class PlotGrid:
             )
 
             # Track which labels have been shown per subplot and which axes have titles
-            legend_tracker = {}
-            axes_with_titles = set()
+            legend_tracker: dict[int, set[str]] = {}
+            axes_with_titles: set[int] = set()
 
             # Plot each group of specs
             for i, spec_group in enumerate(subplot_groups):
@@ -966,7 +968,9 @@ class PlotGrid:
                                 )
             return fig
 
-    def _plot_spec_matplotlib(self, spec: PlotSpec, ax, legend_tracker: set):
+    def _plot_spec_matplotlib(
+        self, spec: PlotSpec, ax: Any, legend_tracker: set[str]
+    ) -> None:
         """Plot a PlotSpec using matplotlib with renderer functions."""
         if ax is None:
             ax = plt.gca()
@@ -979,6 +983,8 @@ class PlotGrid:
 
         if spec.plot_type == "scatter":
             # Handle dict data format (e.g., when color_by="time")
+            data_array: Any
+            colors: Any
             if isinstance(spec.data, dict):
                 x = spec.data["x"]
                 y = spec.data["y"]

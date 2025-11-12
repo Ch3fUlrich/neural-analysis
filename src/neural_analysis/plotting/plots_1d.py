@@ -21,10 +21,10 @@ __all__ = [
 
 
 def plot_line(
-    data: npt.NDArray,
-    x: npt.NDArray | None = None,
+    data: npt.NDArray[np.floating[Any]],
+    x: npt.NDArray[np.floating[Any]] | None = None,
     config: PlotConfig | None = None,
-    std: npt.NDArray | None = None,
+    std: npt.NDArray[np.floating[Any]] | None = None,
     color: str | None = None,
     linewidth: float = 2.0,
     linestyle: str = "-",
@@ -97,8 +97,8 @@ def plot_line(
 
 
 def plot_multiple_lines(
-    data_dict: dict[str, npt.NDArray],
-    x: npt.NDArray | None = None,
+    data_dict: dict[str, npt.NDArray[np.floating[Any]]],
+    x: npt.NDArray[np.floating[Any]] | None = None,
     config: PlotConfig | None = None,
     colors: dict[str, str] | list[str] | None = None,
     linewidth: float = 2.0,
@@ -111,11 +111,11 @@ def plot_multiple_lines(
 
     Parameters
     ----------
-    data_dict : dict
+    data_dict : dict[str, Any]
         Dictionary mapping line labels to 1D data arrays.
     x : ndarray, optional
         Shared x-values. If None, uses range.
-    colors : dict or list, optional
+    colors : dict[str, Any] or list, optional
         Colors for each line.
     Other parameters : Styling options.
 
@@ -172,8 +172,8 @@ def plot_multiple_lines(
 
 
 def plot_boolean_states(
-    states: npt.NDArray,
-    x: npt.NDArray | None = None,
+    states: npt.NDArray[np.floating[Any]],
+    x: npt.NDArray[np.floating[Any]] | None = None,
     config: PlotConfig | None = None,
     true_color: str = "#2ca02c",
     false_color: str = "#d62728",

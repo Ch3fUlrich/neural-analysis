@@ -199,7 +199,7 @@ activity, meta = generate_place_cells(..., seed=SEED)
 - matplotlib
 - sklearn (for datasets and dimensionality reduction)
 - umap-learn (for UMAP)
-- neural_analysis.synthetic_data (custom module)
+- neural_analysis.data.synthetic_data (custom module)
 
 ## Future Extensions
 - [ ] Add more cell types (border cells, speed cells)

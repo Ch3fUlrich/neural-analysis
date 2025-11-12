@@ -21,7 +21,7 @@ __all__ = ["plot_heatmap"]
 
 
 def plot_heatmap(
-    data: npt.NDArray,
+    data: npt.NDArray[np.floating[Any]],
     config: "PlotConfig | None" = None,
     cmap: str = "viridis",
     colorbar: bool = True,

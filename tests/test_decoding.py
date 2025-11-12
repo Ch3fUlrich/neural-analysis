@@ -3,16 +3,16 @@
 import numpy as np
 import pytest
 
-from neural_analysis.decoding import (
+from neural_analysis.data.synthetic_data import (
+    generate_mixed_population_flexible,
+    generate_place_cells,
+)
+from neural_analysis.learning.decoding import (
     compare_highd_lowd_decoding,
     cross_validated_knn_decoder,
     evaluate_decoder,
     knn_decoder,
     population_vector_decoder,
-)
-from neural_analysis.synthetic_data import (
-    generate_mixed_population_flexible,
-    generate_place_cells,
 )
 
 

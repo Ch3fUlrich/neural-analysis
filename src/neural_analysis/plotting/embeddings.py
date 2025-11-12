@@ -38,9 +38,9 @@ if TYPE_CHECKING:
 
 def plot_embedding(
     embedding: npt.NDArray[np.floating],
-    labels: npt.NDArray | None = None,
+    labels: npt.NDArray[np.floating[Any]] | None = None,
     *,
-    colors: npt.NDArray | None = None,
+    colors: npt.NDArray[np.floating[Any]] | None = None,
     backend: BackendType = BackendType.MATPLOTLIB,
     config: PlotConfig | None = None,
     title: str = "Embedding",
@@ -100,9 +100,7 @@ def plot_embedding(
             backend=backend,
             config=config,
             title=title,
-            show_hulls=show_hulls,
-            **kwargs,
-        )
+            show_hulls=show_hulls, **kwargs)
     else:  # n_dims == 3
         return plot_embedding_3d(
             embedding=embedding,
@@ -111,16 +109,14 @@ def plot_embedding(
             backend=backend,
             config=config,
             title=title,
-            show_hulls=show_hulls,
-            **kwargs,
-        )
+            show_hulls=show_hulls, **kwargs)
 
 
 def plot_embedding_2d(
     embedding: npt.NDArray[np.floating],
-    labels: npt.NDArray | None = None,
+    labels: npt.NDArray[np.floating[Any]] | None = None,
     *,
-    colors: npt.NDArray | None = None,
+    colors: npt.NDArray[np.floating[Any]] | None = None,
     backend: BackendType = BackendType.MATPLOTLIB,
     config: PlotConfig | None = None,
     title: str = "2D Embedding",
@@ -181,9 +177,7 @@ def plot_embedding_2d(
         show_hulls=show_hulls,
         hull_alpha=hull_alpha if show_hulls else None,
         marker_size=kwargs.pop("markersize", kwargs.pop("s", 20)),
-        alpha=kwargs.pop("alpha", 0.6),
-        **kwargs,
-    )
+        alpha=kwargs.pop("alpha", 0.6), **kwargs)
 
     # Create plot config if not provided
     if config is None:
@@ -208,9 +202,9 @@ def plot_embedding_2d(
 
 def plot_embedding_3d(
     embedding: npt.NDArray[np.floating],
-    labels: npt.NDArray | None = None,
+    labels: npt.NDArray[np.floating[Any]] | None = None,
     *,
-    colors: npt.NDArray | None = None,
+    colors: npt.NDArray[np.floating[Any]] | None = None,
     backend: BackendType = BackendType.MATPLOTLIB,
     config: PlotConfig | None = None,
     title: str = "3D Embedding",
@@ -275,9 +269,7 @@ def plot_embedding_3d(
         show_hulls=show_hulls,
         hull_alpha=hull_alpha if show_hulls else None,
         marker_size=kwargs.pop("markersize", kwargs.pop("s", 20)),
-        alpha=kwargs.pop("alpha", 0.6),
-        **kwargs,
-    )
+        alpha=kwargs.pop("alpha", 0.6), **kwargs)
 
     # Create plot config if not provided
     if config is None:
@@ -335,8 +327,8 @@ def compute_convex_hull(
 
 def group_points_by_labels(
     points: npt.NDArray[np.floating],
-    labels: npt.NDArray,
-) -> dict[Any, npt.NDArray]:
+    labels: npt.NDArray[np.floating[Any]],
+) -> dict[Any, npt.NDArray[np.floating[Any]]]:
     """Group points by their labels.
 
     Args:

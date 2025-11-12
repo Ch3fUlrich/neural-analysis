@@ -10,14 +10,14 @@ This package provides:
 __version__ = "0.0.0"
 
 # Import key functions for convenient access
-from neural_analysis.decoding import (
+from neural_analysis.learning.decoding import (
     compare_highd_lowd_decoding,
     cross_validated_knn_decoder,
     evaluate_decoder,
     knn_decoder,
     population_vector_decoder,
 )
-from neural_analysis.synthetic_data import (
+from neural_analysis.data.synthetic_data import (
     generate_grid_cells,
     generate_head_direction_cells,
     generate_mixed_population_flexible,

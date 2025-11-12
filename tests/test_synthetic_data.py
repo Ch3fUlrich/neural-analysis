@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from neural_analysis.synthetic_data import (
+from neural_analysis.data.synthetic_data import (
     add_noise,
     generate_grid_cells,
     generate_head_direction,
@@ -70,9 +70,7 @@ class TestBehavioral:
         """Test position stays within arena bounds."""
         arena_size = (2.0, 3.0)
         positions = generate_position_trajectory(
-            n_samples=1000,
-            arena_size=arena_size,
-            seed=42
+            n_samples=1000, arena_size=arena_size, seed=42
         )
 
         assert np.all(positions[:, 0] >= 0)
@@ -84,9 +82,7 @@ class TestBehavioral:
         """Test position starts near center."""
         arena_size = (2.0, 2.0)
         positions = generate_position_trajectory(
-            n_samples=1000,
-            arena_size=arena_size,
-            seed=42
+            n_samples=1000, arena_size=arena_size, seed=42
         )
 
         expected_center = np.array([arena_size[0] / 2, arena_size[1] / 2])
@@ -122,37 +118,25 @@ class TestPlaceCells:
 
     def test_place_cells_shape(self):
         """Test place cell activity shape."""
-        activity, metadata = generate_place_cells(
-            n_cells=50,
-            n_samples=1000,
-            seed=42
-        )
+        activity, metadata = generate_place_cells(n_cells=50, n_samples=1000, seed=42)
 
         assert activity.shape == (1000, 50)
 
     def test_place_cells_metadata(self):
         """Test place cell metadata."""
-        activity, metadata = generate_place_cells(
-            n_cells=50,
-            n_samples=1000,
-            seed=42
-        )
+        activity, metadata = generate_place_cells(n_cells=50, n_samples=1000, seed=42)
 
-        assert 'field_centers' in metadata
-        assert 'positions' in metadata
-        assert 'cell_type' in metadata
+        assert "field_centers" in metadata
+        assert "positions" in metadata
+        assert "cell_type" in metadata
 
-        assert metadata['field_centers'].shape == (50, 2)
-        assert metadata['positions'].shape == (1000, 2)
-        assert metadata['cell_type'] == 'place'
+        assert metadata["field_centers"].shape == (50, 2)
+        assert metadata["positions"].shape == (1000, 2)
+        assert metadata["cell_type"] == "place"
 
     def test_place_cells_nonnegative(self):
         """Test place cell activity is non-negative."""
-        activity, _ = generate_place_cells(
-            n_cells=50,
-            n_samples=1000,
-            seed=42
-        )
+        activity, _ = generate_place_cells(n_cells=50, n_samples=1000, seed=42)
 
         assert np.all(activity >= 0)
 
@@ -160,28 +144,19 @@ class TestPlaceCells:
         """Test place cells with custom position trajectory."""
         positions = np.random.randn(1000, 2)
         activity, metadata = generate_place_cells(
-            n_cells=50,
-            n_samples=1000,
-            positions=positions,
-            seed=42
+            n_cells=50, n_samples=1000, positions=positions, seed=42
         )
 
-        np.testing.assert_array_equal(metadata['positions'], positions)
+        np.testing.assert_array_equal(metadata["positions"], positions)
 
     def test_place_cells_field_size(self):
         """Test place cells respond to field size."""
         activity_narrow, _ = generate_place_cells(
-            n_cells=10,
-            n_samples=1000,
-            field_size=0.1,
-            seed=42
+            n_cells=10, n_samples=1000, field_size=0.1, seed=42
         )
 
         activity_wide, _ = generate_place_cells(
-            n_cells=10,
-            n_samples=1000,
-            field_size=0.5,
-            seed=42
+            n_cells=10, n_samples=1000, field_size=0.5, seed=42
         )
 
         # Wide fields should have more non-zero activity
@@ -193,17 +168,11 @@ class TestPlaceCells:
     def test_place_cells_noise(self):
         """Test place cells with different noise levels."""
         activity_clean, _ = generate_place_cells(
-            n_cells=10,
-            n_samples=1000,
-            noise_level=0.0,
-            seed=42
+            n_cells=10, n_samples=1000, noise_level=0.0, seed=42
         )
 
         activity_noisy, _ = generate_place_cells(
-            n_cells=10,
-            n_samples=1000,
-            noise_level=1.0,
-            seed=42
+            n_cells=10, n_samples=1000, noise_level=1.0, seed=42
         )
 
         # Should be different
@@ -215,37 +184,25 @@ class TestGridCells:
 
     def test_grid_cells_shape(self):
         """Test grid cell activity shape."""
-        activity, metadata = generate_grid_cells(
-            n_cells=30,
-            n_samples=1000,
-            seed=42
-        )
+        activity, metadata = generate_grid_cells(n_cells=30, n_samples=1000, seed=42)
 
         assert activity.shape == (1000, 30)
 
     def test_grid_cells_metadata(self):
         """Test grid cell metadata."""
-        activity, metadata = generate_grid_cells(
-            n_cells=30,
-            n_samples=1000,
-            seed=42
-        )
+        activity, metadata = generate_grid_cells(n_cells=30, n_samples=1000, seed=42)
 
-        assert 'phase_offsets' in metadata
-        assert 'positions' in metadata
-        assert 'cell_type' in metadata
-        assert 'grid_spacing' in metadata
+        assert "phase_offsets" in metadata
+        assert "positions" in metadata
+        assert "cell_type" in metadata
+        assert "grid_spacing" in metadata
 
-        assert metadata['phase_offsets'].shape == (30, 2)
-        assert metadata['cell_type'] == 'grid'
+        assert metadata["phase_offsets"].shape == (30, 2)
+        assert metadata["cell_type"] == "grid"
 
     def test_grid_cells_nonnegative(self):
         """Test grid cell activity is non-negative."""
-        activity, _ = generate_grid_cells(
-            n_cells=30,
-            n_samples=1000,
-            seed=42
-        )
+        activity, _ = generate_grid_cells(n_cells=30, n_samples=1000, seed=42)
 
         assert np.all(activity >= 0)
 
@@ -256,7 +213,7 @@ class TestGridCells:
             n_samples=2000,
             grid_spacing=0.2,
             arena_size=(5.0, 5.0),  # Larger arena for better testing
-            seed=42
+            seed=42,
         )
 
         activity_coarse, _ = generate_grid_cells(
@@ -264,7 +221,7 @@ class TestGridCells:
             n_samples=2000,
             grid_spacing=1.0,  # Much larger spacing
             arena_size=(5.0, 5.0),
-            seed=43  # Different seed to ensure different trajectory
+            seed=43,  # Different seed to ensure different trajectory
         )
 
         # Fine grids should have higher total activity due to more fields
@@ -272,7 +229,9 @@ class TestGridCells:
         total_activity_coarse = np.sum(activity_coarse)
 
         # Fine grids visit more fields, so more overall activity
-        assert total_activity_fine > total_activity_coarse * 0.5  # At least half as much
+        assert (
+            total_activity_fine > total_activity_coarse * 0.5
+        )  # At least half as much
 
 
 class TestHeadDirectionCells:
@@ -281,9 +240,7 @@ class TestHeadDirectionCells:
     def test_hd_cells_shape(self):
         """Test head direction cell activity shape."""
         activity, metadata = generate_head_direction_cells(
-            n_cells=60,
-            n_samples=1000,
-            seed=42
+            n_cells=60, n_samples=1000, seed=42
         )
 
         assert activity.shape == (1000, 60)
@@ -291,39 +248,31 @@ class TestHeadDirectionCells:
     def test_hd_cells_metadata(self):
         """Test head direction cell metadata."""
         activity, metadata = generate_head_direction_cells(
-            n_cells=60,
-            n_samples=1000,
-            seed=42
+            n_cells=60, n_samples=1000, seed=42
         )
 
-        assert 'preferred_directions' in metadata
-        assert 'head_directions' in metadata
-        assert 'cell_type' in metadata
+        assert "preferred_directions" in metadata
+        assert "head_directions" in metadata
+        assert "cell_type" in metadata
 
-        assert metadata['preferred_directions'].shape == (60,)
-        assert metadata['cell_type'] == 'head_direction'
+        assert metadata["preferred_directions"].shape == (60,)
+        assert metadata["cell_type"] == "head_direction"
 
     def test_hd_cells_nonnegative(self):
         """Test head direction cell activity is non-negative."""
-        activity, _ = generate_head_direction_cells(
-            n_cells=60,
-            n_samples=1000,
-            seed=42
-        )
+        activity, _ = generate_head_direction_cells(n_cells=60, n_samples=1000, seed=42)
 
         assert np.all(activity >= 0)
 
     def test_hd_cells_tuning(self):
         """Test head direction cells have directional tuning."""
         activity, metadata = generate_head_direction_cells(
-            n_cells=60,
-            n_samples=1000,
-            seed=42
+            n_cells=60, n_samples=1000, seed=42
         )
 
         # Each cell should have peak activity at its preferred direction
-        hd = metadata['head_directions']
-        preferred_dirs = metadata['preferred_directions']
+        hd = metadata["head_directions"]
+        preferred_dirs = metadata["preferred_directions"]
 
         for i in range(60):
             # Find when head direction is close to preferred direction
@@ -344,11 +293,7 @@ class TestMixedPopulation:
     def test_mixed_population_shape(self):
         """Test mixed population shape."""
         activity, metadata = generate_mixed_neural_population(
-            n_place=50,
-            n_grid=30,
-            n_hd=20,
-            n_samples=1000,
-            seed=42
+            n_place=50, n_grid=30, n_hd=20, n_samples=1000, seed=42
         )
 
         assert activity.shape == (1000, 100)  # 50 + 30 + 20
@@ -356,42 +301,32 @@ class TestMixedPopulation:
     def test_mixed_population_cell_types(self):
         """Test mixed population cell type labels."""
         activity, metadata = generate_mixed_neural_population(
-            n_place=50,
-            n_grid=30,
-            n_hd=20,
-            n_samples=1000,
-            seed=42
+            n_place=50, n_grid=30, n_hd=20, n_samples=1000, seed=42
         )
 
-        cell_types = metadata['cell_types']
+        cell_types = metadata["cell_types"]
         assert len(cell_types) == 100
-        assert np.sum(cell_types == 'place') == 50
-        assert np.sum(cell_types == 'grid') == 30
-        assert np.sum(cell_types == 'head_direction') == 20
+        assert np.sum(cell_types == "place") == 50
+        assert np.sum(cell_types == "grid") == 30
+        assert np.sum(cell_types == "head_direction") == 20
 
     def test_mixed_population_metadata(self):
         """Test mixed population has complete metadata."""
         activity, metadata = generate_mixed_neural_population(
-            n_place=50,
-            n_grid=30,
-            n_hd=20,
-            seed=42
+            n_place=50, n_grid=30, n_hd=20, seed=42
         )
 
-        assert 'cell_types' in metadata
-        assert 'positions' in metadata
-        assert 'head_direction' in metadata
-        assert 'place_meta' in metadata
-        assert 'grid_meta' in metadata
-        assert 'hd_meta' in metadata
+        assert "cell_types" in metadata
+        assert "positions" in metadata
+        assert "head_direction" in metadata
+        assert "place_meta" in metadata
+        assert "grid_meta" in metadata
+        assert "hd_meta" in metadata
 
     def test_mixed_population_nonnegative(self):
         """Test mixed population activity is non-negative."""
         activity, _ = generate_mixed_neural_population(
-            n_place=50,
-            n_grid=30,
-            n_hd=20,
-            seed=42
+            n_place=50, n_grid=30, n_hd=20, seed=42
         )
 
         assert np.all(activity >= 0)
@@ -403,7 +338,7 @@ class TestNoise:
     def test_gaussian_noise(self):
         """Test Gaussian noise addition."""
         data = np.ones((100, 10))
-        noisy = add_noise(data, noise_type='gaussian', noise_level=0.1, seed=42)
+        noisy = add_noise(data, noise_type="gaussian", noise_level=0.1, seed=42)
 
         assert noisy.shape == data.shape
         assert not np.allclose(data, noisy)
@@ -411,7 +346,7 @@ class TestNoise:
     def test_poisson_noise(self):
         """Test Poisson noise addition."""
         data = np.ones((100, 10)) * 100  # Higher values for noticeable Poisson
-        noisy = add_noise(data, noise_type='poisson', noise_level=1.0, seed=42)
+        noisy = add_noise(data, noise_type="poisson", noise_level=1.0, seed=42)
 
         assert noisy.shape == data.shape
         # Poisson noise should create variability
@@ -420,7 +355,7 @@ class TestNoise:
     def test_uniform_noise(self):
         """Test uniform noise addition."""
         data = np.ones((100, 10))
-        noisy = add_noise(data, noise_type='uniform', noise_level=0.1, seed=42)
+        noisy = add_noise(data, noise_type="uniform", noise_level=0.1, seed=42)
 
         assert noisy.shape == data.shape
         assert not np.allclose(data, noisy)
@@ -429,8 +364,8 @@ class TestNoise:
         """Test noise level affects variance."""
         data = np.ones((1000, 10))
 
-        noisy_low = add_noise(data, noise_type='gaussian', noise_level=0.1, seed=42)
-        noisy_high = add_noise(data, noise_type='gaussian', noise_level=1.0, seed=42)
+        noisy_low = add_noise(data, noise_type="gaussian", noise_level=0.1, seed=42)
+        noisy_high = add_noise(data, noise_type="gaussian", noise_level=1.0, seed=42)
 
         var_low = np.var(noisy_low - data)
         var_high = np.var(noisy_high - data)
@@ -441,8 +376,8 @@ class TestNoise:
         """Test noise is reproducible with same seed."""
         data = np.ones((100, 10))
 
-        noisy1 = add_noise(data, noise_type='gaussian', noise_level=0.1, seed=42)
-        noisy2 = add_noise(data, noise_type='gaussian', noise_level=0.1, seed=42)
+        noisy1 = add_noise(data, noise_type="gaussian", noise_level=0.1, seed=42)
+        noisy2 = add_noise(data, noise_type="gaussian", noise_level=0.1, seed=42)
 
         np.testing.assert_array_equal(noisy1, noisy2)
 
@@ -451,7 +386,7 @@ class TestNoise:
         data = np.ones((100, 10))
 
         with pytest.raises(ValueError, match="Unknown noise type"):
-            add_noise(data, noise_type='invalid', noise_level=0.1)
+            add_noise(data, noise_type="invalid", noise_level=0.1)
 
 
 class TestReproducibility:

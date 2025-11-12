@@ -5,101 +5,203 @@
 ```
 neural-analysis/
 │
-├── .github/
+├── .github/                        # GitHub configuration
 │   └── workflows/
-│       └── ci.yml          # GitHub Actions CI pipeline
+│       └── ci.yml                  # GitHub Actions CI/CD pipeline
 │
-├── docs/                   # Documentation
-│   ├── folder_structure.md # This file - Repository structure
-│   ├── project_goal.md     # Project mission and goals
-│   ├── python_testing_setup.md # Testing and quality guidelines
-│   ├── local_ci_testing.md # Local CI with act guide
-│   ├── setup_script_usage.md # Setup script comprehensive guide
-│   └── claude.md           # Instructions for AI assistants
+├── docs/                           # Comprehensive documentation
+│   ├── DOCUMENTATION_CLEANUP_SUMMARY.md  # Documentation consolidation record
+│   ├── folder_structure.md         # This file - Repository structure
+│   ├── project_goal.md             # Project mission and goals
+│   ├── testing_and_ci.md           # Testing, linting, CI/CD guide (consolidated)
+│   ├── setup_script_usage.md       # Setup script comprehensive guide
+│   ├── logging.md                  # Logging configuration guide
+│   │
+│   ├── plotgrid.md                 # Comprehensive PlotGrid system guide (consolidated)
+│   ├── plotting_architecture.md    # Plotting module architecture and design patterns
+│   ├── historical_migrations.md    # Historical migration reference (consolidated)
+│   │
+│   ├── decoding_module.md          # Decoding functions documentation
+│   ├── distributions.md            # Distribution comparison module
+│   ├── hdf5_structure.md          # HDF5 file structure reference
+│   ├── structure_index.md          # Structure index documentation
+│   ├── synthetic_datasets_notebook.md  # Synthetic datasets guide
+│   ├── function_registry.md        # Function registry documentation (auto-generated)
+│   │
+│   ├── _build/                     # Sphinx build output
+│   ├── api/                        # API documentation
+│   ├── conf.py                     # Sphinx configuration
+│   ├── index.rst                   # Sphinx index
+│   ├── contributing.rst            # Contributing guide (RST)
+│   ├── examples.rst                # Examples documentation
+│   ├── installation.rst            # Installation guide
+│   ├── quickstart.rst              # Quick start guide
+│   ├── requirements.txt            # Docs dependencies
+│   └── Makefile                    # Documentation build automation
 │
-├── scripts/                # Automation scripts
-│   ├── setup_env.sh        # Environment bootstrap script
-│   └── run_ci_locally.sh   # Local CI runner with act
+├── examples/                       # Jupyter notebooks for demos and tutorials
+│   ├── embeddings_demo.ipynb       # Embeddings and dimensionality reduction
+│   ├── io_h5io_examples.ipynb      # HDF5 I/O operations
+│   ├── logging_examples.ipynb      # Logging system usage
+│   ├── metrics_examples.ipynb      # Metrics and distance calculations
+│   ├── neural_analysis_demo.ipynb  # General neural analysis demo
+│   ├── plots_1d_examples.ipynb     # 1D plotting examples
+│   ├── plots_2d_examples.ipynb     # 2D plotting examples
+│   ├── plots_3d_examples.ipynb     # 3D plotting examples
+│   ├── plotting_grid_showcase.ipynb # PlotGrid system showcase
+│   ├── statistical_plots_examples.ipynb # Statistical plotting
+│   ├── structure_index_examples.ipynb # Structure indexing
+│   ├── synthetic_datasets_example.ipynb # Synthetic data generation
+│   ├── random_cells_diagnostics_example.py # Random cells diagnostics
+│   └── output/                     # Notebook outputs
 │
-├── src/                    # Main package source code
+├── scripts/                        # Automation and utility scripts
+│   ├── setup_env.sh                # Environment bootstrap script
+│   ├── run_ci_locally.sh           # Local CI runner with act
+│   ├── generate_function_registry.py # Function registry generator
+│   └── execute_notebooks.py        # Notebook execution automation
+│
+├── src/                            # Main package source code
 │   └── neural_analysis/
-│       ├── __init__.py
-│       └── example.py      # Example module with utilities
+│       ├── __init__.py             # Package initialization
+│       │
+│       ├── data/                   # Data generation and management
+│       │   ├── __init__.py
+│       │   └── synthetic_data.py   # Synthetic dataset generation
+│       │
+│       ├── decoding.py             # Neural decoding algorithms (LEGACY - use learning/)
+│       │
+│       ├── embeddings/             # Dimensionality reduction and embeddings
+│       │   ├── __init__.py
+│       │   ├── dimensionality_reduction.py  # PCA, UMAP, t-SNE, etc.
+│       │   └── visualization.py    # Embedding visualization helpers
+│       │
+│       ├── learning/               # Machine learning and decoding
+│       │   ├── __init__.py
+│       │   └── decoding.py         # Neural decoding models
+│       │
+│       ├── metrics/                # Quantitative analysis metrics
+│       │   ├── __init__.py
+│       │   ├── distance.py         # Distance metrics (Euclidean, Mahalanobis, etc.)
+│       │   ├── distributions.py    # Distribution comparison (KS, Anderson-Darling)
+│       │   ├── outliers.py         # Outlier detection methods
+│       │   └── similarity.py       # Similarity measures
+│       │
+│       ├── plotting/               # Modular plotting system (backend-agnostic)
+│       │   ├── __init__.py
+│       │   ├── backend.py          # Backend selection (matplotlib/plotly)
+│       │   ├── core.py             # Core plotting utilities
+│       │   ├── grid_config.py      # PlotGrid system (metadata-driven layouts)
+│       │   ├── renderers.py        # Low-level rendering primitives
+│       │   ├── plots_1d.py         # 1D plots (line, bar, histogram, etc.)
+│       │   ├── plots_2d.py         # 2D plots (scatter, density, contour, etc.)
+│       │   ├── plots_3d.py         # 3D plots (surface, scatter, trajectory, etc.)
+│       │   ├── heatmaps.py         # Heatmap visualizations
+│       │   ├── statistical_plots.py # Statistical plots (violin, box, swarm, etc.)
+│       │   ├── synthetic_plots.py  # Synthetic data visualization
+│       │   └── embeddings.py       # Embedding-specific plots
+│       │
+│       ├── topology/               # Topological analysis
+│       │   ├── __init__.py
+│       │   ├── structure_index.py  # Structure index calculations
+│       │   └── plotting.py         # Topology visualization
+│       │
+│       └── utils/                  # General utility functions
+│           ├── __init__.py
+│           ├── geometry.py         # Geometric calculations
+│           ├── io.py               # File I/O operations (HDF5, etc.)
+│           ├── logging.py          # Logging configuration and utilities
+│           ├── preprocessing.py    # Signal processing and preprocessing
+│           ├── trajectories.py     # Trajectory analysis utilities
+│           └── validation.py       # Input validation and type checking
 │
-├── tests/                  # Unit and integration tests
-│   ├── test_example.py     # Tests for example module
-│   └── test_placeholder.py # Initial placeholder test
+├── tests/                          # Unit and integration tests (mirrors src/)
+│   ├── test_decoding.py            # Decoding tests
+│   ├── test_embeddings.py          # Embeddings tests
+│   ├── test_metrics_distance.py    # Distance metrics tests
+│   ├── test_metrics_distributions.py # Distribution tests
+│   ├── test_metrics_outliers.py    # Outlier detection tests
+│   ├── test_similarity.py          # Similarity measures tests
+│   ├── test_plots_1d.py            # 1D plotting tests
+│   ├── test_plots_2d.py            # 2D plotting tests
+│   ├── test_plots_3d.py            # 3D plotting tests
+│   ├── test_plots_heatmaps_subplots.py # Heatmap tests
+│   ├── test_structure_index.py     # Structure index tests
+│   ├── test_synthetic_data.py      # Synthetic data tests
+│   ├── test_utils_io.py            # I/O utilities tests
+│   ├── test_utils_io_h5io.py       # HDF5 I/O tests
+│   ├── test_utils_preprocessing.py # Preprocessing tests
+│   ├── test_utils_validation.py    # Validation tests
+│   └── test_placeholder.py         # Placeholder test
 │
-├── .gitignore              # Git ignore patterns
-├── .pre-commit-config.yaml # Pre-commit hooks configuration
-├── .python-version         # Python version specification (3.14)
-├── CONTRIBUTING.md         # Contribution guidelines
-├── LICENSE                 # MIT License
-├── README.md               # Project overview and quick start
-├── pyproject.toml          # Project metadata and dependencies
-└── uv.lock                 # Locked dependency versions
+├── todo/                           # Work in progress and legacy code
+│   ├── Helper.py                   # Legacy helper utilities
+│   ├── Manimeasure.py              # Legacy measurement utilities
+│   ├── Visualizer.py               # LEGACY - Migrated to modular plotting/
+│   ├── restructure.py              # Restructuring utilities
+│   ├── structure_index.py          # Legacy structure index
+│   ├── yaml_creator.py             # YAML configuration creator
+│   └── Notebooks/                  # Work-in-progress notebooks
+│
+├── .gitignore                      # Git ignore patterns
+├── .pre-commit-config.yaml         # Pre-commit hooks (ruff, mypy)
+├── .python-version                 # Python version (3.14)
+├── .editorconfig                   # Editor configuration
+├── CONTRIBUTING.md                 # Contribution guidelines
+├── LICENSE                         # MIT License
+├── Makefile                        # Build automation
+├── PYTHON_312_MIGRATION.md         # Python 3.12 migration notes
+├── README.md                       # Project overview and quick start
+├── TODO.md                         # Project todo list
+├── pyproject.toml                  # Project metadata, dependencies, tool configs
+└── uv.lock                         # Locked dependency versions (DO NOT EDIT)
 
 ```
 
-## Planned Structure (Future Expansion)
+## Module Organization Philosophy
 
-When the project grows, it will follow this structure:
+The repository follows a **modular, layered architecture** designed for maintainability, testability, and reusability:
+
+### Core Principles
+
+1. **Separation of Concerns**: Each module has a clear, focused purpose
+2. **DRY (Don't Repeat Yourself)**: Check `docs/function_registry.md` before writing new code
+3. **Backend-Agnostic**: Plotting system works with both matplotlib and plotly
+4. **Type-Safe**: Extensive type hints and mypy validation
+5. **Tested**: High test coverage with pytest (204/205 tests passing)
+
+### Module Hierarchy
 
 ```
-neural_analysis_repo/
-│
-├── data/                   # Raw and processed data
-│   ├── raw/                # Original unmodified datasets
-│   ├── processed/          # Preprocessed datasets ready for analysis
-│   └── external/           # External data or reference datasets
-│
-├── notebooks/              # Jupyter notebooks for exploration and demos
-│   └── examples.ipynb
-│
-├── src/                    # All source code for analysis
-│   ├── __init__.py
-│   ├── utils/              # General utility functions (file IO, logging, etc.)
-│   │   ├── __init__.py
-│   │   ├── io_utils.py
-│   │   └── math_utils.py
-│   │
-│   ├── preprocessing/      # Data cleaning, normalization, filtering
-│   │   ├── __init__.py
-│   │   └── signal_processing.py
-│   │
-│   ├── analysis/           # Core analysis methods
-│   │   ├── __init__.py
-│   │   ├── embedding.py    # Neural embedding / dimensionality reduction
-│   │   ├── connectivity.py # Functional or structural connectivity analysis
-│   │   └── spike_analysis.py
-│   │
-│   ├── plotting/           # Plotting functions / figure templates
-│   │   ├── __init__.py
-│   │   ├── raster_plot.py
-│   │   └── summary_figures.py
-│   │
-│   └── models/             # Optional: ML/Deep Learning models
-│       ├── __init__.py
-│       ├── autoencoder.py
-│       └── classifier.py
-│
-├── tests/                  # Unit tests for all modules
-│   ├── __init__.py
-│   ├── test_utils.py
-│   ├── test_embedding.py
-│   └── test_plotting.py
-│
-├── docs/                   # Documentation, methodology notes
-│
-├── results/                # Generated outputs (plots, embeddings, tables)
-│   ├── figures/
-│   └── tables/
-│
-├── requirements.txt        # Python dependencies
-├── setup.py / pyproject.toml # Package info
-├── README.md
-└── .gitignore
+utils/          → Core utilities (I/O, logging, validation, preprocessing)
+    ↓
+data/           → Data generation (synthetic datasets)
+    ↓
+metrics/        → Quantitative analysis (distances, distributions, outliers)
+embeddings/     → Dimensionality reduction (PCA, UMAP, t-SNE)
+topology/       → Topological analysis (structure index)
+learning/       → Machine learning (decoding models)
+    ↓
+plotting/       → Visualization (PlotGrid, 1D/2D/3D, statistical)
 ```
+
+### Key Design Decisions
+
+**Plotting System**:
+- **Layer 1**: `renderers.py` - Low-level primitives (scatter, line, bar, etc.)
+- **Layer 2**: `grid_config.py` - PlotGrid system (metadata-driven multi-panel layouts)
+- **Layer 3**: `plots_1d.py`, `plots_2d.py`, `plots_3d.py`, `statistical_plots.py` - High-level plotting functions
+- **Backend**: `backend.py` - Automatic matplotlib ↔ plotly switching
+
+**Legacy Code**:
+- `decoding.py` in root → Moving to `learning/decoding.py`
+- `Visualizer.py` in `todo/` → Fully migrated to modular `plotting/` system
+- See `docs/historical_migrations.md` for migration history
+
+**Documentation**:
+- **Consolidated**: PlotGrid (5→1), Migrations (3→1), Testing/CI (3→1)
+- **Module-Specific**: Each major module has dedicated docs
+- See `docs/DOCUMENTATION_CLEANUP_SUMMARY.md` for cleanup details
 
 ## 🚨 Critical Workflow Rules
 
@@ -161,4 +263,79 @@ uv run -- pytest -v
    - All checks must pass
    - Review and merge when approved
 
-## Project Goal
+## Quick Navigation Guide
+
+### For New Users
+
+**Getting Started**:
+1. Read `README.md` - Project overview and quick start
+2. Read `docs/installation.rst` - Installation instructions
+3. Read `docs/quickstart.rst` - Quick start guide
+4. Explore `examples/` - Jupyter notebooks with interactive demos
+
+**Learning the System**:
+- **Plotting**: `docs/plotgrid.md` - Comprehensive PlotGrid guide with 7 examples
+- **Logging**: `docs/logging.md` - Logging system usage
+- **Testing**: `docs/testing_and_ci.md` - How to run tests and CI
+- **Function Registry**: `docs/function_registry.md` - Available functions
+
+### For Contributors
+
+**Development Setup**:
+1. Run `scripts/setup_env.sh` - Bootstrap environment
+2. Read `CONTRIBUTING.md` - Contribution guidelines
+3. Read `docs/testing_and_ci.md` - Testing and CI workflow
+4. Check `docs/function_registry.md` - Avoid duplicating existing code
+
+**Architecture Documentation**:
+- `docs/folder_structure.md` (this file) - Repository structure
+- `docs/plotting_architecture.md` - Plotting system design patterns
+- `docs/historical_migrations.md` - Past refactorings and lessons learned
+
+**Before Adding Code**:
+1. **Check registry**: `python scripts/generate_function_registry.py` (updates registry)
+2. **Search for similar functions**: Check `docs/function_registry.md`
+3. **Reuse existing code**: DRY principle
+4. **Add tests**: Mirror `src/` structure in `tests/`
+5. **Update docs**: Add docstrings and update relevant docs
+
+### For Specific Tasks
+
+| Task | Where to Look |
+|------|---------------|
+| Create plots | `src/neural_analysis/plotting/` + `docs/plotgrid.md` |
+| Generate synthetic data | `src/neural_analysis/data/synthetic_data.py` + `examples/synthetic_datasets_example.ipynb` |
+| Calculate distances | `src/neural_analysis/metrics/distance.py` + `examples/metrics_examples.ipynb` |
+| Compare distributions | `src/neural_analysis/metrics/distributions.py` + `docs/distributions.md` |
+| Dimensionality reduction | `src/neural_analysis/embeddings/` + `examples/embeddings_demo.ipynb` |
+| Neural decoding | `src/neural_analysis/learning/decoding.py` + `docs/decoding_module.md` |
+| Structure index | `src/neural_analysis/topology/structure_index.py` + `docs/structure_index.md` |
+| Read/write HDF5 | `src/neural_analysis/utils/io.py` + `docs/hdf5_structure.md` |
+| Configure logging | `src/neural_analysis/utils/logging.py` + `docs/logging.md` |
+| Preprocess signals | `src/neural_analysis/utils/preprocessing.py` |
+
+### Documentation Map
+
+| Category | Files | Purpose |
+|----------|-------|---------|
+| **Getting Started** | README.md, docs/quickstart.rst, docs/installation.rst | Quick start and setup |
+| **Plotting** | docs/plotgrid.md, docs/plotting_architecture.md | Comprehensive plotting guide |
+| **Testing/CI** | docs/testing_and_ci.md | Testing, linting, CI/CD |
+| **Module Docs** | docs/decoding_module.md, docs/distributions.md, docs/structure_index.md | Module-specific documentation |
+| **Data Formats** | docs/hdf5_structure.md, docs/synthetic_datasets_notebook.md | Data structure reference |
+| **Development** | CONTRIBUTING.md, docs/function_registry.md, docs/setup_script_usage.md | Development workflow |
+| **History** | docs/historical_migrations.md, docs/DOCUMENTATION_CLEANUP_SUMMARY.md | Project history and refactorings |
+| **Utilities** | docs/logging.md | Logging and utilities |
+
+## Related Documentation
+
+- **Project Goals**: See `docs/project_goal.md` for detailed project vision and objectives
+- **Contributing**: See `CONTRIBUTING.md` for contribution guidelines and best practices
+- **Function Registry**: See `docs/function_registry.md` for complete function catalog
+- **Setup Guide**: See `docs/setup_script_usage.md` for environment setup details
+- **Migration History**: See `docs/historical_migrations.md` for past refactorings
+
+---
+
+**Last Updated**: January 2025 (Documentation Cleanup)  
+**Status**: ✅ Comprehensive documentation with 14 focused files (down from 30+)

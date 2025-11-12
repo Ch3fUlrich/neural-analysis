@@ -18,8 +18,9 @@ dependencies = [
     "h5py>=3.10",
     "pot>=0.9", # Optimal Transport (import name: ot)
     "scikit-learn>=1.7.2",
-    "numba>=0.59",  # JIT compiler for fast parallel similarity computations
-    "umap-learn>=0.5.3",  # UMAP dimensionality reduction
+    "numba>=0.59", # JIT compiler for fast parallel similarity computations
+    "umap-learn>=0.5.3", # UMAP dimensionality reduction
+    "networkx>=3.4.2",
 ]
 
 [project.optional-dependencies]
@@ -107,6 +108,7 @@ markers = [
 
 [tool.mypy]
 python_version = "3.12"
+strict = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -117,11 +119,28 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 strict_equality = true
-strict = true
+exclude = [
+    "^todo/.*\\.py$",
+]
 
+# Only ignore imports for external libraries without stubs
 [[tool.mypy.overrides]]
-module = "tests.*"
-disallow_untyped_defs = false
+module = [
+    "sklearn.*",
+    "umap.*",
+    "numba.*",
+    "scipy.*",
+    "nbconvert.*",
+    "nbformat.*",
+    "matplotlib.*",
+    "mpl_toolkits.*",
+    "plotly.*",
+    "faiss.*",
+    "seaborn.*",
+    "ot.*",
+    "networkx.*",
+]
+ignore_missing_imports = true
 
 [tool.coverage.run]
 source = ["src"]
@@ -143,4 +162,10 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
     "@abstractmethod",
+]
+
+[dependency-groups]
+dev = [
+    "pandas-stubs>=2.3.2.250926",
+    "types-tqdm>=4.67.0.20250809",
 ]

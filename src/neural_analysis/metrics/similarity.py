@@ -18,15 +18,15 @@ to significantly speed up correlation calculations.
 from __future__ import annotations
 
 import logging
-from typing import Literal
+from typing import Any, Literal, cast
 
 import numpy as np
 import numpy.typing as npt
-from scipy.stats import kendalltau, spearmanr
+from scipy.stats import kendalltau, spearmanr  # type: ignore[import-untyped]
 
 # Optional numba acceleration
 try:
-    import numba
+    import numba  # type: ignore[import-untyped]
 
     NUMBA_AVAILABLE = True
 except ImportError:
@@ -49,7 +49,7 @@ __all__ = [
 def correlation_matrix(
     data: npt.ArrayLike,
     method: Literal["pearson", "spearman", "kendall"] = "pearson",
-) -> np.ndarray:
+) -> npt.NDArray[Any]:
     """
     Compute pairwise correlation matrix between features.
 
@@ -130,7 +130,8 @@ def correlation_matrix(
                     corr_matrix[j, i] = tau
         case _:
             raise ValueError(
-                f"Unknown method '{method}'. Choose 'pearson', 'spearman', or 'kendall'."
+                f"Unknown method '{method}'. Choose 'pearson', 'spearman', "
+                f"or 'kendall'."
             )
 
     return corr_matrix
@@ -139,7 +140,7 @@ def correlation_matrix(
 def cosine_similarity_matrix(
     data: npt.ArrayLike,
     centered: bool = False,
-) -> np.ndarray:
+) -> npt.NDArray[Any]:
     """
     Compute pairwise cosine similarity matrix between features.
 
@@ -204,14 +205,16 @@ def cosine_similarity_matrix(
     data_normalized = data_arr / norms
 
     # Compute similarity as dot product of normalized vectors
-    similarity_matrix = data_normalized.T @ data_normalized
+    similarity_matrix: npt.NDArray[Any] = cast(
+        "npt.NDArray[Any]", data_normalized.T @ data_normalized
+    )
 
     return similarity_matrix
 
 
 def angular_similarity_matrix(
     data: npt.ArrayLike,
-) -> np.ndarray:
+) -> npt.NDArray[Any]:
     """
     Compute pairwise angular similarity (1 - angular distance / π).
 
@@ -269,7 +272,9 @@ def angular_similarity_matrix(
 
     # Convert to angular distance, then to similarity
     angular_distance = np.arccos(cosine_sim)
-    angular_similarity = 1.0 - (angular_distance / np.pi)
+    angular_similarity: npt.NDArray[Any] = cast(
+        "npt.NDArray[Any]", 1.0 - (angular_distance / np.pi)
+    )
 
     return angular_similarity
 
@@ -280,8 +285,8 @@ def similarity_matrix(
     centered: bool = False,
     parallel: bool = False,
     plot: bool = False,
-    plot_config: dict | None = None,
-) -> np.ndarray:
+    plot_config: dict[str, Any] | None = None,
+) -> npt.NDArray[Any]:
     """
     Compute pairwise similarity matrix using specified method.
 
@@ -402,9 +407,9 @@ def similarity_matrix(
 
 
 def _plot_similarity_matrix(
-    similarity: np.ndarray,
+    similarity: npt.NDArray[Any],
     method: str,
-    plot_config: dict | None,
+    plot_config: dict[str, Any] | None,
 ) -> None:
     """
     Plot similarity matrix as heatmap.
@@ -435,7 +440,7 @@ def _plot_similarity_matrix(
     if plot_config is not None:
         config_dict.update(plot_config)
 
-    config = PlotConfig(**config_dict)
+    config = PlotConfig(**config_dict)  # type: ignore[arg-type]
 
     # Create heatmap
     plot_heatmap(
@@ -444,7 +449,7 @@ def _plot_similarity_matrix(
         show_values=similarity.shape[0] <= 15,  # Only show values for small matrices
         colorbar=True,
         colorbar_label="Similarity",
-        aspect="equal",
+        aspect="equal",  # type: ignore[call-arg]
     )
 
 
@@ -454,9 +459,9 @@ def _plot_similarity_matrix(
 
 
 def _correlation_matrix_parallel(
-    data: np.ndarray,
+    data: npt.NDArray[Any],
     method: str,
-) -> np.ndarray:
+) -> npt.NDArray[Any]:
     """
     Compute correlation matrix with parallel optimization.
 
@@ -496,9 +501,9 @@ def _correlation_matrix_parallel(
 
 
 def _cosine_similarity_matrix_parallel(
-    data: np.ndarray,
+    data: npt.NDArray[Any],
     centered: bool,
-) -> np.ndarray:
+) -> npt.NDArray[Any]:
     """
     Compute cosine similarity with parallel optimization.
 
@@ -528,12 +533,15 @@ def _cosine_similarity_matrix_parallel(
     data_normalized = data / norms
 
     # Compute similarity via matrix multiplication (uses optimized BLAS)
-    return data_normalized.T @ data_normalized
+    result: npt.NDArray[Any] = cast(
+        "npt.NDArray[Any]", data_normalized.T @ data_normalized
+    )
+    return result
 
 
 def _angular_similarity_matrix_parallel(
-    data: np.ndarray,
-) -> np.ndarray:
+    data: npt.NDArray[Any],
+) -> npt.NDArray[Any]:
     """
     Compute angular similarity with parallel optimization.
 
@@ -554,7 +562,10 @@ def _angular_similarity_matrix_parallel(
     cosine_sim = _cosine_similarity_matrix_parallel(data, centered=False)
     cosine_sim = np.clip(cosine_sim, -1.0, 1.0)  # Numerical stability
     angular_distance = np.arccos(cosine_sim)
-    return 1.0 - (angular_distance / np.pi)
+    result: npt.NDArray[Any] = cast(
+        "npt.NDArray[Any]", 1.0 - (angular_distance / np.pi)
+    )
+    return result
 
 
 # =============================================================================
@@ -563,8 +574,8 @@ def _angular_similarity_matrix_parallel(
 
 if NUMBA_AVAILABLE:
 
-    @numba.jit(nopython=True, parallel=True, cache=True)
-    def _rank_data_numba(data: np.ndarray) -> np.ndarray:
+    @numba.jit(nopython=True, parallel=True, cache=True)  # type: ignore[misc]
+    def _rank_data_numba(data: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Compute ranks for each feature column using numba acceleration.
 
@@ -594,8 +605,8 @@ if NUMBA_AVAILABLE:
 
         return ranks
 
-    @numba.jit(nopython=True, parallel=True, cache=True)
-    def _kendall_tau_pairwise(x: np.ndarray, y: np.ndarray) -> float:
+    @numba.jit(nopython=True, parallel=True, cache=True)  # type: ignore[misc]
+    def _kendall_tau_pairwise(x: npt.NDArray[Any], y: npt.NDArray[Any]) -> float:
         """
         Compute Kendall's tau correlation between two arrays.
 
@@ -634,7 +645,7 @@ if NUMBA_AVAILABLE:
         total_pairs = n * (n - 1) / 2
         return (concordant - discordant) / total_pairs
 
-    def _spearman_numba(data: np.ndarray) -> np.ndarray:
+    def _spearman_numba(data: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Compute Spearman correlation matrix using numba-accelerated ranking.
 
@@ -655,7 +666,7 @@ if NUMBA_AVAILABLE:
         ranks = _rank_data_numba(data)
         return np.corrcoef(ranks.T)
 
-    def _kendall_numba(data: np.ndarray) -> np.ndarray:
+    def _kendall_numba(data: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Compute Kendall correlation matrix using numba acceleration.
 
@@ -687,7 +698,7 @@ if NUMBA_AVAILABLE:
 
 else:
     # Fallback implementations when numba is not available
-    def _spearman_numba(data: np.ndarray) -> np.ndarray:
+    def _spearman_numba(data: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Fallback Spearman correlation without numba.
         Uses scipy's spearmanr function.
@@ -696,9 +707,9 @@ else:
         # Handle scalar return for 2 features
         if data.shape[1] == 2 and np.ndim(corr_matrix) == 0:
             corr_matrix = np.array([[1.0, corr_matrix], [corr_matrix, 1.0]])
-        return corr_matrix
+        return cast("npt.NDArray[Any]", corr_matrix)
 
-    def _kendall_numba(data: np.ndarray) -> np.ndarray:
+    def _kendall_numba(data: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Fallback Kendall correlation without numba.
         Uses the standard (non-parallel) implementation.

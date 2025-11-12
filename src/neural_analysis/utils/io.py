@@ -34,7 +34,7 @@ try:
     from .logging import get_logger, log_calls
 except ImportError:
     # Fallback no-op decorator if logging module unavailable
-    def log_calls(**kwargs):  # type: ignore[no-untyped-def,no-redef]
+    def log_calls(**kwargs: Any):  # type: ignore[no-untyped-def,no-redef]
         def decorator(func):  # type: ignore[no-untyped-def]
             return func
 

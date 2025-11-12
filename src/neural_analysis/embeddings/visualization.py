@@ -34,16 +34,14 @@ __all__ = [
 
 def plot_multiple_embeddings(
     embeddings: Dict[str, np.ndarray],
-    labels: Optional[npt.ArrayLike] = None,
-    colors: Optional[Union[List[str], str]] = None,
+    labels: npt.ArrayLike | None = None,
+    colors: Union[List[str | None, str]] = None,
     title: str = "Dimensionality Reduction Comparison",
     figsize: tuple[int, int] = (16, 10),
     point_size: int = 20,
     alpha: float = 0.7,
     show_legend: bool = True,
-    backend: str = "matplotlib",
-    **kwargs
-) -> Figure:
+    backend: str = "matplotlib", **kwargs) -> Figure:
     """
     Plot multiple embeddings side-by-side for comparison.
     
@@ -53,14 +51,14 @@ def plot_multiple_embeddings(
     
     Parameters
     ----------
-    embeddings : dict
+    embeddings : dict[str, Any]
         Dictionary mapping method names to embedding arrays.
         Each array should have shape (n_samples, n_components).
         Example: {"pca": pca_embedding, "umap": umap_embedding}
     labels : array-like, optional, shape (n_samples,)
         Category labels for coloring points. If provided, points will be
         colored by category. If None, all points use the same color.
-    colors : list of str or str, optional
+    colors : list[Any] of str or str, optional
         Colors for categories. Can be:
         - List of color names/hex codes (one per unique label)
         - Single color name/hex code (for all points if labels=None)
@@ -241,9 +239,7 @@ def plot_multiple_embeddings(
             title=title,
             figsize=figsize,
             show=True,
-            legend=show_legend and labels is not None,
-            **kwargs
-        ),
+            legend=show_legend and labels is not None, **kwargs),
         layout=GridLayoutConfig(rows=rows, cols=cols),
         backend=backend
     )
@@ -255,13 +251,11 @@ def plot_multiple_embeddings(
 def plot_pca_variance(
     variance_info: Dict[str, np.ndarray],
     cumulative: bool = True,
-    n_components_to_show: Optional[int] = None,
+    n_components_to_show: int | None = None,
     threshold_lines: List[float] = None,
     figsize: tuple[int, int] = (12, 5),
     colors: List[str] = None,
-    backend: str = "matplotlib",
-    **kwargs
-) -> Figure:
+    backend: str = "matplotlib", **kwargs) -> Figure:
     """
     Plot PCA explained variance (scree plot).
     
@@ -270,7 +264,7 @@ def plot_pca_variance(
     
     Parameters
     ----------
-    variance_info : dict
+    variance_info : dict[str, Any]
         Dictionary returned by pca_explained_variance(), containing:
         - "explained_variance_ratio": Individual component variance
         - "cumulative_variance_ratio": Cumulative variance (if available)
@@ -279,12 +273,12 @@ def plot_pca_variance(
         If True, creates two subplots side-by-side.
     n_components_to_show : int, optional
         Number of components to show. If None, shows all components.
-    threshold_lines : list of float, optional
+    threshold_lines : list[Any] of float, optional
         Variance thresholds to mark with horizontal lines (e.g., [0.9, 0.95]).
         Only applies to cumulative plot.
     figsize : tuple of int, default=(12, 5)
         Figure size in inches (width, height)
-    colors : list of str, optional
+    colors : list[Any] of str, optional
         Colors for [individual_variance, cumulative_variance] plots.
         Defaults to ["steelblue", "coral"]
     backend : {"matplotlib", "plotly"}, default="matplotlib"
@@ -411,9 +405,7 @@ def plot_pca_variance(
             title="PCA Explained Variance",
             figsize=figsize,
             show=True,
-            legend=False,
-            **kwargs
-        ),
+            legend=False, **kwargs),
         layout=GridLayoutConfig(rows=rows, cols=cols),
         backend=backend
     )

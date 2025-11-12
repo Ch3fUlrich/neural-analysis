@@ -28,6 +28,8 @@ from scipy.spatial.distance import cdist  # type: ignore[import-untyped]
 from tqdm.auto import tqdm
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import pandas as pd
 else:
     import pandas as pd  # noqa: PGH003
@@ -47,7 +49,7 @@ try:
     from neural_analysis.utils.logging import get_logger, log_calls
 except ImportError:
 
-    def log_calls(**kwargs):  # type: ignore[no-untyped-def,no-redef]
+    def log_calls(**kwargs: Any):  # type: ignore[no-untyped-def,no-redef]
         def decorator(func):  # type: ignore[no-untyped-def]
             return func
 
@@ -123,6 +125,7 @@ def wasserstein_distance_multi(
     -------
     float
         Sum of Wasserstein distances across all dimensions.
+        Returns NaN if either distribution is empty.
 
     Examples
     --------
@@ -139,6 +142,18 @@ def wasserstein_distance_multi(
         p1 = p1.reshape(-1, 1)
     if p2.ndim == 1:
         p2 = p2.reshape(-1, 1)
+
+    # Check for empty distributions
+    if p1.shape[0] == 0 or p2.shape[0] == 0:
+        logger.warning("Empty distribution detected, returning NaN")
+        return np.nan
+
+    # Check for dimension mismatch
+    if p1.shape[1] != p2.shape[1]:
+        raise ValueError(
+            f"Feature dimension mismatch: points1 has {p1.shape[1]} features, "
+            f"points2 has {p2.shape[1]} features"
+        )
 
     distances = [wasserstein_distance(p1[:, i], p2[:, i]) for i in range(p1.shape[1])]
     return float(np.sum(distances))
@@ -160,6 +175,7 @@ def kolmogorov_smirnov_distance(
     -------
     float
         Maximum K-S statistic across all dimensions.
+        Returns NaN if either distribution is empty.
 
     Examples
     --------
@@ -176,6 +192,18 @@ def kolmogorov_smirnov_distance(
         p1 = p1.reshape(-1, 1)
     if p2.ndim == 1:
         p2 = p2.reshape(-1, 1)
+
+    # Check for empty distributions
+    if p1.shape[0] == 0 or p2.shape[0] == 0:
+        logger.warning("Empty distribution detected, returning NaN")
+        return np.nan
+
+    # Check for dimension mismatch
+    if p1.shape[1] != p2.shape[1]:
+        raise ValueError(
+            f"Feature dimension mismatch: points1 has {p1.shape[1]} features, "
+            f"points2 has {p2.shape[1]} features"
+        )
 
     ks_stats = [ks_2samp(p1[:, i], p2[:, i]).statistic for i in range(p1.shape[1])]
     return float(np.max(ks_stats))
@@ -200,6 +228,7 @@ def jensen_shannon_divergence(
     -------
     float
         Jensen-Shannon divergence in [0, 1].
+        Returns NaN if either distribution is empty.
 
     Examples
     --------
@@ -216,6 +245,18 @@ def jensen_shannon_divergence(
         p1 = p1.reshape(-1, 1)
     if p2.ndim == 1:
         p2 = p2.reshape(-1, 1)
+
+    # Check for empty distributions
+    if p1.shape[0] == 0 or p2.shape[0] == 0:
+        logger.warning("Empty distribution detected, returning NaN")
+        return np.nan
+
+    # Check for dimension mismatch
+    if p1.shape[1] != p2.shape[1]:
+        raise ValueError(
+            f"Feature dimension mismatch: points1 has {p1.shape[1]} features, "
+            f"points2 has {p2.shape[1]} features"
+        )
 
     # Determine common bin edges
     all_data = np.vstack([p1, p2])
@@ -382,14 +423,22 @@ def distribution_distance(
     >>> isinstance(dist, float) and isinstance(pairs, dict)
     True
     """
-    # Define shape metrics
+    # Define shape metrics and distribution metrics
     shape_metrics = {"procrustes", "one-to-one", "soft-matching"}
+    distribution_metrics = {"wasserstein", "kolmogorov-smirnov", "jensen-shannon"}
 
     # Validate metric/mode combination
     if mode == "within" and metric in shape_metrics:
         raise ValueError(
             f"Shape metric '{metric}' cannot be used with mode='within'. "
             f"Shape metrics only work in 'between' mode."
+        )
+
+    if mode == "within" and metric in distribution_metrics:
+        raise ValueError(
+            f"Distribution metric '{metric}' cannot be used with mode='within'. "
+            f"Distribution metrics compare entire distributions, not point pairs. "
+            f"Use mode='between' or a point-wise metric like 'euclidean' or 'cosine'."
         )
 
     points1_arr = np.asarray(points1)
@@ -447,6 +496,7 @@ def distribution_distance(
                     points1_arr.astype(np.float64),
                     points2_arr.astype(np.float64),
                     method=method_typed,
+                    return_pairs=True,
                     **metric_kwargs,
                 )
                 logger.info(f"Shape distance computed: {dist:.6f}")
@@ -601,7 +651,7 @@ def compare_distributions(
     >>> # Shape comparison
     >>> dist, pairs = compare_distributions(p1, p2, metric="procrustes")
     >>> print(f"Procrustes distance: {dist:.3f}")
-    
+
     >>> # Save single comparison to file
     >>> dist = compare_distributions(
     ...     p1, p2,
@@ -620,7 +670,7 @@ def compare_distributions(
             )
         if comparison_name is None:
             comparison_name = "default"
-    
+
     # Delegate to distribution_distance for the actual computation
     # This reduces code duplication
     result = distribution_distance(
@@ -647,13 +697,13 @@ def compare_distributions(
         assert not isinstance(result, tuple), f"Expected float for metric {metric}"
         value = float(result)
         pairs_dict = None
-    
+
     # Save if path provided
     if save_path is not None:
         # Convert points to arrays for metadata
         p1 = np.asarray(points1)
         p2 = np.asarray(points2)
-        
+
         # Build metadata
         metadata = {
             "n_samples_i": int(p1.shape[0]),
@@ -663,7 +713,7 @@ def compare_distributions(
             metadata["n_features_i"] = int(p1.shape[1])
         if p2.ndim > 1:
             metadata["n_features_j"] = int(p2.shape[1])
-        
+
         # Save comparison
         save_distribution_comparison(
             save_path=save_path,
@@ -675,7 +725,7 @@ def compare_distributions(
             pairs=pairs_dict,
             metadata=metadata,
         )
-    
+
     # Return result in original format
     if metric in shape_metrics:
         return (value, pairs_dict)  # type: ignore[return-value]
@@ -696,7 +746,7 @@ def compare_distribution_groups(
 
     Parameters
     ----------
-    group_vectors : dict
+    group_vectors : dict[str, Any]
         Dictionary mapping group identifiers to point arrays (n_samples, n_features).
     compare_type : {"inside", "between"}, default="between"
         - "inside": Compare each group to itself (self-similarity).
@@ -717,7 +767,7 @@ def compare_distribution_groups(
         - "procrustes": Procrustes distance after optimal alignment
         - "one-to-one": Bipartite matching distance
         - "soft-matching": Soft assignment via optimal transport
-    **metric_kwargs : dict, optional
+    **metric_kwargs : dict[str, Any], optional
         Additional keyword arguments passed to the metric function.
         For shape metrics: reg, whiten, normalize, metric, approx, etc.
 
@@ -1165,12 +1215,11 @@ def shape_distance_soft_matching(
         transport_plan = ot.emd(a, b, cost_matrix)
         distance = np.sqrt(np.sum(transport_plan * cost_matrix))
 
+    # Extract pairs with non-zero transport probability
+    i_indices, j_indices = np.where(transport_plan > 0)
     pairs = {
-        (int(i), int(j)): float(matching_prob)
-        for i, j, matching_prob in zip(
-            *np.where(transport_plan),
-            transport_plan,
-        )
+        (int(i), int(j)): float(transport_plan[i, j])
+        for i, j in zip(i_indices, j_indices)
     }
 
     return float(distance), pairs
@@ -1181,8 +1230,9 @@ def shape_distance(
     mtx2: npt.NDArray[np.float64],
     method: Literal["procrustes", "one-to-one", "soft-matching"] = "procrustes",
     metric: str = "euclidean",
+    return_pairs: bool = False,
     **method_kwargs: Any,  # Accept Any for now, validated at runtime
-) -> tuple[float, dict[tuple[int, int], float]]:
+) -> float | tuple[float, dict[tuple[int, int], float]]:
     """Compute shape distance between two matrices.
 
     Unified interface for multiple shape comparison methods. Delegates to
@@ -1209,13 +1259,18 @@ def shape_distance(
         Additional keyword arguments passed to the specific method:
         - For 'soft-matching': approx (bool), reg (float)
 
+    return_pairs : bool, default=False
+        If True, return both distance and pair information.
+        If False, return only the distance value.
+
     Returns
     -------
     distance : float
         Shape distance between the two matrices. Lower values indicate
         more similar shapes. Scale depends on the method used.
-    pairs : dict[tuple[int, int], float]
-        Point correspondence information:
+        Only returned if return_pairs=False.
+    (distance, pairs) : tuple[float, dict]
+        If return_pairs=True, returns both distance and point correspondence:
         - For 'procrustes': {(i, i): distance} - aligned point distances
         - For 'one-to-one': {(i, j): distance} - optimal matching pairs
         - For 'soft-matching': {(i, j): probability} - transport probabilities
@@ -1247,11 +1302,11 @@ def shape_distance(
     """
     match method:
         case "procrustes":
-            return shape_distance_procrustes(mtx1, mtx2)
+            dist, pairs = shape_distance_procrustes(mtx1, mtx2)
         case "one-to-one":
-            return shape_distance_one_to_one(mtx1, mtx2, metric=metric)
+            dist, pairs = shape_distance_one_to_one(mtx1, mtx2, metric=metric)
         case "soft-matching":
-            return shape_distance_soft_matching(
+            dist, pairs = shape_distance_soft_matching(
                 mtx1, mtx2, metric=metric, **method_kwargs
             )
         case _:
@@ -1259,6 +1314,10 @@ def shape_distance(
                 f"Unknown method '{method}'. "
                 "Choose 'procrustes', 'one-to-one', or 'soft-matching'."
             )
+
+    if return_pairs:
+        return dist, pairs
+    return dist
 
 
 def pairwise_distribution_comparison_batch(
@@ -1278,10 +1337,10 @@ def pairwise_distribution_comparison_batch(
 
     Parameters
     ----------
-    data : dict of str to ndarray
+    data : dict[str, Any] of str to ndarray
         Dictionary mapping dataset names to data arrays.
         Arrays can be 1D (samples) or 2D (samples × features).
-    metrics : list of str or dict of str to dict
+    metrics : list[Any] of str or dict of str to dict
         Either a list of metric names or a dict mapping metric names to
         their keyword arguments. Supported metrics:
         - 'wasserstein', 'ks', 'js', 'euclidean', 'mahalanobis', 'cosine'
@@ -1308,7 +1367,7 @@ def pairwise_distribution_comparison_batch(
         - n_samples_j: number of samples in dataset_j
         - n_features_i: number of features in dataset_i (NaN for 1D)
         - n_features_j: number of features in dataset_j (NaN for 1D)
-        - pairs: dict or None, point-to-point correspondence for shape metrics
+        - pairs: dict[str, Any] or None, point-to-point correspondence for shape metrics
 
     Notes
     -----
@@ -1353,7 +1412,7 @@ def pairwise_distribution_comparison_batch(
         save_path = Path("./output/distribution_comparisons.h5")
     else:
         save_path = Path(save_path).with_suffix(".h5")
-    
+
     save_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Normalize metrics to dict format
@@ -1377,7 +1436,7 @@ def pairwise_distribution_comparison_batch(
                 existing_results = loaded_data[comparison_name]
         except Exception as e:
             logger.warning(f"Could not load existing results: {e}")
-    
+
     # Determine which computations are missing
     missing_computations = []
     for name_i, name_j in item_pairs:
@@ -1432,7 +1491,7 @@ def pairwise_distribution_comparison_batch(
         # Record metadata
         n_features_i = int(data_i.shape[1]) if data_i.ndim > 1 else None
         n_features_j = int(data_j.shape[1]) if data_j.ndim > 1 else None
-        
+
         metadata = {
             "n_samples_i": int(data_i.shape[0]),
             "n_samples_j": int(data_j.shape[0]),
@@ -1453,7 +1512,7 @@ def pairwise_distribution_comparison_batch(
             pairs=pairs_dict,
             metadata=metadata,
         )
-        
+
         # Also save reverse direction
         save_distribution_comparison(
             save_path=save_path,
@@ -1470,7 +1529,7 @@ def pairwise_distribution_comparison_batch(
                 "n_features_j": n_features_i,
             },
         )
-        
+
         # Log progress periodically
         if idx % batch_size == 0:
             n_total = len(missing_computations)
@@ -1481,10 +1540,10 @@ def pairwise_distribution_comparison_batch(
         save_path=save_path,
         comparison_name=comparison_name,
     )
-    
+
     if comparison_name not in all_results or not all_results[comparison_name]:
         raise ValueError("No comparison data computed or loaded.")
-    
+
     # Convert to DataFrame and remove duplicates
     df_final = _comparison_results_to_dataframe(all_results[comparison_name])
     df_final = df_final.drop_duplicates(
@@ -1496,15 +1555,15 @@ def pairwise_distribution_comparison_batch(
 
 
 def _comparison_results_to_dataframe(
-    results: dict[str, dict[str, Any]]
+    results: dict[str, dict[str, Any]],
 ) -> pd.DataFrame:
     """Convert comparison results from HDF5 format to DataFrame.
-    
+
     Parameters
     ----------
-    results : dict
+    results : dict[str, Any]
         Dictionary with result_key -> {scalars, arrays} structure
-        
+
     Returns
     -------
     DataFrame
@@ -1517,7 +1576,7 @@ def _comparison_results_to_dataframe(
         if "attributes" in result_data:
             for key, value in result_data["attributes"].items():
                 row[key] = value
-        
+
         # Reconstruct pairs dict if present
         if "arrays" in result_data:
             arrays = result_data["arrays"]
@@ -1534,9 +1593,9 @@ def _comparison_results_to_dataframe(
                 row["pairs"] = None
         else:
             row["pairs"] = None
-        
+
         rows.append(row)
-    
+
     return pd.DataFrame(rows)
 
 
@@ -1574,9 +1633,9 @@ def save_distribution_comparison(
         Distance/similarity metric used
     value : float
         Computed comparison value
-    pairs : dict, optional
+    pairs : dict[str, Any], optional
         For shape metrics: point-to-point correspondence mapping
-    metadata : dict, optional
+    metadata : dict[str, Any], optional
         Additional metadata to store (n_samples, n_features, etc.)
 
     Examples
@@ -1627,6 +1686,91 @@ def save_distribution_comparison(
     )
 
 
+def batch_comparison(
+    datasets: dict[str, npt.NDArray[np.floating]],
+    comparison_fn: Callable[..., float],
+    **comparison_kwargs: Any,
+) -> pd.DataFrame:
+    """Compute pairwise comparisons for all dataset pairs.
+
+    Simplified batch comparison function for computing pairwise
+    distances/similarities between datasets using any comparison function.
+
+    Parameters
+    ----------
+    datasets : dict[str, ndarray]
+        Dictionary mapping dataset names to data arrays.
+        Each array should have shape (n_samples, n_features).
+    comparison_fn : callable
+        Function to compute comparison between two datasets.
+        Must accept two arrays and return a float.
+        Example: compare_distributions, shape_distance
+    **comparison_kwargs
+        Additional keyword arguments to pass to comparison_fn.
+
+    Returns
+    -------
+    df : pd.DataFrame
+        DataFrame with columns:
+        - dataset_1: Name of first dataset
+        - dataset_2: Name of second dataset
+        - distance: Comparison result
+        - Any additional metadata from comparison_fn
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from neural_analysis.metrics.distributions import (
+    ...     batch_comparison, compare_distributions
+    ... )
+    >>> datasets = {
+    ...     "A": np.random.randn(100, 3),
+    ...     "B": np.random.randn(100, 3) + 1.0,
+    ...     "C": np.random.randn(100, 3) + 2.0,
+    ... }
+    >>> df = batch_comparison(
+    ...     datasets,
+    ...     comparison_fn=compare_distributions,
+    ...     metric="wasserstein"
+    ... )
+    >>> print(df.head())
+    """
+    results = []
+    dataset_names = list(datasets.keys())
+
+    # Compute all pairwise comparisons
+    for name1 in dataset_names:
+        for name2 in dataset_names:
+            data1 = datasets[name1]
+            data2 = datasets[name2]
+
+            try:
+                # Call comparison function
+                result = comparison_fn(data1, data2, **comparison_kwargs)
+
+                # Handle different return types
+                distance = result[0] if isinstance(result, tuple) else result
+
+                results.append(
+                    {
+                        "dataset_1": name1,
+                        "dataset_2": name2,
+                        "distance": float(distance),
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Failed to compare {name1} vs {name2}: {e}")
+                results.append(
+                    {
+                        "dataset_1": name1,
+                        "dataset_2": name2,
+                        "distance": np.nan,
+                    }
+                )
+
+    return pd.DataFrame(results)
+
+
 def load_distribution_comparisons(
     save_path: str | Path,
     comparison_name: str | None = None,
@@ -1651,7 +1795,7 @@ def load_distribution_comparisons(
 
     Returns
     -------
-    results : dict
+    results : dict[str, Any]
         Nested dictionary: {comparison_name: {result_key: {scalars, arrays}}}
 
     Examples

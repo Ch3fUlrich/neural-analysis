@@ -177,3 +177,174 @@ class TestSaveLoadHDF5:
 
         assert data is None
         assert labels == []
+
+
+class TestComparisonBatch:
+    """Tests for save_comparison_batch and get_missing_comparisons functions."""
+
+    def test_save_comparison_batch_creates_dataframe(self, tmp_path):
+        """Test that save_comparison_batch creates a DataFrame from result rows."""
+        from neural_analysis.utils.io import save_comparison_batch
+
+        result_rows = [
+            {
+                "dataset_i": "A",
+                "dataset_j": "B",
+                "metric": "wasserstein",
+                "value": 0.5,
+                "pairs": None,
+            },
+            {
+                "dataset_i": "C",
+                "dataset_j": "D",
+                "metric": "procrustes",
+                "value": 0.3,
+                "pairs": {"0,0": 0.1, "1,1": 0.2},
+            },
+        ]
+
+        df_results = save_comparison_batch(result_rows, None, None)
+
+        assert len(df_results) == 2
+        assert "pairs" in df_results.columns
+        assert df_results.loc[0, "pairs"] is None
+        assert isinstance(df_results.loc[1, "pairs"], dict)
+        assert df_results.loc[1, "pairs"]["0,0"] == 0.1
+
+    def test_save_comparison_batch_appends(self, tmp_path):
+        """Test that save_comparison_batch appends to existing DataFrame."""
+        from neural_analysis.utils.io import save_comparison_batch
+
+        initial_rows = [
+            {
+                "dataset_i": "A",
+                "dataset_j": "B",
+                "metric": "wasserstein",
+                "value": 0.5,
+                "pairs": None,
+            }
+        ]
+
+        df_results = save_comparison_batch(initial_rows, None, None)
+        assert len(df_results) == 1
+
+        more_rows = [
+            {
+                "dataset_i": "C",
+                "dataset_j": "D",
+                "metric": "kolmogorov_smirnov",
+                "value": 0.7,
+                "pairs": None,
+            }
+        ]
+
+        df_results = save_comparison_batch(more_rows, df_results, None)
+        assert len(df_results) == 2
+
+    def test_save_comparison_batch_saves_to_file(self, tmp_path):
+        """Test that save_comparison_batch saves to HDF5 file."""
+        from neural_analysis.utils.io import save_comparison_batch
+
+        result_rows = [
+            {
+                "dataset_i": "A",
+                "dataset_j": "B",
+                "metric": "wasserstein",
+                "value": 0.5,
+                "pairs": None,
+            }
+        ]
+
+        save_path = tmp_path / "test_results.h5"
+        df_results = save_comparison_batch(result_rows, None, save_path)
+
+        assert save_path.exists()
+        loaded_df, _ = load_hdf5(save_path)
+
+        # Compare columns and values separately to handle None comparison
+        assert list(df_results.columns) == list(loaded_df.columns)
+        assert len(df_results) == len(loaded_df)
+        assert df_results["dataset_i"].tolist() == loaded_df["dataset_i"].tolist()
+        assert df_results["metric"].tolist() == loaded_df["metric"].tolist()
+        assert df_results["value"].tolist() == loaded_df["value"].tolist()
+
+    def test_save_comparison_batch_empty_rows(self, tmp_path):
+        """Test that save_comparison_batch handles empty result rows."""
+        from neural_analysis.utils.io import save_comparison_batch
+
+        # With no existing results
+        df_results = save_comparison_batch([], None, None)
+        assert len(df_results) == 0
+
+        # With existing results
+        initial_rows = [
+            {
+                "dataset_i": "A",
+                "dataset_j": "B",
+                "metric": "wasserstein",
+                "value": 0.5,
+                "pairs": None,
+            }
+        ]
+        df_existing = pd.DataFrame(initial_rows)
+        df_results = save_comparison_batch([], df_existing, None)
+        pd.testing.assert_frame_equal(df_results, df_existing)
+
+    def test_get_missing_comparisons_all_missing(self, tmp_path):
+        """Test get_missing_comparisons when no cache exists."""
+        from neural_analysis.utils.io import get_missing_comparisons
+
+        item_pairs = [("A", "B"), ("C", "D"), ("E", "F")]
+        metrics_dict = {"wasserstein": {}, "procrustes": {}}
+
+        missing = get_missing_comparisons(item_pairs, metrics_dict, None)
+
+        expected_count = len(item_pairs) * len(metrics_dict)
+        assert len(missing) == expected_count
+        assert ("A", "B", "wasserstein") in missing
+        assert ("C", "D", "procrustes") in missing
+
+    def test_get_missing_comparisons_partial_cache(self, tmp_path):
+        """Test get_missing_comparisons with partial cached results."""
+        from neural_analysis.utils.io import get_missing_comparisons
+
+        item_pairs = [("A", "B"), ("C", "D"), ("E", "F")]
+        metrics_dict = {"wasserstein": {}, "procrustes": {}}
+
+        # Create partial cache
+        df_partial = pd.DataFrame(
+            [
+                {
+                    "dataset_i": "A",
+                    "dataset_j": "B",
+                    "metric": "wasserstein",
+                    "value": 0.5,
+                },
+                {
+                    "dataset_i": "C",
+                    "dataset_j": "D",
+                    "metric": "wasserstein",
+                    "value": 0.3,
+                },
+            ]
+        )
+
+        missing = get_missing_comparisons(item_pairs, metrics_dict, df_partial)
+
+        # Should be missing: A-B procrustes, C-D procrustes, E-F both
+        assert len(missing) == 4
+        assert ("A", "B", "procrustes") in missing
+        assert ("E", "F", "wasserstein") in missing
+
+    def test_get_missing_comparisons_empty_dataframe(self, tmp_path):
+        """Test get_missing_comparisons with empty DataFrame."""
+        from neural_analysis.utils.io import get_missing_comparisons
+
+        item_pairs = [("A", "B")]
+        metrics_dict = {"wasserstein": {}}
+
+        df_empty = pd.DataFrame()
+        missing = get_missing_comparisons(item_pairs, metrics_dict, df_empty)
+
+        assert len(missing) == 1
+        assert ("A", "B", "wasserstein") in missing

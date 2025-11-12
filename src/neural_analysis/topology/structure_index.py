@@ -157,7 +157,7 @@ def validate_args_types(**decls):
     return wrapper
 
 
-def _filter_noisy_outliers(data: npt.NDArray) -> npt.NDArray:
+def _filter_noisy_outliers(data: npt.NDArray[np.floating[Any]]) -> npt.NDArray[np.floating[Any]]:
     """Filter outliers from data based on local density.
     
     Identifies points that have fewer neighbors than expected based on
@@ -214,12 +214,12 @@ def _meshgrid2(arrs: tuple) -> tuple:
 
 
 def _create_ndim_grid(
-    label: npt.NDArray,
+    label: npt.NDArray[np.floating[Any]],
     n_bins: list[int],
     min_label: list[float],
     max_label: list[float],
     discrete_label: list[bool],
-) -> tuple[npt.NDArray, npt.NDArray]:
+) -> tuple[npt.NDArray[np.floating[Any]], npt.NDArray[np.floating[Any]]]:
     """Create an N-dimensional grid for binning data.
     
     Divides the label space into bins and assigns data points to bins.
@@ -230,16 +230,16 @@ def _create_ndim_grid(
         label: numpy 2d array of shape [n_samples, n_features]
             Array containing label values to bin
         
-        n_bins: list of integers
+        n_bins: list[Any] of integers
             Number of bins for each dimension
         
-        min_label: list of scalars
+        min_label: list[Any] of scalars
             Minimum value for each dimension
         
-        max_label: list of scalars
+        max_label: list[Any] of scalars
             Maximum value for each dimension
         
-        discrete_label: list of booleans
+        discrete_label: list[Any] of booleans
             Whether each dimension should be treated as discrete
     
     Returns:
@@ -286,8 +286,8 @@ def _create_ndim_grid(
 
 
 def _cloud_overlap_neighbors(
-    cloud1: npt.NDArray,
-    cloud2: npt.NDArray,
+    cloud1: npt.NDArray[np.floating[Any]],
+    cloud2: npt.NDArray[np.floating[Any]],
     k: int,
     distance_metric: str,
 ) -> tuple[float, float]:
@@ -371,8 +371,8 @@ def _cloud_overlap_neighbors(
 
 
 def _cloud_overlap_radius(
-    cloud1: npt.NDArray,
-    cloud2: npt.NDArray,
+    cloud1: npt.NDArray[np.floating[Any]],
+    cloud2: npt.NDArray[np.floating[Any]],
     r: float,
     distance_metric: str,
 ) -> tuple[float, float]:
@@ -473,12 +473,12 @@ def compute_structure_index(
         list (i.e. [10,20,5]). Note that it will be ignored if
         'discrete_label' is set to True.
 
-    dims : list of int or None, default=None
+    dims : list[Any] of int or None, default=None
         List of integers containing the dimensions of data along which the
         structure index will be computed. Provide None to compute it along
         all dimensions of data.
 
-    **kwargs : dict
+    **kwargs : dict[str, Any]
         Additional keyword arguments:
 
         distance_metric: str (default: 'euclidean')
@@ -743,12 +743,10 @@ def compute_structure_index(
 
 
 def draw_overlap_graph(
-    overlap_mat: npt.NDArray,
+    overlap_mat: npt.NDArray[np.floating[Any]],
     ax: plt.Axes | None = None,
     node_cmap=plt.cm.tab10,
-    edge_cmap=plt.cm.Greys,
-    **kwargs,
-) -> Any:
+    edge_cmap=plt.cm.Greys, **kwargs) -> Any:
     """Draw weighted directed graph from overlap matrix.
 
     Parameters
@@ -761,14 +759,14 @@ def draw_overlap_graph(
         Colormap for nodes
     edge_cmap : colormap, default=plt.cm.Greys
         Colormap for edges
-    **kwargs : dict
+    **kwargs : dict[str, Any]
         Additional parameters:
         - node_size: scalar or array (default: 800)
         - scale_edges: float (default: 5)
         - edge_vmin: float (default: 0)
         - edge_vmax: float (default: 0.5)
-        - node_names: list of str
-        - node_color: list of colors
+        - node_names: list[Any] of str
+        - node_color: list[Any] of colors
         - arrow_size: int (default: 20)
         - layout_type: networkx layout function
 
@@ -874,9 +872,9 @@ def compute_structure_index_sweep(
     save_path : str or Path, optional
         Path to HDF5 file for saving results. If None, defaults to 
         './output/structure_indices.h5'
-    n_neighbors_list : list of int, optional
+    n_neighbors_list : list[Any] of int, optional
         List of n_neighbors values to sweep. Default: [10, 15, 20]
-    n_bins_list : list of int, optional
+    n_bins_list : list[Any] of int, optional
         List of n_bins values to sweep. Default: [10]
     data_indices : ndarray of int, optional
         Indices of data points to use. If None, uses all data.
@@ -895,10 +893,10 @@ def compute_structure_index_sweep(
         
     Returns
     -------
-    results : dict
+    results : dict[str, Any]
         Dictionary with keys (n_bins, n_neighbors) and values containing
         SI results: {'SI': float, 'bin_label': tuple, 'overlap_mat': ndarray,
-        'shuf_SI': ndarray, 'metadata': dict}
+        'shuf_SI': ndarray, 'metadata': dict[str, Any]}
         
     Examples
     --------
@@ -976,9 +974,7 @@ def compute_structure_index_sweep(
                     discrete_label=discrete_label,
                     num_shuffles=num_shuffles,
                     distance_metric=distance_metric,
-                    verbose=False,
-                    **kwargs,
-                )
+                    verbose=False, **kwargs)
                 
                 # Store result
                 metadata = {
@@ -1056,7 +1052,7 @@ def load_structure_index_results(
         
     Returns
     -------
-    results : dict
+    results : dict[str, Any]
         Dictionary with keys (n_bins, n_neighbors) and values containing
         SI results and metadata
         

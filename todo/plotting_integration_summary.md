@@ -73,7 +73,7 @@ The visualization module needs improvements in:
 ### Example 1: Basic Place Cells with Automatic Plotting
 
 ```python
-from neural_analysis.synthetic_data import generate_place_cells
+from neural_analysis.data.synthetic_data import generate_place_cells
 
 # Generates data AND creates comprehensive visualization
 activity, meta = generate_place_cells(
@@ -88,7 +88,7 @@ activity, meta = generate_place_cells(
 ### Example 2: Mixed Population with Custom Config
 
 ```python
-from neural_analysis.synthetic_data import generate_mixed_population_flexible
+from neural_analysis.data.synthetic_data import generate_mixed_population_flexible
 
 # Custom configuration
 config = {
@@ -136,7 +136,7 @@ fig = plot_synthetic_data(
 1. **Test the Visualization**
    ```python
    # Quick test
-   from neural_analysis.synthetic_data import generate_mixed_population_flexible
+   from neural_analysis.data.synthetic_data import generate_mixed_population_flexible
    activity, meta = generate_mixed_population_flexible(n_samples=1000, seed=42)
    # Should show multi-panel figure
    ```

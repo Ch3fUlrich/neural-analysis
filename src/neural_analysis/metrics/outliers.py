@@ -7,18 +7,18 @@ distributions using various statistical methods.
 from __future__ import annotations
 
 import logging
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 import numpy.typing as npt
-from sklearn.covariance import EllipticEnvelope
-from sklearn.neighbors import LocalOutlierFactor
+from sklearn.covariance import EllipticEnvelope  # type: ignore[import-untyped]
+from sklearn.neighbors import LocalOutlierFactor  # type: ignore[import-untyped]
 
 try:
-    from neural_analysis.utils.logging import get_logger, log_calls  # type: ignore
+    from neural_analysis.utils.logging import get_logger, log_calls
 except ImportError:
 
-    def log_calls(**kwargs):  # type: ignore
+    def log_calls(**kwargs: Any):  # type: ignore
         def decorator(func):  # type: ignore
             return func
 
@@ -42,7 +42,7 @@ def filter_outlier(
     threshold: float = 3.0,
     return_mask: bool = False,
     parallel: bool = True,
-) -> npt.NDArray | tuple[npt.NDArray, npt.NDArray]:
+) -> npt.NDArray[Any] | tuple[npt.NDArray[Any], npt.NDArray[np.bool_]]:
     """Filter outliers from a point distribution.
 
     Parameters
@@ -103,24 +103,26 @@ def filter_outlier(
 
     # Dispatch to method-specific helpers
     if method == "iqr":
-        mask = _mask_outliers_iqr(points_arr, threshold=threshold)
+        mask = _mask_outliers_iqr(points_arr, threshold=threshold)  # type: ignore[assignment]
     elif method == "zscore":
-        mask = _mask_outliers_zscore(points_arr, threshold=threshold)
+        mask = _mask_outliers_zscore(points_arr, threshold=threshold)  # type: ignore[assignment]
     elif method == "isolation":
-        mask = _mask_outliers_isolation(points_arr, contamination=contamination)
+        mask = _mask_outliers_isolation(points_arr, contamination=contamination)  # type: ignore[assignment]
     elif method == "lof":
-        mask = _mask_outliers_lof(points_arr, contamination=contamination)
+        mask = _mask_outliers_lof(points_arr, contamination=contamination)  # type: ignore[assignment]
     elif method == "elliptic":
-        mask = _mask_outliers_elliptic(points_arr, contamination=contamination)
+        mask = _mask_outliers_elliptic(points_arr, contamination=contamination)  # type: ignore[assignment]
     else:
         raise ValueError(
-            f"Unknown method '{method}'. Choose from: iqr, zscore, isolation, lof, elliptic."
+            f"Unknown method '{method}'."
+            + "Choose from: iqr, zscore, isolation, lof, elliptic."
         )
 
     filtered_points = points_arr[mask]
     n_removed = n - filtered_points.shape[0]
     logger.info(
-        f"Outlier filtering complete: removed {n_removed}/{n} points ({100 * n_removed / n:.1f}%)"
+        "Outlier filtering complete: removed"
+        + f"{n_removed}/{n} points ({100 * n_removed / n:.1f}%)"
     )
 
     return (filtered_points, mask) if return_mask else filtered_points
@@ -131,7 +133,9 @@ def filter_outlier(
 # -----------------------------
 
 
-def _mask_outliers_iqr(points: np.ndarray, threshold: float = 1.5) -> np.ndarray:
+def _mask_outliers_iqr(
+    points: npt.NDArray[Any], threshold: float = 1.5
+) -> npt.NDArray[np.bool_]:
     """Return boolean mask of inliers using IQR per feature (vectorized)."""
     # Compute Q1 and Q3 per feature
     q1 = np.percentile(points, 25, axis=0)
@@ -141,10 +145,13 @@ def _mask_outliers_iqr(points: np.ndarray, threshold: float = 1.5) -> np.ndarray
     upper = q3 + threshold * iqr
     # Broadcast and check all features are within bounds
     within = (points >= lower) & (points <= upper)
-    return np.all(within, axis=1)
+    result: npt.NDArray[np.bool_] = np.all(within, axis=1)
+    return result
 
 
-def _mask_outliers_zscore(points: np.ndarray, threshold: float = 3.0) -> np.ndarray:
+def _mask_outliers_zscore(
+    points: npt.NDArray[Any], threshold: float = 3.0
+) -> npt.NDArray[np.bool_]:
     """Return boolean mask of inliers using robust Z-score (vectorized)."""
     med = np.median(points, axis=0)
     mad = np.median(np.abs(points - med), axis=0)
@@ -169,19 +176,25 @@ def _mask_outliers_zscore(points: np.ndarray, threshold: float = 3.0) -> np.ndar
         mask_mad[:, fallback_cols] = True  # std-based values are valid numbers
     z_abs = np.abs(robust_z)
     # Points are inliers if all feature z-scores are below threshold
-    return np.all((z_abs < threshold) & mask_mad, axis=1)
+    result: npt.NDArray[np.bool_] = np.all((z_abs < threshold) & mask_mad, axis=1)
+    return result
 
 
-def _mask_outliers_isolation(points: np.ndarray, contamination: float) -> np.ndarray:
+def _mask_outliers_isolation(
+    points: npt.NDArray[Any], contamination: float
+) -> npt.NDArray[np.bool_]:
     """Return inlier mask using Isolation Forest (leverages n_jobs=-1)."""
-    from sklearn.ensemble import IsolationForest
+    from sklearn.ensemble import IsolationForest  # type: ignore[import-untyped]
 
     detector = IsolationForest(contamination=contamination, random_state=42, n_jobs=-1)
     labels = detector.fit_predict(points)
-    return labels != -1
+    result: npt.NDArray[np.bool_] = labels != -1
+    return result
 
 
-def _mask_outliers_lof(points: np.ndarray, contamination: float) -> np.ndarray:
+def _mask_outliers_lof(
+    points: npt.NDArray[Any], contamination: float
+) -> npt.NDArray[np.bool_]:
     """Return inlier mask using Local Outlier Factor.
 
     Note: scikit-learn's LOF does not expose n_jobs; performance relies on
@@ -191,10 +204,13 @@ def _mask_outliers_lof(points: np.ndarray, contamination: float) -> np.ndarray:
     n_neighbors = min(20, max(2, n - 1))
     detector = LocalOutlierFactor(n_neighbors=n_neighbors, contamination=contamination)
     labels = detector.fit_predict(points)
-    return labels != -1
+    result: npt.NDArray[np.bool_] = labels != -1
+    return result
 
 
-def _mask_outliers_elliptic(points: np.ndarray, contamination: float) -> np.ndarray:
+def _mask_outliers_elliptic(
+    points: npt.NDArray[Any], contamination: float
+) -> npt.NDArray[np.bool_]:
     """Return inlier mask using Elliptic Envelope; returns all if n <= d."""
     n, d = points.shape
     if n <= d:
@@ -206,4 +222,5 @@ def _mask_outliers_elliptic(points: np.ndarray, contamination: float) -> np.ndar
         contamination=contamination, random_state=42, support_fraction=None
     )
     labels = detector.fit_predict(points)
-    return labels != -1
+    result: npt.NDArray[np.bool_] = labels != -1
+    return result

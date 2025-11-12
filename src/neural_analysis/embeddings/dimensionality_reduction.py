@@ -68,9 +68,7 @@ def compute_embedding(
     n_components: int = 2,
     metric: str = "euclidean",
     n_neighbors: int = 15,
-    random_state: int | None = 42,
-    **kwargs,
-) -> np.ndarray:
+    random_state: int | None = 42, **kwargs) -> np.ndarray:
     """
     Compute dimensionality reduction embedding using specified method.
 
@@ -232,9 +230,7 @@ def compute_embedding(
             n_components=n_components,
             n_neighbors=n_neighbors,
             metric=metric,
-            random_state=random_state,
-            **kwargs,
-        )
+            random_state=random_state, **kwargs)
         embedding = model.fit_transform(data)
 
     # t-SNE - stochastic, good for visualization
@@ -251,9 +247,7 @@ def compute_embedding(
             learning_rate=learning_rate,
             max_iter=max_iter,
             metric=metric,
-            random_state=random_state,
-            **kwargs,
-        )
+            random_state=random_state, **kwargs)
         embedding = model.fit_transform(data)
 
     # MDS - preserves pairwise distances
@@ -265,16 +259,13 @@ def compute_embedding(
             n_components=n_components,
             dissimilarity=dissimilarity,
             n_init=n_init,
-            random_state=random_state,
-            **kwargs,
-        )
+            random_state=random_state, **kwargs)
         embedding = model.fit_transform(data)
 
     # Isomap - geodesic distances
     elif method == "isomap":
         model = Isomap(
-            n_components=n_components, n_neighbors=n_neighbors, metric=metric, **kwargs
-        )
+            n_components=n_components, n_neighbors=n_neighbors, metric=metric, **kwargs)
         embedding = model.fit_transform(data)
 
     # LLE - local linear relationships
@@ -282,9 +273,7 @@ def compute_embedding(
         model = LocallyLinearEmbedding(
             n_components=n_components,
             n_neighbors=n_neighbors,
-            random_state=random_state,
-            **kwargs,
-        )
+            random_state=random_state, **kwargs)
         embedding = model.fit_transform(data)
 
     # Spectral - graph-based
@@ -294,9 +283,7 @@ def compute_embedding(
             n_components=n_components,
             n_neighbors=n_neighbors,
             affinity=affinity,
-            random_state=random_state,
-            **kwargs,
-        )
+            random_state=random_state, **kwargs)
         embedding = model.fit_transform(data)
 
     else:
@@ -317,9 +304,7 @@ def compute_multiple_embeddings(
     n_components: int = 2,
     metric: str = "euclidean",
     n_neighbors: int = 15,
-    random_state: int | None = 42,
-    **kwargs,
-) -> dict[str, np.ndarray]:
+    random_state: int | None = 42, **kwargs) -> dict[str, np.ndarray]:
     """
     Compute multiple embeddings for comparison.
 
@@ -392,9 +377,7 @@ def compute_multiple_embeddings(
                 n_components=n_components,
                 metric=metric,
                 n_neighbors=n_neighbors,
-                random_state=random_state,
-                **kwargs,
-            )
+                random_state=random_state, **kwargs)
             embeddings[method] = embedding
         except ImportError as e:
             logger.warning(f"Skipping {method}: {e}")
