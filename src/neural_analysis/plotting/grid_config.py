@@ -221,7 +221,7 @@ class PlotSpec:
         Additional plot-specific arguments passed to underlying renderers
     """
 
-    data: np.ndarray | pd.DataFrame | dict[str, Any]
+    data: npt.NDArray[np.floating[Any]] | pd.DataFrame | dict[str, Any]
     plot_type: PlotType
     subplot_position: int | None = None
     title: str | None = None
@@ -231,7 +231,7 @@ class PlotSpec:
     marker_size: float | None = None
     line_width: float | None = None
     linestyle: str | None = None
-    error_y: npt.NDArray | None = None
+    error_y: npt.NDArray[np.floating[Any]] | None = None
     alpha: float = 0.7
 
     # Advanced features
@@ -240,8 +240,8 @@ class PlotSpec:
     cmap: str | None = None
     colorbar: bool = False
     colorbar_label: str | None = None
-    colors: np.ndarray | list[Any] | None = None
-    sizes: np.ndarray | float | None = None
+    colors: npt.NDArray[np.floating[Any]] | list[Any] | None = None
+    sizes: npt.NDArray[np.floating[Any]] | float | None = None
     show_hulls: bool = False
     hull_alpha: float | None = None
     fill: bool = True
@@ -267,9 +267,9 @@ class PlotSpec:
     false_label: str | None = None
 
     # Ellipse plot parameters (for plot_type='ellipse')
-    ellipse_widths: np.ndarray | None = None  # Width of each ellipse
-    ellipse_heights: np.ndarray | None = None  # Height of each ellipse
-    ellipse_angles: np.ndarray | None = None  # Rotation angle in degrees
+    ellipse_widths: npt.NDArray[np.floating[Any]] | None = None
+    ellipse_heights: npt.NDArray[np.floating[Any]] | None = None
+    ellipse_angles: npt.NDArray[np.floating[Any]] | None = None
 
     kwargs: dict[str, Any] = field(default_factory=dict)
 
@@ -596,7 +596,7 @@ class PlotGrid:
 
     def add_plot(
         self,
-        data: np.ndarray | pd.DataFrame,
+        data: npt.NDArray[np.floating[Any]] | pd.DataFrame,
         plot_type: PlotType,
         **kwargs: Any,
     ) -> None:
@@ -684,10 +684,11 @@ class PlotGrid:
         # Create the grid - determine backend string for later comparison
         backend_enum = get_backend() if self.backend is None else self.backend
         # Convert to string value if it's an enum
-        if hasattr(backend_enum, "value"):
-            backend_str = backend_enum.value
-        else:
+        backend_str: str
+        if isinstance(backend_enum, str):
             backend_str = backend_enum
+        else:
+            backend_str = backend_enum.value
 
         # Determine which subplots need 3D projection (per-subplot basis)
         subplot_projections = []
@@ -1472,7 +1473,9 @@ class PlotGrid:
             if handles:
                 ax.legend()
 
-    def _plot_spec_plotly(self, spec: PlotSpec, legend_tracker: set):
+    def _plot_spec_plotly(
+        self, spec: PlotSpec, legend_tracker: set[str]
+    ) -> Any:
         """Plot a PlotSpec using plotly with renderer functions (returns trace)."""
         if not PLOTLY_AVAILABLE:
             raise ValueError("Plotly backend requested but plotly is not installed")
@@ -1820,11 +1823,11 @@ class PlotGrid:
 
 
 def plot_comparison_grid(
-    data_dict: dict[str, np.ndarray],
+    data_dict: dict[str, npt.NDArray[np.floating[Any]]],
     plot_type: PlotType = "scatter",
     rows: int | None = None,
     cols: int | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> Any:
     """
     Create a grid comparing multiple datasets with the same plot type.
@@ -1867,7 +1870,7 @@ def plot_grouped_comparison(
     y_col: str,
     group_col: str,
     plot_type: PlotType = "scatter",
-    **kwargs,
+    **kwargs: Any,
 ) -> Any:
     """
     Create overlaid plots grouped by a category.
@@ -1953,7 +1956,7 @@ def create_subplot_grid(
     backend: Literal["matplotlib", "plotly"] | None = None,
     projection: str | None = None,
     subplot_projections: list[str | None] | None = None,
-):
+) -> Any:
     """
     Create a multi-panel subplot grid.
 
@@ -2036,10 +2039,10 @@ def _create_subplot_grid_matplotlib(
     subplot_titles: Sequence[str] | None,
     shared_xaxes: bool | str,
     shared_yaxes: bool | str,
-    plt,
+    plt: Any,
     projection: str | None = None,
     subplot_projections: list[str | None] | None = None,
-):
+) -> tuple[Any, Any]:
     """Matplotlib implementation of subplot grid with per-subplot projection support."""
     # Convert shared axes parameters
     sharex = (
@@ -2117,9 +2120,9 @@ def _create_subplot_grid_plotly(
     vertical_spacing: float | None,
     horizontal_spacing: float | None,
     specs: list[list[dict[str, Any]]] | None,
-    go,
-    make_subplots,
-):
+    go: Any,
+    make_subplots: Any,
+) -> Any:
     """Plotly implementation of subplot grid."""
     # Convert subplot_titles to list if provided
     titles = list(subplot_titles) if subplot_titles is not None else None
@@ -2153,7 +2156,7 @@ def _create_subplot_grid_plotly(
     return fig
 
 
-def add_trace_to_subplot(fig, trace, row: int, col: int) -> None:
+def add_trace_to_subplot(fig: Any, trace: Any, row: int, col: int) -> Any:
     """
     Add a trace to a specific subplot in a plotly figure.
 
