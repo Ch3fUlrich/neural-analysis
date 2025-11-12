@@ -673,9 +673,7 @@ class PlotGrid:
         subplot_titles: list[str] | None
         if self.layout.subplot_titles is None:
             titles_list: list[str] = [
-                group[0].title
-                for group in subplot_groups
-                if group[0].title is not None
+                group[0].title for group in subplot_groups if group[0].title is not None
             ]
             subplot_titles = titles_list if titles_list else None
         else:
@@ -1473,9 +1471,7 @@ class PlotGrid:
             if handles:
                 ax.legend()
 
-    def _plot_spec_plotly(
-        self, spec: PlotSpec, legend_tracker: set[str]
-    ) -> Any:
+    def _plot_spec_plotly(self, spec: PlotSpec, legend_tracker: set[str]) -> Any:
         """Plot a PlotSpec using plotly with renderer functions (returns trace)."""
         if not PLOTLY_AVAILABLE:
             raise ValueError("Plotly backend requested but plotly is not installed")

@@ -4,6 +4,7 @@ Tests for embeddings module (dimensionality reduction).
 
 import numpy as np
 import pytest
+from typing import Any
 
 from neural_analysis.embeddings import (
     compute_embedding,
@@ -13,7 +14,7 @@ from neural_analysis.embeddings import (
 
 
 @pytest.fixture
-def sample_data():
+def sample_data() -> Any:
     """Generate sample high-dimensional data for testing."""
     rng = np.random.default_rng(42)
     # 100 samples, 20 features
@@ -22,7 +23,7 @@ def sample_data():
 
 
 @pytest.fixture
-def sample_data_with_labels():
+def sample_data_with_labels() -> Any:
     """Generate sample data with category labels."""
     rng = np.random.default_rng(42)
     # 3 clusters, 50 samples each, 20 features
@@ -40,18 +41,18 @@ def sample_data_with_labels():
 class TestComputeEmbedding:
     """Tests for compute_embedding function."""
 
-    def test_pca_2d(self, sample_data) -> None:
+    def test_pca_2d(self, sample_data: Any) -> None:
         """Test PCA with 2 components."""
         embedding = compute_embedding(sample_data, method="pca", n_components=2)
         assert embedding.shape == (100, 2)
         assert not np.any(np.isnan(embedding))
 
-    def test_pca_3d(self, sample_data) -> None:
+    def test_pca_3d(self, sample_data: Any) -> None:
         """Test PCA with 3 components."""
         embedding = compute_embedding(sample_data, method="pca", n_components=3)
         assert embedding.shape == (100, 3)
 
-    def test_tsne_2d(self, sample_data) -> None:
+    def test_tsne_2d(self, sample_data: Any) -> None:
         """Test t-SNE with 2 components."""
         embedding = compute_embedding(
             sample_data, method="tsne", n_components=2, random_state=42
@@ -59,7 +60,7 @@ class TestComputeEmbedding:
         assert embedding.shape == (100, 2)
         assert not np.any(np.isnan(embedding))
 
-    def test_mds_2d(self, sample_data) -> None:
+    def test_mds_2d(self, sample_data: Any) -> None:
         """Test MDS with 2 components."""
         embedding = compute_embedding(
             sample_data, method="mds", n_components=2, random_state=42
@@ -67,7 +68,7 @@ class TestComputeEmbedding:
         assert embedding.shape == (100, 2)
         assert not np.any(np.isnan(embedding))
 
-    def test_isomap_2d(self, sample_data) -> None:
+    def test_isomap_2d(self, sample_data: Any) -> None:
         """Test Isomap with 2 components."""
         embedding = compute_embedding(
             sample_data, method="isomap", n_components=2, n_neighbors=10
@@ -75,14 +76,14 @@ class TestComputeEmbedding:
         assert embedding.shape == (100, 2)
         assert not np.any(np.isnan(embedding))
 
-    def test_lle_2d(self, sample_data) -> None:
+    def test_lle_2d(self, sample_data: Any) -> None:
         """Test LLE with 2 components."""
         embedding = compute_embedding(
             sample_data, method="lle", n_components=2, n_neighbors=10, random_state=42
         )
         assert embedding.shape == (100, 2)
 
-    def test_spectral_2d(self, sample_data) -> None:
+    def test_spectral_2d(self, sample_data: Any) -> None:
         """Test Spectral Embedding with 2 components."""
         embedding = compute_embedding(
             sample_data,
@@ -107,7 +108,7 @@ class TestComputeEmbedding:
         ).UMAP_AVAILABLE,
         reason="UMAP not installed",
     )
-    def test_umap_2d(self, sample_data) -> None:
+    def test_umap_2d(self, sample_data: Any) -> None:
         """Test UMAP with 2 components (if available)."""
         embedding = compute_embedding(
             sample_data, method="umap", n_components=2, n_neighbors=15, random_state=42
@@ -115,12 +116,12 @@ class TestComputeEmbedding:
         assert embedding.shape == (100, 2)
         assert not np.any(np.isnan(embedding))
 
-    def test_invalid_method(self, sample_data) -> None:
+    def test_invalid_method(self, sample_data: Any) -> None:
         """Test that invalid method raises ValueError."""
         with pytest.raises(ValueError, match="Unknown method"):
             compute_embedding(sample_data, method="invalid")
 
-    def test_invalid_n_components(self, sample_data) -> None:
+    def test_invalid_n_components(self, sample_data: Any) -> None:
         """Test that invalid n_components raises ValueError."""
         with pytest.raises(ValueError):
             compute_embedding(sample_data, method="pca", n_components=0)
@@ -134,7 +135,7 @@ class TestComputeEmbedding:
         with pytest.raises(ValueError, match="must be 2D"):
             compute_embedding(data_1d, method="pca")
 
-    def test_reproducibility(self, sample_data) -> None:
+    def test_reproducibility(self, sample_data: Any) -> None:
         """Test that same random_state gives same results."""
         emb1 = compute_embedding(
             sample_data, method="tsne", n_components=2, random_state=42
@@ -144,7 +145,7 @@ class TestComputeEmbedding:
         )
         np.testing.assert_array_almost_equal(emb1, emb2)
 
-    def test_precomputed_distance_matrix(self, sample_data) -> None:
+    def test_precomputed_distance_matrix(self, sample_data: Any) -> None:
         """Test MDS with precomputed distance matrix."""
         from scipy.spatial.distance import pdist, squareform
 
@@ -163,7 +164,7 @@ class TestComputeEmbedding:
 class TestComputeMultipleEmbeddings:
     """Tests for compute_multiple_embeddings function."""
 
-    def test_default_methods(self, sample_data) -> None:
+    def test_default_methods(self, sample_data: Any) -> None:
         """Test with default methods."""
         embeddings = compute_multiple_embeddings(sample_data, random_state=42)
 
@@ -174,7 +175,7 @@ class TestComputeMultipleEmbeddings:
         for _method, embedding in embeddings.items():
             assert embedding.shape == (100, 2)
 
-    def test_custom_methods(self, sample_data) -> None:
+    def test_custom_methods(self, sample_data: Any) -> None:
         """Test with custom method list."""
         methods = ["pca", "mds", "isomap"]
         embeddings = compute_multiple_embeddings(
@@ -184,7 +185,7 @@ class TestComputeMultipleEmbeddings:
         assert len(embeddings) == 3
         assert all(method in embeddings for method in methods)
 
-    def test_3d_embeddings(self, sample_data) -> None:
+    def test_3d_embeddings(self, sample_data: Any) -> None:
         """Test with 3D embeddings."""
         embeddings = compute_multiple_embeddings(
             sample_data, methods=["pca", "mds"], n_components=3, random_state=42
@@ -193,7 +194,7 @@ class TestComputeMultipleEmbeddings:
         for embedding in embeddings.values():
             assert embedding.shape == (100, 3)
 
-    def test_missing_package(self, sample_data) -> None:
+    def test_missing_package(self, sample_data: Any) -> None:
         """Test graceful handling of missing packages."""
         # Try to compute UMAP even if not installed - should skip gracefully
         embeddings = compute_multiple_embeddings(
@@ -207,7 +208,7 @@ class TestComputeMultipleEmbeddings:
 class TestPCAExplainedVariance:
     """Tests for pca_explained_variance function."""
 
-    def test_all_components(self, sample_data) -> None:
+    def test_all_components(self, sample_data: Any) -> None:
         """Test with all components."""
         variance_info = pca_explained_variance(sample_data)
 
@@ -218,14 +219,14 @@ class TestPCAExplainedVariance:
         # Should sum to approximately 1.0
         assert np.abs(variance_info["explained_variance_ratio"].sum() - 1.0) < 0.01
 
-    def test_limited_components(self, sample_data) -> None:
+    def test_limited_components(self, sample_data: Any) -> None:
         """Test with limited number of components."""
         variance_info = pca_explained_variance(sample_data, n_components=5)
 
         assert len(variance_info["explained_variance_ratio"]) == 5
         assert len(variance_info["explained_variance"]) == 5
 
-    def test_threshold_components(self, sample_data) -> None:
+    def test_threshold_components(self, sample_data: Any) -> None:
         """Test computation of threshold components."""
         variance_info = pca_explained_variance(sample_data, cumulative=True)
 
@@ -236,7 +237,7 @@ class TestPCAExplainedVariance:
         # 90% threshold should use fewer components than 99%
         assert variance_info["n_components_90"] <= variance_info["n_components_99"]
 
-    def test_no_cumulative(self, sample_data) -> None:
+    def test_no_cumulative(self, sample_data: Any) -> None:
         """Test without cumulative variance."""
         variance_info = pca_explained_variance(sample_data, cumulative=False)
 
@@ -244,7 +245,7 @@ class TestPCAExplainedVariance:
         assert "cumulative_variance_ratio" not in variance_info
         assert "n_components_90" not in variance_info
 
-    def test_variance_decreasing(self, sample_data) -> None:
+    def test_variance_decreasing(self, sample_data: Any) -> None:
         """Test that variance is monotonically decreasing."""
         variance_info = pca_explained_variance(sample_data)
         var_ratio = variance_info["explained_variance_ratio"]
@@ -256,7 +257,7 @@ class TestPCAExplainedVariance:
 class TestIntegration:
     """Integration tests combining multiple functions."""
 
-    def test_full_workflow(self, sample_data_with_labels) -> None:
+    def test_full_workflow(self, sample_data_with_labels: Any) -> None:
         """Test complete workflow: compute and analyze."""
         data, labels = sample_data_with_labels
 
@@ -272,7 +273,7 @@ class TestIntegration:
         assert len(embeddings) >= 2
         assert "n_components_90" in variance_info
 
-    def test_comparison_workflow(self, sample_data) -> None:
+    def test_comparison_workflow(self, sample_data: Any) -> None:
         """Test workflow for comparing methods."""
         # Compute same data with different methods
         methods = ["pca", "mds", "isomap", "lle"]

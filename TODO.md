@@ -10,18 +10,26 @@
 
 ## 📊 RECENT ACCOMPLISHMENTS
 
-### December 2024 - Code Reorganization ✅
+### December 2025 - Code Reorganization & Configuration ✅
 1. **Shape Distance Functions Migrated**:
    - ✅ Moved all shape.py functions to distributions.py
    - ✅ Created modular functions: `shape_distance_procrustes()`, `shape_distance_one_to_one()`, `shape_distance_soft_matching()`
-   - ✅ Created general batch framework: `pairwise_distribution_comparison_batch()`
+   - ✅ Created general batch framework: `pairwise_distribution_comparison_batch()` and `batch_comparison()`
    - ✅ Updated __init__.py imports
    - ✅ Deleted shape.py
-   - ✅ Updated test_new_modules.ipynb
+   - ✅ Fixed all 25 distribution tests (100% passing)
+   - ✅ Added validation for empty distributions and dimension mismatches
 
-**Rationale**: Shape distances ARE distribution comparisons (comparing neural population activity distributions in feature space). Consolidation improves code organization and enables unified batch processing framework.
+2. **Linting & Type Checking Configuration**:
+   - ✅ Excluded Jupyter notebooks from ruff and mypy checks
+   - ✅ Updated `.vscode/settings.json` with native ruff server settings
+   - ✅ Migrated from deprecated `ruff-lsp` to native server
+   - ✅ Configured Pylance to only show errors (not warnings) in notebooks
+   - ✅ Updated `pyproject.toml` to exclude `*.ipynb` files from checks
 
-### November 2024 - Test Suite & Documentation ✅
+**Rationale**: Shape distances ARE distribution comparisons (comparing neural population activity distributions in feature space). Consolidation improves code organization and enables unified batch processing framework. Notebook exclusion prevents linting noise while maintaining code quality checks for library code.
+
+### November 2025 - Test Suite & Documentation ✅
 1. ✅ PlotGrid architecture verification (all 15 functions consistent)
 2. ✅ README.md documentation (features, usage examples, testing)
 3. ✅ Duplicate test file removed (181 unique tests, down from 196)
@@ -405,7 +413,7 @@ src/neural_analysis/decoding/
 
 ### 2.3 Test Notebook Updates ✅ COMPLETE
 
-**Completed December 2024**:
+**Completed December 2025**:
 - ✅ Updated `test_new_modules.ipynb` for shape distance migration
 - ✅ Updated imports to use distributions.py instead of shape.py
 - ✅ Updated test functions for new API

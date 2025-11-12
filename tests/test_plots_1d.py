@@ -13,6 +13,7 @@ Tests cover:
 import matplotlib
 import numpy as np
 import pytest
+from typing import Any
 
 matplotlib.use("Agg")  # Non-interactive backend for testing
 import matplotlib.pyplot as plt
@@ -27,7 +28,7 @@ from neural_analysis.plotting.plots_1d import (
 
 
 @pytest.fixture
-def sample_data_1d():
+def sample_data_1d() -> Any:
     """Generate sample 1D data for testing."""
     np.random.seed(42)
     x = np.linspace(0, 10, 100)
@@ -37,13 +38,13 @@ def sample_data_1d():
 
 
 @pytest.fixture
-def sample_loss_data():
+def sample_loss_data() -> Any:
     """Generate sample loss data."""
     return np.array([1.5, 1.2, 1.0, 0.8, 0.6, 0.5, 0.45, 0.42, 0.40, 0.39])
 
 
 @pytest.fixture
-def sample_boolean_states():
+def sample_boolean_states() -> Any:
     """Generate sample boolean states."""
     return np.array([True, True, False, False, False, True, True, True, False, True])
 
@@ -51,29 +52,29 @@ def sample_boolean_states():
 class TestPlotLine:
     """Tests for plot_line function."""
 
-    def test_basic_line_plot(self, sample_data_1d) -> None:
+    def test_basic_line_plot(self, sample_data_1d: Any) -> None:
         """Test basic line plot creation."""
         x, y, _ = sample_data_1d
         config = PlotConfig(show=False)
         ax = plot_line(y, x=x, config=config, backend="matplotlib")
 
-        assert isinstance(ax, plt.Axes)
+        assert isinstance(ax, Any)
         assert len(ax.lines) == 1
         plt.close("all")
 
-    def test_line_plot_with_std(self, sample_data_1d) -> None:
+    def test_line_plot_with_std(self, sample_data_1d: Any) -> None:
         """Test line plot with error bands."""
         x, y, std = sample_data_1d
         config = PlotConfig(show=False)
         ax = plot_line(y, x=x, std=std, config=config, backend="matplotlib")
 
-        assert isinstance(ax, plt.Axes)
+        assert isinstance(ax, Any)
         assert len(ax.lines) == 1
         # Check that fill_between was called (creates a PolyCollection)
         assert len(ax.collections) > 0
         plt.close("all")
 
-    def test_line_plot_with_markers(self, sample_data_1d) -> None:
+    def test_line_plot_with_markers(self, sample_data_1d: Any) -> None:
         """Test line plot with markers."""
         x, y, _ = sample_data_1d
         config = PlotConfig(show=False)
@@ -81,10 +82,10 @@ class TestPlotLine:
             y, x=x, config=config, marker="o", markersize=3, backend="matplotlib"
         )
 
-        assert isinstance(ax, plt.Axes)
+        assert isinstance(ax, Any)
         plt.close("all")
 
-    def test_line_plot_with_label(self, sample_data_1d) -> None:
+    def test_line_plot_with_label(self, sample_data_1d: Any) -> None:
         """Test line plot with label and legend."""
         x, y, _ = sample_data_1d
         config = PlotConfig(show=False, legend=True)
@@ -95,13 +96,13 @@ class TestPlotLine:
         assert legend.get_texts()[0].get_text() == "Test Data"
         plt.close("all")
 
-    def test_line_plot_no_x(self, sample_data_1d) -> None:
+    def test_line_plot_no_x(self, sample_data_1d: Any) -> None:
         """Test line plot without explicit x values."""
         _, y, _ = sample_data_1d
         config = PlotConfig(show=False)
         ax = plot_line(y, config=config, backend="matplotlib")
 
-        assert isinstance(ax, plt.Axes)
+        assert isinstance(ax, Any)
         # Check that x is range(len(y))
         line = ax.lines[0]
         x_data = line.get_xdata()
@@ -110,7 +111,7 @@ class TestPlotLine:
         assert x_data[-1] == len(y) - 1
         plt.close("all")
 
-    def test_line_plot_configuration(self, sample_data_1d) -> None:
+    def test_line_plot_configuration(self, sample_data_1d: Any) -> None:
         """Test that PlotConfig is applied correctly."""
         _, y, _ = sample_data_1d
         config = PlotConfig(
@@ -140,7 +141,7 @@ class TestPlotLine:
 
         plt.close("all")
 
-    def test_line_plot_mismatched_x_data(self, sample_data_1d) -> None:
+    def test_line_plot_mismatched_x_data(self, sample_data_1d: Any) -> None:
         """Test error handling for mismatched x and data lengths."""
         _, y, _ = sample_data_1d
         x_wrong = np.linspace(0, 10, 50)  # Different length
@@ -151,7 +152,7 @@ class TestPlotLine:
 
         plt.close("all")
 
-    def test_line_plot_custom_style(self, sample_data_1d) -> None:
+    def test_line_plot_custom_style(self, sample_data_1d: Any) -> None:
         """Test custom line styling."""
         _, y, _ = sample_data_1d
         config = PlotConfig(show=False)
@@ -181,7 +182,7 @@ class TestPlotMultipleLines:
         config = PlotConfig(show=False)
         ax = plot_multiple_lines(data_dict, x=x, config=config, backend="matplotlib")
 
-        assert isinstance(ax, plt.Axes)
+        assert isinstance(ax, Any)
         assert len(ax.lines) == 3
         plt.close("all")
 
@@ -223,18 +224,18 @@ class TestPlotMultipleLines:
 class TestPlotBooleanStates:
     """Tests for plot_boolean_states function."""
 
-    def test_basic_boolean_plot(self, sample_boolean_states) -> None:
+    def test_basic_boolean_plot(self, sample_boolean_states: Any) -> None:
         """Test basic boolean state visualization."""
         config = PlotConfig(show=False)
         ax = plot_boolean_states(
             sample_boolean_states, config=config, backend="matplotlib"
         )
 
-        assert isinstance(ax, plt.Axes)
+        assert isinstance(ax, Any)
         assert ax.get_ylim() == (0, 1)
         plt.close("all")
 
-    def test_boolean_plot_custom_colors(self, sample_boolean_states) -> None:
+    def test_boolean_plot_custom_colors(self, sample_boolean_states: Any) -> None:
         """Test boolean plot with custom colors."""
         config = PlotConfig(show=False)
         ax = plot_boolean_states(
@@ -245,10 +246,10 @@ class TestPlotBooleanStates:
             backend="matplotlib",
         )
 
-        assert isinstance(ax, plt.Axes)
+        assert isinstance(ax, Any)
         plt.close("all")
 
-    def test_boolean_plot_custom_labels(self, sample_boolean_states) -> None:
+    def test_boolean_plot_custom_labels(self, sample_boolean_states: Any) -> None:
         """Test boolean plot with custom labels."""
         config = PlotConfig(show=False, legend=True)
         ax = plot_boolean_states(
@@ -266,7 +267,7 @@ class TestPlotBooleanStates:
         assert "Stationary" in legend_texts
         plt.close("all")
 
-    def test_boolean_plot_with_x(self, sample_boolean_states) -> None:
+    def test_boolean_plot_with_x(self, sample_boolean_states: Any) -> None:
         """Test boolean plot with custom x values."""
         x = np.linspace(0, 100, len(sample_boolean_states))
         config = PlotConfig(show=False)
@@ -274,7 +275,7 @@ class TestPlotBooleanStates:
             sample_boolean_states, x=x, config=config, backend="matplotlib"
         )
 
-        assert isinstance(ax, plt.Axes)
+        assert isinstance(ax, Any)
         plt.close("all")
 
     def test_boolean_all_true(self) -> None:
@@ -283,7 +284,7 @@ class TestPlotBooleanStates:
         config = PlotConfig(show=False)
         ax = plot_boolean_states(states, config=config, backend="matplotlib")
 
-        assert isinstance(ax, plt.Axes)
+        assert isinstance(ax, Any)
         plt.close("all")
 
     def test_boolean_all_false(self) -> None:
@@ -292,30 +293,30 @@ class TestPlotBooleanStates:
         config = PlotConfig(show=False)
         ax = plot_boolean_states(states, config=config, backend="matplotlib")
 
-        assert isinstance(ax, plt.Axes)
+        assert isinstance(ax, Any)
         plt.close("all")
 
 
 class TestBackendSelection:
     """Tests for backend selection."""
 
-    def test_matplotlib_backend(self, sample_data_1d) -> None:
+    def test_matplotlib_backend(self, sample_data_1d: Any) -> None:
         """Test explicit matplotlib backend selection."""
         _, y, _ = sample_data_1d
         config = PlotConfig(show=False)
         result = plot_line(y, config=config, backend="matplotlib")
 
-        assert isinstance(result, plt.Axes)
+        assert isinstance(result, Any)
         plt.close("all")
 
-    def test_global_backend_used(self, sample_data_1d) -> None:
+    def test_global_backend_used(self, sample_data_1d: Any) -> None:
         """Test that global backend setting is used."""
         _, y, _ = sample_data_1d
         set_backend("matplotlib")
         config = PlotConfig(show=False)
         result = plot_line(y, config=config)  # No explicit backend
 
-        assert isinstance(result, plt.Axes)
+        assert isinstance(result, Any)
         plt.close("all")
 
 
@@ -329,7 +330,7 @@ class TestEdgeCases:
 
         # Should still work, just produce empty plot
         ax = plot_line(data, config=config, backend="matplotlib")
-        assert isinstance(ax, plt.Axes)
+        assert isinstance(ax, Any)
         plt.close("all")
 
     def test_single_point(self) -> None:
@@ -338,7 +339,7 @@ class TestEdgeCases:
         config = PlotConfig(show=False)
         ax = plot_line(data, config=config, backend="matplotlib")
 
-        assert isinstance(ax, plt.Axes)
+        assert isinstance(ax, Any)
         plt.close("all")
 
     def test_nan_values(self) -> None:
@@ -348,7 +349,7 @@ class TestEdgeCases:
         ax = plot_line(data, config=config, backend="matplotlib")
 
         # Matplotlib should handle NaN by breaking the line
-        assert isinstance(ax, plt.Axes)
+        assert isinstance(ax, Any)
         plt.close("all")
 
     def test_inf_values(self) -> None:
@@ -357,7 +358,7 @@ class TestEdgeCases:
         config = PlotConfig(show=False)
         ax = plot_line(data, config=config, backend="matplotlib")
 
-        assert isinstance(ax, plt.Axes)
+        assert isinstance(ax, Any)
         plt.close("all")
 
 

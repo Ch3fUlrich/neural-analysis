@@ -135,62 +135,71 @@ def generate_data(
     dataset_type = dataset_type.lower()
 
     # Route to appropriate generator
-    if dataset_type == "swiss_roll":
-        return _generate_swiss_roll(n_samples, noise, seed)
+    match dataset_type:
+        case "swiss_roll":
+            return _generate_swiss_roll(n_samples, noise, seed)
 
-    elif dataset_type == "s_curve":
-        return _generate_s_curve(n_samples, noise, seed)
+        case "s_curve":
+            return _generate_s_curve(n_samples, noise, seed)
 
-    elif dataset_type == "blobs":
-        n_features = n_features or 2
-        n_classes = n_classes or 3
-        return _generate_blobs(n_samples, n_features, n_classes, noise, seed, **kwargs)
+        case "blobs":
+            n_features = n_features or 2
+            n_classes = n_classes or 3
+            return _generate_blobs(
+                n_samples, n_features, n_classes, noise, seed, **kwargs
+            )
 
-    elif dataset_type == "moons":
-        return _generate_moons(n_samples, noise, seed)
+        case "moons":
+            return _generate_moons(n_samples, noise, seed)
 
-    elif dataset_type == "circles":
-        return _generate_circles(n_samples, noise, seed, **kwargs)
+        case "circles":
+            return _generate_circles(n_samples, noise, seed, **kwargs)
 
-    elif dataset_type == "classification":
-        n_features = n_features or 20
-        n_classes = n_classes or 2
-        return _generate_classification(
-            n_samples, n_features, n_classes, noise, seed, **kwargs)
+        case "classification":
+            n_features = n_features or 20
+            n_classes = n_classes or 2
+            return _generate_classification(
+                n_samples, n_features, n_classes, noise, seed, **kwargs
+            )
 
-    elif dataset_type == "regression":
-        n_features = n_features or 10
-        return _generate_regression(n_samples, n_features, noise, seed, **kwargs)
+        case "regression":
+            n_features = n_features or 10
+            return _generate_regression(n_samples, n_features, noise, seed, **kwargs)
 
-    elif dataset_type == "place_cells":
-        n_features = n_features or 100  # Number of cells
-        return _generate_place_cells(n_samples, n_features, noise, seed, **kwargs)
+        case "place_cells":
+            n_features = n_features or 100  # Number of cells
+            return _generate_place_cells(n_samples, n_features, noise, seed, **kwargs)
 
-    elif dataset_type == "grid_cells":
-        n_features = n_features or 50
-        return _generate_grid_cells(n_samples, n_features, noise, seed, **kwargs)
+        case "grid_cells":
+            n_features = n_features or 50
+            return _generate_grid_cells(n_samples, n_features, noise, seed, **kwargs)
 
-    elif dataset_type == "head_direction_cells":
-        n_features = n_features or 60
-        return _generate_head_direction_cells(
-            n_samples, n_features, noise, seed, **kwargs)
+        case "random_cells":
+            n_features = n_features or 50
+            return _generate_random_cells(n_samples, n_features, noise, seed, **kwargs)
 
-    elif dataset_type == "mixed_cells":
-        return _generate_mixed_cells(n_samples, seed, **kwargs)
+        case "head_direction_cells":
+            n_features = n_features or 60
+            return _generate_head_direction_cells(
+                n_samples, n_features, noise, seed, **kwargs
+            )
 
-    elif dataset_type == "position_trajectory":
-        return _generate_position_trajectory(n_samples, seed, **kwargs)
+        case "mixed_cells":
+            return _generate_mixed_cells(n_samples, seed, **kwargs)
 
-    elif dataset_type == "head_direction":
-        return _generate_head_direction(n_samples, seed, **kwargs)
+        case "position_trajectory":
+            return _generate_position_trajectory(n_samples, seed, **kwargs)
 
-    else:
-        raise ValueError(
-            f"Unknown dataset type: {dataset_type}. "
-            f"Available types: swiss_roll, s_curve, blobs, moons, circles, "
-            f"classification, regression, place_cells, grid_cells, "
-            f"head_direction_cells, mixed_cells, position_trajectory, head_direction"
-        )
+        case "head_direction":
+            return _generate_head_direction(n_samples, seed, **kwargs)
+
+        case _:
+            raise ValueError(
+                f"Unknown dataset type: {dataset_type}. "
+                f"Available types: swiss_roll, s_curve, blobs, moons, circles, "
+                f"classification, regression, place_cells, grid_cells, random_cells, "
+                f"head_direction_cells, mixed_cells, position_trajectory, head_direction"
+            )
 
 
 # ============================================================================
@@ -369,7 +378,7 @@ def _generate_place_cells(
     peak_rate = kwargs.get("peak_rate", 10.0)
     sampling_rate = kwargs.get("sampling_rate", 20.0)
     positions = kwargs.get("positions")
-    plot = kwargs.get("plot", False)  # Get plot parameter from kwargs
+    plot = kwargs.get("plot", True)  # Default to True for visualization
 
     activity, metadata = generate_place_cells(
         n_cells=n_features,
@@ -400,6 +409,7 @@ def _generate_grid_cells(
     peak_rate = kwargs.get("peak_rate", 10.0)
     sampling_rate = kwargs.get("sampling_rate", 20.0)
     positions = kwargs.get("positions")
+    plot = kwargs.get("plot", True)  # Default to True for visualization
 
     activity, metadata = generate_grid_cells(
         n_cells=n_features,
@@ -412,6 +422,36 @@ def _generate_grid_cells(
         noise_level=noise,
         sampling_rate=sampling_rate,
         seed=seed,
+        plot=plot,  # Pass plot parameter through
+    )
+    return activity, metadata
+
+
+def _generate_random_cells(
+    n_samples: int,
+    n_features: int,
+    noise: float,
+    seed: int | None,
+    **kwargs: Any,
+) -> tuple[npt.NDArray[np.float64], dict[str, Any]]:
+    """Generate random cells - returns (activity, metadata with positions)."""
+    baseline_rate = kwargs.get("baseline_rate", 2.0)
+    variability = kwargs.get("variability", noise * 10.0)  # Scale noise to variability
+    temporal_smoothness = kwargs.get("temporal_smoothness", 0.1)
+    sampling_rate = kwargs.get("sampling_rate", 20.0)
+    arena_size = kwargs.get("arena_size", (1.0, 1.0))
+    plot = kwargs.get("plot", True)  # Default to True for visualization
+
+    activity, metadata = generate_random_cells(
+        n_cells=n_features,
+        n_samples=n_samples,
+        baseline_rate=baseline_rate,
+        variability=variability,
+        temporal_smoothness=temporal_smoothness,
+        sampling_rate=sampling_rate,
+        arena_size=arena_size,
+        seed=seed,
+        plot=plot,  # Pass plot parameter through
     )
     return activity, metadata
 
@@ -746,7 +786,7 @@ def generate_head_direction(
 
     Returns:
         angles: Head direction angles in radians, shape (n_samples,).
-            Values are in range [0, 2π].
+            Values are in range [-π, +π].
 
     Examples:
         >>> hd = generate_head_direction(1000, turning_rate=0.2)
@@ -756,13 +796,13 @@ def generate_head_direction(
     rng = np.random.default_rng(seed)
 
     angles = np.zeros(n_samples)
-    angles[0] = rng.uniform(0, 2 * np.pi)
+    angles[0] = rng.uniform(-np.pi, np.pi)
 
     for i in range(1, n_samples):
         angles[i] = angles[i - 1] + rng.normal(0, turning_rate)
 
-    # Wrap to [0, 2π]
-    angles = np.mod(angles, 2 * np.pi)
+    # Wrap to [-π, +π]
+    angles = np.angle(np.exp(1j * angles))
 
     return angles
 
@@ -1296,13 +1336,13 @@ def generate_head_direction_cells(
     if head_direction is None:
         head_direction = generate_head_direction(n_samples, seed=seed)
 
-    # Random preferred directions
-    preferred_dirs = rng.uniform(0, 2 * np.pi, size=n_cells)
+    # Random preferred directions in [-π, +π]
+    preferred_dirs = rng.uniform(-np.pi, np.pi, size=n_cells)
 
     activity = np.zeros((n_samples, n_cells))
 
     for i in range(n_cells):
-        # Circular difference
+        # Circular difference (handles wrap-around at ±π)
         angle_diff = np.abs(head_direction - preferred_dirs[i])
         angle_diff = np.minimum(angle_diff, 2 * np.pi - angle_diff)
 
@@ -1352,6 +1392,7 @@ def generate_random_cells(
     sampling_rate: float = 20.0,
     seed: int | None = None,
     plot: bool = True,
+    arena_size: tuple[float, float] = (1.0, 1.0),
 ) -> tuple[npt.NDArray[np.float64], dict]:
     """Generate random cells with no specific tuning properties.
 
@@ -1369,11 +1410,13 @@ def generate_random_cells(
             Controls temporal resolution of neural activity.
         seed: Random seed for reproducibility.
         plot: If True, create comprehensive visualization using PlotGrid system.
+        arena_size: (width, height) of arena for generating synthetic position labels.
+            Default: (1.0, 1.0) meters.
 
     Returns:
         activity: Neural activity matrix, shape (n_samples, n_cells).
             Random firing patterns with temporal smoothness.
-        metadata: Dictionary with cell parameters.
+        metadata: Dictionary with cell parameters and synthetic position labels.
 
     Examples:
         >>> # Generate noisy cells
@@ -1412,12 +1455,26 @@ def generate_random_cells(
 
         activity[:, i] = rates
 
+    # Generate uniform random 2D positions for structure index compatibility
+    # These positions are synthetic and NOT used for tuning (cells are random)
+    # They provide uniform coverage of the 2D space for fair comparison
+    positions = rng.uniform(
+        low=[0, 0], high=[arena_size[0], arena_size[1]], size=(n_samples, 2)
+    )
+
+    # Generate uniform random head directions in [-π, +π]
+    # Also synthetic and NOT used for tuning (cells are random)
+    head_directions = rng.uniform(-np.pi, np.pi, size=n_samples)
+
     metadata = {
         "cell_type": "random",
         "baseline_rate": baseline_rate,
         "variability": variability,
         "temporal_smoothness": temporal_smoothness,
         "sampling_rate": sampling_rate,
+        "positions": positions,  # Synthetic uniform positions
+        "head_directions": head_directions,  # Synthetic uniform head directions
+        "arena_size": arena_size,
     }
 
     # Create visualization if requested
@@ -1429,7 +1486,7 @@ def generate_random_cells(
             metadata,
             show_raster=True,
             show_fields=True,  # Enable to show diagnostic plots
-            show_behavior=False,
+            show_behavior=True,  # Show position trajectory in last row
             show_ground_truth=False,
             show_embeddings=True,
             embedding_methods=["pca", "umap"],
@@ -1668,8 +1725,12 @@ def map_to_ring(
 
     # Create visualization if requested
     if plot:
-        from neural_analysis.plotting.grid_config import PlotSpec, PlotGrid
-        from neural_analysis.plotting.grid_config import PlotConfig, GridLayoutConfig
+        from neural_analysis.plotting.grid_config import (
+            GridLayoutConfig,
+            PlotConfig,
+            PlotGrid,
+            PlotSpec,
+        )
 
         plot_specs = []
 

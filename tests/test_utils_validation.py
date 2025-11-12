@@ -30,7 +30,7 @@ class TestDoCritical:
         with pytest.raises(RuntimeError, match=message):
             do_critical(RuntimeError, message)
 
-    def test_logs_critical(self, caplog) -> None:
+    def test_logs_critical(self, caplog: Any) -> None:
         """Test that do_critical logs at CRITICAL level."""
         message = "Critical issue logged"
         with caplog.at_level(logging.CRITICAL), pytest.raises(ValueError):
@@ -57,7 +57,7 @@ class TestDoCritical:
         with pytest.raises(ValueError, match="^$"):
             do_critical(ValueError, "")
 
-    def test_multiline_message(self, caplog) -> None:
+    def test_multiline_message(self, caplog: Any) -> None:
         """Test with multiline error message."""
         message = "Line 1\nLine 2\nLine 3"
         with caplog.at_level(logging.CRITICAL):

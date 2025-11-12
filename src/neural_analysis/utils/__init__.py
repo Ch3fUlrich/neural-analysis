@@ -5,6 +5,8 @@ computational functions (trajectories, geometry) used across manifold analysis,
 metrics, and plotting modules.
 """
 
+from typing import Any
+
 __all__ = [
     "save_array",
     "load_array",
@@ -38,7 +40,7 @@ from .io import (
 )
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     if name == "do_critical":
         mod = importlib.import_module("neural_analysis.utils.validation")
         return getattr(mod, name)

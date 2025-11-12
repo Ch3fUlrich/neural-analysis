@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def test_h5io_array_roundtrip(tmp_path: Path):
+def test_h5io_array_roundtrip(tmp_path: Path) -> None:
     path = tmp_path / "array_demo.h5"
     data = np.random.randn(50, 4).astype(np.float32)
     labels = np.array([f"row_{i}" for i in range(data.shape[0])])
@@ -28,7 +28,7 @@ def test_h5io_array_roundtrip(tmp_path: Path):
     assert list(loaded_labels) == list(labels)
 
 
-def test_h5io_dataframe_roundtrip(tmp_path: Path):
+def test_h5io_dataframe_roundtrip(tmp_path: Path) -> None:
     path = tmp_path / "df_demo.h5"
     df = pd.DataFrame(
         {
@@ -49,7 +49,7 @@ def test_h5io_dataframe_roundtrip(tmp_path: Path):
     assert list(loaded_labels) == labels
 
 
-def test_h5io_dataframe_filter_pairs(tmp_path: Path):
+def test_h5io_dataframe_filter_pairs(tmp_path: Path) -> None:
     path = tmp_path / "pairs_demo.h5"
     df = pd.DataFrame(
         {

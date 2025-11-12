@@ -338,7 +338,7 @@ def plot_synthetic_data(
             return nrows, ncols
 
     # Find optimal number of example cells (2-4) that minimizes empty subplots
-    best_n_examples = 3  # Default
+    best_n_examples = 3  # Default (prefer showing all three cell types)
     min_empty = float("inf")
 
     for n_examples in range(2, 5):  # Try 2, 3, 4 example cells
@@ -347,8 +347,13 @@ def plot_synthetic_data(
         grid_size = nrows * ncols
         n_empty = grid_size - total
 
+        # For random cells, prefer n_examples=3 to show all cell types
+        # unless it would create > 3 empty subplots
+        if cell_type == "random" and n_examples == 3 and n_empty <= 3:
+            best_n_examples = 3
+            break
         # Prefer configurations with fewer empty subplots
-        if n_empty < min_empty:
+        elif n_empty < min_empty:
             min_empty = n_empty
             best_n_examples = n_examples
 
@@ -805,9 +810,10 @@ def _create_field_plots(
             )
         )
     elif cell_type == "random":
-        # Random cells: show variable example firing patterns over time
+        # Random cells: show example head direction tuning curves
+        # (should be flat, demonstrating lack of directional tuning)
         specs.extend(
-            _create_random_example_cells(
+            _create_random_hd_tuning_examples(
                 activity, metadata, colors, subplot_position, n_examples
             )
         )
@@ -1410,6 +1416,41 @@ def _create_grid_example_cells(
     return specs
 
 
+def _compute_hd_tuning_curve(
+    activity: npt.NDArray[np.float64],
+    head_directions: npt.NDArray[np.float64],
+    cell_idx: int,
+    n_bins: int = 72,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Compute head direction tuning curve for a single cell.
+
+    Shared helper function to avoid code duplication.
+
+    Args:
+        activity: Neural activity matrix (n_samples, n_cells).
+        head_directions: Head direction angles in radians [-π, +π], shape (n_samples,).
+        cell_idx: Index of the cell to compute tuning for.
+        n_bins: Number of angular bins.
+
+    Returns:
+        angles_deg: Bin centers in degrees.
+        rates: Mean firing rates per bin.
+    """
+    angle_bins = np.linspace(-np.pi, np.pi, n_bins + 1)
+    bin_centers = (angle_bins[:-1] + angle_bins[1:]) / 2
+    rates = np.zeros(n_bins)
+
+    for i in range(n_bins):
+        mask = (head_directions >= angle_bins[i]) & (
+            head_directions < angle_bins[i + 1]
+        )
+        if mask.sum() > 0:
+            rates[i] = activity[mask, cell_idx].mean()
+
+    angles_deg = np.degrees(bin_centers)
+    return angles_deg, rates
+
+
 def _create_hd_example_cells(
     activity: npt.NDArray[np.float64],
     metadata: dict[str, Any],
@@ -1440,25 +1481,19 @@ def _create_hd_example_cells(
     peak_rates = activity.max(axis=0)
     top_cells = np.argsort(peak_rates)[-n_examples:][::-1]  # Top cells, highest first
 
-    # Create tuning curve with finer angular resolution
-    angle_bins = np.linspace(-np.pi, np.pi, 72)  # 5-degree bins
-
     for idx, cell_idx in enumerate(top_cells):
-        rates = np.zeros(len(angle_bins) - 1)
-        for i in range(len(angle_bins) - 1):
-            mask = (head_directions >= angle_bins[i]) & (
-                head_directions < angle_bins[i + 1]
-            )
-            if mask.sum() > 0:
-                rates[i] = activity[mask, cell_idx].mean()
-
-        angles = np.degrees((angle_bins[:-1] + angle_bins[1:]) / 2)
+        # Use shared helper function
+        angles_deg, rates = _compute_hd_tuning_curve(
+            activity, head_directions, cell_idx, n_bins=72
+        )
 
         # Get the preferred direction for this cell for the title
-        pref_dir_deg = np.degrees(preferred_directions[cell_idx]) % 360
+        pref_dir_deg = np.degrees(preferred_directions[cell_idx])
+        # Normalize to [0, 360) for display
+        pref_dir_deg = pref_dir_deg % 360
 
         spec = PlotSpec(
-            data={"x": angles, "y": rates},
+            data={"x": angles_deg, "y": rates},
             plot_type="line",
             subplot_position=subplot_position + idx,
             title=f"HD Cell {cell_idx} (pref: {pref_dir_deg:.0f}°)",
@@ -1527,54 +1562,41 @@ def _create_random_diagnostics(
     metadata: dict[str, Any],
     subplot_position: int,
 ) -> list[PlotSpec]:
-    """Create diagnostic plots to verify random cells lack structure.
-    
-    Creates multiple tests:
-    1. Single cell "place field" (should be uniform/noisy)
+    """Create diagnostic plots to verify random cells lack spatial structure.
+
+    Creates two diagnostic tests:
+    1. Single cell "spatial map" (should be uniform/noisy)
     2. Population coverage (should be uniform, no hotspots)
-    3. Autocorrelation (should show no periodicity like grid cells)
-    4. Directional tuning (should be flat, no preferred direction)
-    
-    This validates that random cells truly lack the structure of place/grid/HD cells.
-    
+
+    This validates that random cells truly lack spatial structure like place/grid cells.
+
     Args:
         activity: Neural activity matrix (n_samples, n_cells).
         metadata: Dataset metadata.
         subplot_position: Starting subplot position.
-    
+
     Returns:
-        List of PlotSpec objects for diagnostic plots.
+        List of PlotSpec objects for diagnostic plots (2 plots).
     """
     specs: list[PlotSpec] = []
-    
-    # Generate synthetic 2D positions for testing
-    # (random cells shouldn't correlate with space)
-    n_samples = activity.shape[0]
-    rng = np.random.default_rng(42)  # Fixed seed for consistent testing
-    
-    # Create a 2D random walk trajectory (similar to real behavioral data)
-    positions = np.zeros((n_samples, 2))
-    positions[0] = [0.5, 0.5]  # Start in center
-    arena_size = (1.0, 1.0)
-    
-    for t in range(1, n_samples):
-        # Random walk with boundary reflection
-        step = rng.normal(0, 0.02, size=2)
-        new_pos = positions[t - 1] + step
-        # Reflect at boundaries
-        new_pos[0] = np.clip(new_pos[0], 0, arena_size[0])
-        new_pos[1] = np.clip(new_pos[1], 0, arena_size[1])
-        positions[t] = new_pos
-    
+
+    # Use uniform positions from metadata (should already be uniform random)
+    # These positions test whether random cells incorrectly show spatial structure
+    positions = metadata.get("positions")
+    arena_size = metadata.get("arena_size", (1.0, 1.0))
+
+    if positions is None:
+        raise ValueError("Random cell diagnostics require 'positions' in metadata")
+
     # 1. Single cell spatial map (should show no structure)
     # Pick the cell with highest variance for best visualization
     cell_variances = activity.var(axis=0)
     test_cell = np.argmax(cell_variances)
-    
+
     x_bins, y_bins, firing_map = _compute_spatial_bins_2d(
         positions, activity, arena_size, n_bins=20, cell_idx=test_cell
     )
-    
+
     spec_single = PlotSpec(
         data=firing_map,
         plot_type="heatmap",
@@ -1592,12 +1614,12 @@ def _create_random_diagnostics(
         },
     )
     specs.append(spec_single)
-    
+
     # 2. Population coverage (average across all cells - should be uniform)
     _, _, coverage_map = _compute_spatial_bins_2d(
         positions, activity, arena_size, n_bins=20, cell_idx=None
     )
-    
+
     spec_coverage = PlotSpec(
         data=coverage_map,
         plot_type="heatmap",
@@ -1615,102 +1637,66 @@ def _create_random_diagnostics(
         },
     )
     specs.append(spec_coverage)
-    
-    # 3. Autocorrelation test (should show no grid-like periodicity)
-    # Use average of top 5 cells for cleaner visualization
-    n_cells_to_test = min(5, activity.shape[1])
-    autocorr_sum = None
-    
-    for cell_idx in range(n_cells_to_test):
-        _, _, firing_map = _compute_spatial_bins_2d(
-            positions, activity, arena_size, n_bins=30, cell_idx=cell_idx
+
+    return specs
+
+
+def _create_random_hd_tuning_examples(
+    activity: npt.NDArray[np.float64],
+    metadata: dict[str, Any],
+    colors: list[str],
+    subplot_position: int,
+    n_examples: int = 3,
+) -> list[PlotSpec]:
+    """Create example head direction tuning curves for random cells.
+
+    Random cells should show flat tuning curves (no directional preference),
+    demonstrating lack of head direction tuning.
+
+    Args:
+        activity: Neural activity matrix (n_samples, n_cells).
+        metadata: Dataset metadata.
+        colors: Color list for cells.
+        subplot_position: Starting subplot position.
+        n_examples: Number of example cells to show (2-4).
+
+    Returns:
+        List of PlotSpec objects for head direction tuning curves.
+    """
+    specs: list[PlotSpec] = []
+    head_directions = metadata.get("head_directions")
+
+    # Generate head directions if not present (backward compatibility)
+    if head_directions is None:
+        rng = np.random.default_rng(42)
+        n_samples = activity.shape[0]
+        head_directions = rng.uniform(-np.pi, np.pi, size=n_samples)
+
+    # Select n_examples cells with highest variance for better visualization
+    cell_variances = activity.var(axis=0)
+    top_cells = np.argsort(cell_variances)[-n_examples:][::-1]
+
+    for idx, cell_idx in enumerate(top_cells):
+        # Use shared helper function (fewer bins for random cells)
+        angles_deg, rates = _compute_hd_tuning_curve(
+            activity, head_directions, cell_idx, n_bins=36
         )
-        
-        # Compute autocorrelation
-        firing_map_centered = firing_map - np.nanmean(firing_map)
-        firing_map_centered = np.nan_to_num(firing_map_centered, 0)
-        
-        fft_2d = np.fft.fft2(firing_map_centered)
-        power_spectrum = np.abs(fft_2d) ** 2
-        autocorr = np.fft.ifft2(power_spectrum).real
-        autocorr = np.fft.fftshift(autocorr)
-        
-        if autocorr_sum is None:
-            autocorr_sum = autocorr
-        else:
-            autocorr_sum += autocorr
-    
-    autocorr_avg = autocorr_sum / n_cells_to_test
-    
-    # Normalize
-    center_idx = (autocorr_avg.shape[0] // 2, autocorr_avg.shape[1] // 2)
-    if autocorr_avg[center_idx] != 0:
-        autocorr_normalized = autocorr_avg / autocorr_avg[center_idx]
-    else:
-        autocorr_normalized = autocorr_avg
-    
-    x_lags = np.linspace(-arena_size[0], arena_size[0], autocorr_normalized.shape[0])
-    y_lags = np.linspace(-arena_size[1], arena_size[1], autocorr_normalized.shape[1])
-    
-    spec_autocorr = PlotSpec(
-        data=autocorr_normalized,
-        plot_type="heatmap",
-        subplot_position=subplot_position + 2,
-        title="Autocorrelation (Should Show No Periodicity)",
-        cmap="viridis",
-        colorbar=True,
-        colorbar_label="Normalized Autocorr",
-        kwargs={
-            "x_label": "X Lag",
-            "y_label": "Y Lag",
-            "aspect": "auto",
-            "extent": [x_lags[0], x_lags[-1], y_lags[0], y_lags[-1]],
-            "origin": "lower",
-        },
-    )
-    specs.append(spec_autocorr)
-    
-    # 4. Directional tuning test (should be flat)
-    # Generate synthetic head directions from position trajectory
-    head_directions = np.zeros(n_samples)
-    for t in range(1, n_samples):
-        dx = positions[t, 0] - positions[t - 1, 0]
-        dy = positions[t, 1] - positions[t - 1, 1]
-        if dx != 0 or dy != 0:
-            head_directions[t] = np.arctan2(dy, dx)
-        else:
-            head_directions[t] = head_directions[t - 1]
-    
-    # Compute tuning curve for test cell
-    angle_bins = np.linspace(-np.pi, np.pi, 37)  # 36 bins + 1 edge
-    bin_centers = (angle_bins[:-1] + angle_bins[1:]) / 2
-    tuning_curve = np.zeros(len(bin_centers))
-    
-    for i in range(len(bin_centers)):
-        mask = (
-            (head_directions >= angle_bins[i])
-            & (head_directions < angle_bins[i + 1])
+
+        spec = PlotSpec(
+            data={"x": angles_deg, "y": rates},
+            plot_type="line",
+            subplot_position=subplot_position + idx,
+            title=f"Random Cell {cell_idx} HD Tuning (Should be Flat)",
+            color=CELL_TYPE_COLORS.get("random", "#95A5A6"),
+            line_width=2,
+            alpha=0.8,
+            kwargs={
+                "x_label": "Head Direction (°)",
+                "y_label": "Firing Rate (Hz)",
+            },
         )
-        if mask.sum() > 0:
-            tuning_curve[i] = activity[mask, test_cell].mean()
-    
-    # Convert to degrees for easier interpretation
-    angles_deg = np.degrees(bin_centers)
-    
-    spec_direction = PlotSpec(
-        data={"x": angles_deg, "y": tuning_curve},
-        plot_type="line",
-        subplot_position=subplot_position + 3,
-        title=f"'Directional Tuning' Cell {test_cell} (Should be Flat)",
-        color=CELL_TYPE_COLORS.get("random", "#95A5A6"),
-        line_width=2,
-        kwargs={
-            "x_label": "Head Direction (degrees)",
-            "y_label": "Firing Rate (Hz)",
-        },
-    )
-    specs.append(spec_direction)
-    
+        specs.append(spec)
+
     return specs
 
 
@@ -1719,30 +1705,24 @@ def _create_hd_tuning_plot(
     metadata: dict[str, Any],
     colors: list[str],
     subplot_position: int,
-) -> PlotSpec:
-    """Create head direction tuning curve plot."""
+) -> PlotSpec | None:
+    """Create head direction tuning curve plot for first cell.
+
+    Legacy function - consider using _create_hd_example_cells instead.
+    """
     preferred_angles = metadata.get("preferred_angles")
     head_directions = metadata.get("head_directions")
 
     if preferred_angles is None or head_directions is None:
         return None
 
-    # Create tuning curves for first few cells
-    angle_bins = np.linspace(-np.pi, np.pi, 36)
-
-    # Average activity per angle bin for first cell
-    rates = np.zeros(len(angle_bins) - 1)
-    for i in range(len(angle_bins) - 1):
-        mask = (head_directions >= angle_bins[i]) & (
-            head_directions < angle_bins[i + 1]
-        )
-        if mask.sum() > 0:
-            rates[i] = activity[mask, 0].mean()
-
-    angles = np.degrees((angle_bins[:-1] + angle_bins[1:]) / 2)
+    # Use shared helper function for first cell
+    angles_deg, rates = _compute_hd_tuning_curve(
+        activity, head_directions, cell_idx=0, n_bins=36
+    )
 
     spec = PlotSpec(
-        data={"x": angles, "y": rates},
+        data={"x": angles_deg, "y": rates},
         plot_type="line",
         subplot_position=subplot_position,
         title="Head Direction Tuning",

@@ -141,7 +141,7 @@ class PlotConfig:
     cmap: str = "viridis"
     alpha: float = 0.8
 
-    def __post_init__(self):
+    def __post_init__(self) -> Any:
         """Validate and convert parameters after initialization."""
         if self.save_path is not None:
             self.save_path = Path(self.save_path)
@@ -249,7 +249,7 @@ def resolve_colormap(cmap: str | None, backend: BackendType) -> str:
         return _PLOTLY_CMAP_ALIASES.get(name, name)
 
 
-def apply_layout_matplotlib(ax, config: PlotConfig) -> None:
+def apply_layout_matplotlib(ax: Any, config: PlotConfig) -> None:
     """Apply common layout (title, labels, limits, grid) for matplotlib."""
     if config.title:
         ax.set_title(config.title)
@@ -624,7 +624,7 @@ def save_plot(
     save_path: str | Path,
     format: str = "png",
     dpi: int = 300,
-    bbox_inches: str = "tight", **kwargs) -> None:
+    bbox_inches: str = "tight", **kwargs: Any) -> None:
     """
     Save current matplotlib figure to file.
 

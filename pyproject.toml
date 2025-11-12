@@ -21,6 +21,7 @@ dependencies = [
     "numba>=0.59", # JIT compiler for fast parallel similarity computations
     "umap-learn>=0.5.3", # UMAP dimensionality reduction
     "networkx>=3.4.2",
+    "faiss-cpu>=1.8.0", # Efficient similarity search for structure index computation
 ]
 
 [project.optional-dependencies]
@@ -60,6 +61,8 @@ exclude = [
     "__pycache__",
     "build",
     "dist",
+    "*.ipynb",
+    "examples/*.ipynb",
 ]
 
 [tool.ruff.lint]
@@ -121,6 +124,8 @@ warn_no_return = true
 strict_equality = true
 exclude = [
     "^todo/.*\\.py$",
+    ".*\\.ipynb$",
+    "^examples/.*\\.ipynb$",
 ]
 
 # Only ignore imports for external libraries without stubs
@@ -166,6 +171,7 @@ exclude_lines = [
 
 [dependency-groups]
 dev = [
+    "nbconvert>=7.16.6",
     "pandas-stubs>=2.3.2.250926",
     "types-tqdm>=4.67.0.20250809",
 ]

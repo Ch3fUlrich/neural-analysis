@@ -5,6 +5,8 @@ similarity measures, shape similarity, and outlier detection utilities
 for neural data analysis.
 """
 
+from typing import Any
+
 __all__ = [
     # Distance metrics
     "euclidean_distance",
@@ -34,7 +36,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     """Lazy import for metrics modules."""
     import importlib
 
