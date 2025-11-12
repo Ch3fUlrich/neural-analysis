@@ -57,6 +57,11 @@ Thumbs.db
 # Project specific
 *.log
 
+# Output folders (generated files)
+output/
+**/output/
+examples/output/
+
 # Documentation builds
 docs/_build/
 docs/api/generated/
