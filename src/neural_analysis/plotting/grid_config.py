@@ -175,6 +175,9 @@ class PlotSpec:
         Whether to show colorbar for color-mapped plots
     colorbar_label : str, optional
         Label for colorbar
+    force_colorbar : bool, optional
+        If True, always show colorbar even if same cmap+label combination exists.
+        Overrides automatic deduplication. Default: False (auto-deduplicate).
     colors : np.ndarray or list, optional
         Array of color values or list of colors for grouped data
     sizes : np.ndarray or float, optional
@@ -241,6 +244,7 @@ class PlotSpec:
     cmap: str | None = None
     colorbar: bool = False
     colorbar_label: str | None = None
+    force_colorbar: bool = False
     colors: npt.NDArray[np.floating[Any]] | list[Any] | None = None
     sizes: npt.NDArray[np.floating[Any]] | float | None = None
     show_hulls: bool = False
@@ -298,6 +302,12 @@ class GridLayoutConfig:
         Horizontal space between subplots (0-1)
     group_by : str, optional
         Column name in DataFrame to group plots by (auto-arrange in grid)
+    width_ratios : list of float, optional
+        Relative widths of columns. Length must equal cols.
+        For uneven grids: e.g., [1, 2, 2] makes first column half width of others.
+    height_ratios : list of float, optional
+        Relative heights of rows. Length must equal rows.
+        For uneven grids: e.g., [1, 2] makes first row half height of second.
     """
 
     rows: int | None = None
@@ -308,6 +318,8 @@ class GridLayoutConfig:
     vertical_spacing: float | None = None
     horizontal_spacing: float | None = None
     group_by: str | None = None
+    width_ratios: list[float] | None = None
+    height_ratios: list[float] | None = None
 
     def auto_size_grid(self, n_plots: int) -> tuple[int, int]:
         """
@@ -717,6 +729,8 @@ class PlotGrid:
             specs=[[{"type": "scene"}] * cols] * rows
             if needs_any_3d and backend_str == "plotly"
             else None,
+            width_ratios=self.layout.width_ratios,
+            height_ratios=self.layout.height_ratios,
         )
 
         if backend_str == "matplotlib":
@@ -731,6 +745,10 @@ class PlotGrid:
             # Track which labels have been shown per subplot and which axes have titles
             legend_tracker: dict[int, set[str]] = {}
             axes_with_titles: set[int] = set()
+            
+            # Track colormap usage for deduplication: (cmap, colorbar_label) -> first subplot index
+            colormap_tracker: dict[tuple[str | None, str | None], int] = {}
+            colormap_artists: dict[int, Any] = {}  # Store the mappable object for each subplot
 
             # Plot each group of specs
             for i, spec_group in enumerate(subplot_groups):
@@ -751,7 +769,10 @@ class PlotGrid:
 
                     if spec.title:
                         axes_with_titles.add(i)
-                    self._plot_spec_matplotlib(spec, ax, legend_tracker[i])
+                    
+                    self._plot_spec_matplotlib(
+                        spec, ax, legend_tracker[i], colormap_tracker, colormap_artists, i
+                    )
 
                 # Create legend from stored handles if we have any
                 handles = []
@@ -794,6 +815,9 @@ class PlotGrid:
                         ax.set_ylim(self.config.ylim)
                     if self.config.grid:
                         ax.grid(self.config.grid)
+            
+            # Apply overlap prevention: adjust spacing and label positions
+            self._prevent_overlaps(fig, axes_flat, rows, cols, n_subplots)
 
             # For single subplot, return just the axes; for multiple return (fig, axes)
             if n_subplots == 1:
@@ -969,9 +993,24 @@ class PlotGrid:
             return fig
 
     def _plot_spec_matplotlib(
-        self, spec: PlotSpec, ax: Any, legend_tracker: set[str]
+        self, 
+        spec: PlotSpec, 
+        ax: Any, 
+        legend_tracker: set[str],
+        colormap_tracker: dict[tuple[str | None, str | None], int] | None = None,
+        colormap_artists: dict[int, Any] | None = None,
+        subplot_idx: int | None = None,
     ) -> None:
-        """Plot a PlotSpec using matplotlib with renderer functions."""
+        """Plot a PlotSpec using matplotlib with renderer functions.
+        
+        Args:
+            spec: Plot specification
+            ax: Matplotlib axes
+            legend_tracker: Set of labels already shown
+            colormap_tracker: Dict mapping (cmap, label) to first subplot index
+            colormap_artists: Dict storing mappable objects for colorbars
+            subplot_idx: Index of current subplot
+        """
         if ax is None:
             ax = plt.gca()
 
@@ -980,6 +1019,23 @@ class PlotGrid:
         if show_label and spec.label:
             legend_tracker.add(spec.label)
         label_to_use = spec.label if show_label else None
+        
+        # Determine if we should show colorbar (deduplicate by cmap+label)
+        # Allow override via force_colorbar parameter
+        should_show_colorbar = spec.colorbar
+        if (
+            colormap_tracker is not None 
+            and subplot_idx is not None 
+            and spec.colorbar 
+            and not spec.force_colorbar
+        ):
+            cmap_key = (spec.cmap, spec.colorbar_label)
+            if cmap_key in colormap_tracker:
+                # Only show colorbar on first occurrence
+                should_show_colorbar = (colormap_tracker[cmap_key] == subplot_idx)
+            else:
+                # First time seeing this cmap+label combination - register it
+                colormap_tracker[cmap_key] = subplot_idx
 
         if spec.plot_type == "scatter":
             # Handle dict data format (e.g., when color_by="time")
@@ -1017,13 +1073,16 @@ class PlotGrid:
             )
 
             # Add colorbar if requested and we have color-mapped data
-            if spec.colorbar and scatter is not None and spec.colors is not None:
+            # Only show if this is the first occurrence of this cmap+label combination
+            if should_show_colorbar and scatter is not None and spec.colors is not None:
                 # Get the figure from the axes
                 fig = ax.get_figure()
                 if fig is not None:
                     cbar = fig.colorbar(scatter, ax=ax)
                     if spec.colorbar_label:
                         cbar.set_label(spec.colorbar_label)
+                    if colormap_artists is not None and subplot_idx is not None:
+                        colormap_artists[subplot_idx] = scatter
 
         elif spec.plot_type == "scatter3d":
             # 3D scatter plot - ax must be a 3D axis
@@ -1055,13 +1114,16 @@ class PlotGrid:
                 **spec.kwargs,
             )
             # Add colorbar if requested and we have color-mapped data
-            if spec.colorbar and scatter is not None and spec.colors is not None:
+            # Only show if this is the first occurrence of this cmap+label combination
+            if should_show_colorbar and scatter is not None and spec.colors is not None:
                 # Get the figure from the axes
                 fig = ax.get_figure()
                 if fig is not None:
                     cbar = fig.colorbar(scatter, ax=ax)
                     if spec.colorbar_label:
                         cbar.set_label(spec.colorbar_label)
+                    if colormap_artists is not None and subplot_idx is not None:
+                        colormap_artists[subplot_idx] = scatter
 
         elif spec.plot_type == "line":
             # Pop custom parameters that shouldn't be passed to matplotlib
@@ -1164,28 +1226,39 @@ class PlotGrid:
             )
 
         elif spec.plot_type == "heatmap":
-            renderers.render_heatmap_matplotlib(
+            # Pass should_show_colorbar to renderer via kwargs
+            heatmap_kwargs = dict(spec.kwargs)
+            heatmap_kwargs["colorbar"] = should_show_colorbar if spec.colorbar else False
+            im = renderers.render_heatmap_matplotlib(
                 ax=ax,
                 data=spec.data,
-                cmap=spec.kwargs.pop("cmap", "viridis"),
+                cmap=spec.kwargs.pop("cmap", spec.cmap or "viridis"),
                 colorbar_label=spec.colorbar_label,
                 alpha=spec.alpha,
-                **spec.kwargs,
+                **heatmap_kwargs,
             )
+            if colormap_artists is not None and subplot_idx is not None and should_show_colorbar:
+                colormap_artists[subplot_idx] = im
 
         elif spec.plot_type == "heatmap_walls":
             # Render three orthogonal wall heatmaps on a 3D axes
             # Fail silently to avoid breaking plotting pipeline
             with contextlib.suppress(Exception):
-                render_heatmap_walls_matplotlib(
+                artists = render_heatmap_walls_matplotlib(
                     ax=ax,
                     data=spec.data,
                     cmap=spec.kwargs.pop("cmap", spec.cmap or "viridis"),
-                    colorbar=spec.colorbar,
+                    colorbar=should_show_colorbar if spec.colorbar else False,
                     colorbar_label=spec.colorbar_label,
                     alpha=spec.alpha,
                     **spec.kwargs,
                 )
+                if colormap_artists is not None and subplot_idx is not None and should_show_colorbar and artists:
+                    # Find the colorbar or mappable in artists
+                    for artist in artists:
+                        if hasattr(artist, 'get_array') or hasattr(artist, 'get_clim'):
+                            colormap_artists[subplot_idx] = artist
+                            break
 
         elif spec.plot_type == "violin":
             # Enhanced violin plot with box and points
@@ -1279,7 +1352,7 @@ class PlotGrid:
             cbar_label = (
                 spec.colorbar_label or "Time" if spec.color_by is not None else None
             )
-            render_trajectory_matplotlib(
+            lc = render_trajectory_matplotlib(
                 ax=ax,
                 x=x,
                 y=y,
@@ -1290,10 +1363,12 @@ class PlotGrid:
                 show_points=spec.show_points,
                 point_color=spec.color or "black",
                 point_size=spec.marker_size or 10,
-                colorbar=spec.colorbar,
+                colorbar=should_show_colorbar if spec.colorbar else False,
                 colorbar_label=cbar_label,
                 label=label_to_use,
             )
+            if colormap_artists is not None and subplot_idx is not None and should_show_colorbar and colors is not None:
+                colormap_artists[subplot_idx] = lc
 
             if spec.equal_aspect:
                 ax.set_aspect("equal", adjustable="box")
@@ -1314,7 +1389,7 @@ class PlotGrid:
             cbar_label = (
                 spec.colorbar_label or "Time" if spec.color_by is not None else None
             )
-            render_trajectory3d_matplotlib(
+            lc = render_trajectory3d_matplotlib(
                 ax=ax,
                 x=x,
                 y=y,
@@ -1325,10 +1400,12 @@ class PlotGrid:
                 alpha=spec.alpha,
                 show_points=spec.show_points,
                 point_size=spec.marker_size or 10,
-                colorbar=spec.colorbar,
+                colorbar=should_show_colorbar if spec.colorbar else False,
                 colorbar_label=cbar_label,
                 label=label_to_use,
             )
+            if colormap_artists is not None and subplot_idx is not None and should_show_colorbar and colors is not None:
+                colormap_artists[subplot_idx] = lc
 
         elif spec.plot_type == "kde":
             # 2D KDE contour plot
@@ -1341,7 +1418,7 @@ class PlotGrid:
             )
 
             # Render using renderer
-            render_kde_matplotlib(
+            cs = render_kde_matplotlib(
                 ax=ax,
                 xi=xi,
                 yi=yi,
@@ -1350,10 +1427,12 @@ class PlotGrid:
                 n_levels=spec.n_levels,
                 cmap=spec.cmap or "Blues",
                 alpha=spec.alpha,
-                colorbar=spec.colorbar,
+                colorbar=should_show_colorbar if spec.colorbar else False,
                 colorbar_label=spec.colorbar_label,
                 label=label_to_use,
             )
+            if colormap_artists is not None and subplot_idx is not None and should_show_colorbar:
+                colormap_artists[subplot_idx] = cs
 
             # Show points if requested
             if spec.show_points:
@@ -1813,6 +1892,82 @@ class PlotGrid:
         else:
             raise ValueError(f"Unsupported plot type: {spec.plot_type}")
 
+    def _prevent_overlaps(
+        self, 
+        fig: Any, 
+        axes_flat: list[Any], 
+        rows: int, 
+        cols: int, 
+        n_subplots: int
+    ) -> None:
+        """Prevent overlapping labels, ticks, and titles in matplotlib figures.
+        
+        Adjusts spacing and label positions to prevent overlaps.
+        """
+        if n_subplots <= 1:
+            return
+        
+        # Adjust tight_layout with padding to prevent overlaps
+        # Increase padding for more subplots
+        pad = max(3.0, 1.5 + 0.5 * (rows + cols))
+        
+        # Adjust for colorbars - if we have colorbars, need more horizontal space
+        has_colorbars = any(
+            ax.get_images() or 
+            any(hasattr(c, 'colorbar') for c in ax.collections)
+            for ax in axes_flat
+        )
+        if has_colorbars:
+            pad += 1.0
+        
+        # Use tight_layout with padding
+        try:
+            fig.tight_layout(pad=pad, h_pad=0.4 + 0.1 * rows, w_pad=0.4 + 0.1 * cols)
+        except Exception:
+            # Fallback if tight_layout fails
+            fig.subplots_adjust(
+                left=0.1, right=0.95, top=0.95, bottom=0.1,
+                hspace=0.3 + 0.1 * rows, wspace=0.3 + 0.1 * cols
+            )
+        
+        # Adjust title positions to prevent overlap with subplot titles
+        for i, ax in enumerate(axes_flat):
+            title = ax.get_title()
+            if title:
+                # Get title position
+                title_obj = ax.title
+                pos = title_obj.get_position()
+                # Adjust if needed (reduce y position slightly)
+                title_obj.set_position((pos[0], pos[1] * 0.98))
+        
+        # Rotate x-axis labels if they're long or many subplots
+        if cols > 3:
+            for ax in axes_flat:
+                labels = ax.get_xticklabels()
+                if labels:
+                    # Check if labels might overlap
+                    label_texts = [l.get_text() for l in labels]
+                    max_len = max(len(t) for t in label_texts if t)
+                    if max_len > 5 or len(labels) > 5:
+                        ax.tick_params(axis='x', rotation=45)
+        
+        # Adjust y-axis label positions for leftmost subplots
+        for i in range(0, n_subplots, cols):
+            if i < len(axes_flat):
+                ax = axes_flat[i]
+                ylabel = ax.get_ylabel()
+                if ylabel:
+                    ax.yaxis.label.set_x(-0.15)  # Move slightly left
+        
+        # Adjust x-axis label positions for bottom subplots
+        bottom_start = (rows - 1) * cols
+        for i in range(bottom_start, min(bottom_start + cols, n_subplots)):
+            if i < len(axes_flat):
+                ax = axes_flat[i]
+                xlabel = ax.get_xlabel()
+                if xlabel:
+                    ax.xaxis.label.set_y(-0.15)  # Move slightly down
+
 
 # Convenience functions for common patterns
 
@@ -1951,11 +2106,14 @@ def create_subplot_grid(
     backend: Literal["matplotlib", "plotly"] | None = None,
     projection: str | None = None,
     subplot_projections: list[str | None] | None = None,
+    width_ratios: list[float] | None = None,
+    height_ratios: list[float] | None = None,
 ) -> Any:
     """
     Create a multi-panel subplot grid.
 
     Internal utility function used by PlotGrid for creating subplot layouts.
+    Supports uneven grids via width_ratios and height_ratios.
 
     Parameters
     ----------
@@ -1984,6 +2142,12 @@ def create_subplot_grid(
         Default projection for all subplots (deprecated, use subplot_projections).
     subplot_projections : list of str or None, optional
         Per-subplot projections. If provided, each subplot gets its own projection.
+    width_ratios : list of float, optional
+        Relative widths of columns. Length must equal cols.
+        For uneven grids: e.g., [1, 2, 2] makes first column half width of others.
+    height_ratios : list of float, optional
+        Relative heights of rows. Length must equal rows.
+        For uneven grids: e.g., [1, 2] makes first row half height of second.
 
     Returns
     -------
@@ -2008,6 +2172,8 @@ def create_subplot_grid(
             plt,
             projection,
             subplot_projections,
+            width_ratios,
+            height_ratios,
         )
     else:
         if not PLOTLY_AVAILABLE:
@@ -2024,6 +2190,8 @@ def create_subplot_grid(
             specs,
             go,
             make_subplots,
+            width_ratios,
+            height_ratios,
         )
 
 
@@ -2037,8 +2205,10 @@ def _create_subplot_grid_matplotlib(
     plt: Any,
     projection: str | None = None,
     subplot_projections: list[str | None] | None = None,
+    width_ratios: list[float] | None = None,
+    height_ratios: list[float] | None = None,
 ) -> tuple[Any, Any]:
-    """Matplotlib implementation of subplot grid with per-subplot projection support."""
+    """Matplotlib implementation of subplot grid with per-subplot projection support and uneven grids."""
     # Convert shared axes parameters
     sharex = (
         "all"
@@ -2051,27 +2221,50 @@ def _create_subplot_grid_matplotlib(
         else (shared_yaxes if isinstance(shared_yaxes, str) else False)
     )
 
-    # If we have per-subplot projections, create figure and axes individually
-    if subplot_projections is not None and any(
-        p is not None for p in subplot_projections
-    ):
+    # Validate ratios
+    if width_ratios is not None and len(width_ratios) != cols:
+        raise ValueError(f"width_ratios length ({len(width_ratios)}) must equal cols ({cols})")
+    if height_ratios is not None and len(height_ratios) != rows:
+        raise ValueError(f"height_ratios length ({len(height_ratios)}) must equal rows ({rows})")
+
+    # If we have uneven grids or per-subplot projections, use GridSpec
+    use_gridspec = (
+        width_ratios is not None
+        or height_ratios is not None
+        or (subplot_projections is not None and any(p is not None for p in subplot_projections))
+    )
+
+    if use_gridspec:
+        from matplotlib.gridspec import GridSpec
+
         # Create figure
         fig = plt.figure(figsize=config.figsize, dpi=config.dpi)
+
+        # Create GridSpec with optional ratios
+        gs_kwargs = {}
+        if width_ratios is not None:
+            gs_kwargs["width_ratios"] = width_ratios
+        if height_ratios is not None:
+            gs_kwargs["height_ratios"] = height_ratios
+
+        gs = GridSpec(rows, cols, figure=fig, **gs_kwargs)
 
         # Create axes with individual projections
         axes_flat = []
         for idx in range(rows * cols):
-            proj = subplot_projections[idx] if idx < len(subplot_projections) else None
+            row = idx // cols
+            col = idx % cols
+            proj = subplot_projections[idx] if subplot_projections and idx < len(subplot_projections) else None
 
             # Add subplot with specific projection
             if proj:
-                ax = fig.add_subplot(rows, cols, idx + 1, projection=proj)
+                ax = fig.add_subplot(gs[row, col], projection=proj)
             else:
-                ax = fig.add_subplot(rows, cols, idx + 1)
+                ax = fig.add_subplot(gs[row, col])
 
             axes_flat.append(ax)
     else:
-        # Original behavior: all subplots have same projection
+        # Original behavior: all subplots have same projection, uniform grid
         subplot_kw = {}
         if projection:
             subplot_kw["projection"] = projection
@@ -2085,6 +2278,9 @@ def _create_subplot_grid_matplotlib(
             sharey=sharey if sharey != "rows" and sharey != "columns" else False,
             squeeze=False,
             subplot_kw=subplot_kw,
+            gridspec_kw={"width_ratios": width_ratios, "height_ratios": height_ratios}
+            if width_ratios is not None or height_ratios is not None
+            else {},
         )
 
         # Flatten axes array for easier indexing
@@ -2117,10 +2313,18 @@ def _create_subplot_grid_plotly(
     specs: list[list[dict[str, Any]]] | None,
     go: Any,
     make_subplots: Any,
+    width_ratios: list[float] | None = None,
+    height_ratios: list[float] | None = None,
 ) -> Any:
-    """Plotly implementation of subplot grid."""
+    """Plotly implementation of subplot grid with uneven grid support."""
     # Convert subplot_titles to list if provided
     titles = list(subplot_titles) if subplot_titles is not None else None
+
+    # Validate ratios
+    if width_ratios is not None and len(width_ratios) != cols:
+        raise ValueError(f"width_ratios length ({len(width_ratios)}) must equal cols ({cols})")
+    if height_ratios is not None and len(height_ratios) != rows:
+        raise ValueError(f"height_ratios length ({len(height_ratios)}) must equal rows ({rows})")
 
     # Set default spacing if not provided
     if vertical_spacing is None:
@@ -2141,12 +2345,60 @@ def _create_subplot_grid_plotly(
 
     # Apply overall layout
     width, height = config.figsize
-    fig.update_layout(
-        title=config.title if config.title else None,
-        width=width * config.dpi,
-        height=height * config.dpi,
-        showlegend=config.legend,
-    )
+    layout_updates = {
+        "title": config.title if config.title else None,
+        "width": width * config.dpi,
+        "height": height * config.dpi,
+        "showlegend": config.legend,
+    }
+
+    # Apply uneven grid ratios if provided
+    # Plotly requires manual domain calculation for uneven grids
+    if width_ratios is not None or height_ratios is not None:
+        # Normalize ratios
+        if width_ratios is not None:
+            total_width = sum(width_ratios)
+            width_ratios_norm = [w / total_width for w in width_ratios]
+        else:
+            width_ratios_norm = [1.0 / cols] * cols
+
+        if height_ratios is not None:
+            total_height = sum(height_ratios)
+            height_ratios_norm = [h / total_height for h in height_ratios]
+        else:
+            height_ratios_norm = [1.0 / rows] * rows
+
+        # Calculate cumulative positions for domains
+        x_domains = []
+        y_domains = []
+        x_cumsum = 0.0
+        y_cumsum = 1.0  # Start from top
+
+        for w in width_ratios_norm:
+            x_domains.append((x_cumsum, x_cumsum + w))
+            x_cumsum += w
+
+        for h in height_ratios_norm:
+            y_domains.append((y_cumsum - h, y_cumsum))
+            y_cumsum -= h
+
+        # Update each subplot's domain
+        for row in range(1, rows + 1):
+            for col in range(1, cols + 1):
+                x_domain = x_domains[col - 1]
+                y_domain = y_domains[row - 1]
+                # Plotly uses 1-based indexing for subplots
+                subplot_name = f"xaxis{row * cols + col}" if rows > 1 or cols > 1 else "xaxis"
+                if rows > 1:
+                    subplot_name = f"xaxis{col}" if cols == 1 else f"xaxis{(row - 1) * cols + col}"
+                else:
+                    subplot_name = f"xaxis{col}"
+                
+                # Use update_xaxes and update_yaxes for domain updates
+                fig.update_xaxes(domain=x_domain, row=row, col=col)
+                fig.update_yaxes(domain=y_domain, row=row, col=col)
+
+    fig.update_layout(**layout_updates)
 
     return fig
 

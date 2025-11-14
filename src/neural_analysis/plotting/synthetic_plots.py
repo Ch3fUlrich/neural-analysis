@@ -244,59 +244,14 @@ def _compute_radial_power_spectrum(
 # ==============================================================================
 
 
-def plot_synthetic_data(
-    activity: npt.NDArray[np.float64],
-    metadata: dict[str, Any],
-    show_raster: bool = True,
-    show_fields: bool = True,
-    show_behavior: bool = True,
-    show_ground_truth: bool = True,
-    show_embeddings: bool = True,
-    embedding_methods: list[str] | None = None,
-    n_embedding_dims: int = 2,
-    max_raster_cells: int = 100,
-    figsize: tuple[float, float] | None = None,
-    backend: str = "matplotlib",
-) -> Figure:
-    """Plot comprehensive visualization of synthetic neural data.
-
-    Creates a multi-panel figure showing:
-    - Raster plot of neural activity (color-coded by cell type)
-    - Place fields or tuning curves (if applicable)
-    - Behavioral trajectory
-    - Ground truth embedding (ring/torus if available)
-    - Learned embeddings (PCA, UMAP, etc.)
-
-    Args:
-        activity: Neural activity matrix, shape (n_samples, n_cells).
-        metadata: Dictionary with dataset metadata (positions, cell_type, etc.).
-        show_raster: Show neural activity raster plot.
-        show_fields: Show place fields or tuning curves.
-        show_behavior: Show behavioral trajectory.
-        show_ground_truth: Show ground truth embedding (if available).
-        show_embeddings: Show learned embeddings.
-        embedding_methods: List of embedding methods ('pca', 'umap', 'tsne', etc.).
-        n_embedding_dims: Dimensionality of embeddings (2 or 3).
-        max_raster_cells: Maximum number of cells to show in raster.
-        figsize: Figure size as (width, height).
-        backend: 'matplotlib' or 'plotly'.
+def _get_cell_colors(
+    activity: npt.NDArray[np.float64], metadata: dict[str, Any]
+) -> tuple[str, list[str] | None, list[str]]:
+    """Determine cell types and colors from metadata.
 
     Returns:
-        fig: Matplotlib figure or Plotly figure object.
-
-    Examples:
-        >>> from neural_analysis.data.synthetic_data import generate_place_cells
-        >>> activity, meta = generate_place_cells(50, 1000, plot=True)
-        # This automatically calls plot_synthetic_data internally
-
-        >>> # Or plot manually
-        >>> activity, meta = generate_place_cells(50, 1000, plot=False)
-        >>> fig = plot_synthetic_data(activity, meta)
+        Tuple of (cell_type, cell_types, colors)
     """
-    if embedding_methods is None:
-        embedding_methods = ["pca", "umap"]
-
-    # Determine cell types and colors
     cell_type = metadata.get("cell_type", "unknown")
     cell_types = metadata.get("cell_types")
 
@@ -307,24 +262,41 @@ def plot_synthetic_data(
         # Single cell type
         colors = [CELL_TYPE_COLORS.get(cell_type, "#7F8C8D")] * activity.shape[1]
 
-    # Count fixed plots (not including example cells)
-    n_fixed_plots = 0
-    n_fixed_plots += 1 if show_raster else 0  # Raster
+    return cell_type, cell_types, colors
+
+
+def _count_fixed_plots(
+    metadata: dict[str, Any],
+    show_raster: bool,
+    show_fields: bool,
+    show_behavior: bool,
+    show_ground_truth: bool,
+    show_embeddings: bool,
+    embedding_methods: list[str],
+) -> int:
+    """Count fixed plots (not including example cells)."""
+    n_fixed = 0
+    n_fixed += 1 if show_raster else 0  # Raster
     # Coverage (for place/grid cells) or diagnostics (for random cells)
     if show_fields:
+        cell_type = metadata.get("cell_type", "unknown")
         if cell_type in ("place", "grid"):
-            n_fixed_plots += 1  # Coverage
+            n_fixed += 1  # Coverage
         elif cell_type == "random":
-            n_fixed_plots += 4  # 4 diagnostic plots
+            n_fixed += 4  # 4 diagnostic plots
     # Behavior trajectory
-    n_fixed_plots += 1 if show_behavior and "positions" in metadata else 0
+    n_fixed += 1 if show_behavior and "positions" in metadata else 0
     # Ground truth embedding
-    if show_ground_truth and "ground_truth_embedding" in metadata:
-        n_fixed_plots += 1
+    n_fixed += 1 if show_ground_truth and "ground_truth_embedding" in metadata else 0
     # Learned embeddings
-    n_fixed_plots += len(embedding_methods) if show_embeddings else 0
+    n_fixed += len(embedding_methods) if show_embeddings else 0
+    return n_fixed
 
-    # Calculate grid for different example cell counts to find optimal configuration
+
+def _calculate_optimal_example_cells(
+    n_fixed_plots: int, cell_type: str
+) -> int:
+    """Calculate optimal number of example cells to minimize empty subplots."""
     def calc_grid(n_total: int) -> tuple[int, int]:
         """Calculate grid dimensions for given number of plots."""
         if n_total <= 2:
@@ -358,10 +330,37 @@ def plot_synthetic_data(
             min_empty = n_empty
             best_n_examples = n_examples
 
-    # Use the optimal number of example cells
-    n_example_cells = best_n_examples
+    return best_n_examples
 
-    # Collect all plot specs without assigning positions yet
+
+def _collect_plot_specs(
+    activity: npt.NDArray[np.float64],
+    metadata: dict[str, Any],
+    colors: list[str],
+    cell_types: list[str] | None,
+    n_example_cells: int,
+    show_raster: bool,
+    show_fields: bool,
+    show_behavior: bool,
+    show_ground_truth: bool,
+    show_embeddings: bool,
+    embedding_methods: list[str],
+    n_embedding_dims: int,
+    max_raster_cells: int,
+) -> tuple[
+    list[PlotSpec],
+    list[PlotSpec],
+    list[PlotSpec],
+    list[PlotSpec],
+    list[PlotSpec],
+    list[PlotSpec],
+]:
+    """Collect all plot specs without assigning positions.
+
+    Returns:
+        Tuple of (raster_specs, coverage_specs, example_cell_specs,
+                  behavior_specs, ground_truth_specs, embedding_specs)
+    """
     raster_specs: list[PlotSpec] = []
     coverage_specs: list[PlotSpec] = []
     example_cell_specs: list[PlotSpec] = []
@@ -369,7 +368,7 @@ def plot_synthetic_data(
     ground_truth_specs: list[PlotSpec] = []
     embedding_specs: list[PlotSpec] = []
 
-    # 1. Raster plot (will be first)
+    # 1. Raster plot
     if show_raster:
         raster_spec = _create_raster_plot(
             activity,
@@ -514,7 +513,7 @@ def plot_synthetic_data(
                     if example_specs:
                         example_cell_specs.extend(example_specs)
 
-    # 3. Behavioral trajectory (will be in last row)
+    # 3. Behavioral trajectory
     if show_behavior and "positions" in metadata:
         behavior_spec = _create_behavior_plot(
             metadata["positions"], metadata, subplot_position=0
@@ -525,13 +524,13 @@ def plot_synthetic_data(
             else:
                 behavior_specs.append(behavior_spec)
 
-    # 4. Ground truth embedding (optional, goes before embeddings if present)
+    # 4. Ground truth embedding
     if show_ground_truth and "ground_truth_embedding" in metadata:
         gt_spec = _create_ground_truth_plot(metadata, subplot_position=0)
         if gt_spec:
             ground_truth_specs.append(gt_spec)
 
-    # 5. Learned embeddings (will be in last row: PCA, UMAP)
+    # 5. Learned embeddings
     if show_embeddings:
         emb_specs = _create_embedding_plots(
             activity,
@@ -542,8 +541,129 @@ def plot_synthetic_data(
         )
         embedding_specs.extend(emb_specs)
 
-    # Now assign proper subplot positions based on desired order:
-    # Order: raster -> coverage -> example cells -> [last row: behavior, PCA, UMAP]
+    return (
+        raster_specs,
+        coverage_specs,
+        example_cell_specs,
+        behavior_specs,
+        ground_truth_specs,
+        embedding_specs,
+    )
+
+
+def _assign_subplot_positions_mixed(
+    raster_specs: list[PlotSpec],
+    coverage_specs: list[PlotSpec],
+    example_cell_specs: list[PlotSpec],
+    ground_truth_specs: list[PlotSpec],
+    behavior_specs: list[PlotSpec],
+    embedding_specs: list[PlotSpec],
+) -> tuple[list[PlotSpec], int, int]:
+    """Assign subplot positions for mixed populations.
+
+    Returns:
+        Tuple of (plot_specs, nrows, ncols)
+    """
+    import math
+
+    # Count required plots: raster + coverage(s) + ground_truth
+    # Behavior and embeddings are reserved for last 3 positions
+    n_required = len(raster_specs) + len(coverage_specs) + len(ground_truth_specs)
+    n_reserved = len(behavior_specs) + len(embedding_specs)  # Should be 3 (behavior + PCA + UMAP)
+
+    # Try different grid sizes to find one that fits well
+    best_grid = None
+    best_n_examples = 0
+    min_empty = float("inf")
+
+    for ncols in [3, 4, 5]:
+        # Calculate how many example cells we can fit
+        total_needed = n_required + n_reserved
+        grid_size = ncols * math.ceil(total_needed / ncols)
+        nrows = math.ceil(grid_size / ncols)
+        grid_size = nrows * ncols
+
+        # Available positions for example cells
+        available_for_examples = grid_size - total_needed
+        if available_for_examples < 0:
+            available_for_examples = 0
+
+        n_empty = grid_size - total_needed - min(available_for_examples, len(example_cell_specs))
+
+        if n_empty < min_empty and available_for_examples >= 0:
+            min_empty = n_empty
+            best_grid = (nrows, ncols)
+            best_n_examples = min(available_for_examples, len(example_cell_specs))
+
+    if best_grid is None:
+        # Fallback to default calculation
+        ncols = 3
+        total_needed = n_required + n_reserved
+        nrows = math.ceil(total_needed / ncols)
+        grid_size = nrows * ncols
+        best_n_examples = min(len(example_cell_specs), max(0, grid_size - total_needed))
+    else:
+        nrows, ncols = best_grid
+        grid_size = nrows * ncols
+
+    # Now assign positions: raster -> coverage -> example cells -> ground_truth -> [last 3: behavior, PCA, UMAP]
+    plot_specs: list[PlotSpec] = []
+
+    # Add raster (first subplot)
+    for spec in raster_specs:
+        spec.subplot_position = len(plot_specs)
+        plot_specs.append(spec)
+
+    # Add coverage
+    for spec in coverage_specs:
+        spec.subplot_position = len(plot_specs)
+        plot_specs.append(spec)
+
+    # Add example cells (fill middle subplots up to best_n_examples)
+    for i, spec in enumerate(example_cell_specs[:best_n_examples]):
+        spec.subplot_position = len(plot_specs)
+        plot_specs.append(spec)
+
+    # Add ground truth if present
+    for spec in ground_truth_specs:
+        spec.subplot_position = len(plot_specs)
+        plot_specs.append(spec)
+
+    # Reserve last 3 positions for behavior + embeddings
+    last_row_start = grid_size - 3
+    behavior_pos = last_row_start
+    embedding_positions = [last_row_start + 1, last_row_start + 2]
+
+    # Add behavior (second to last position)
+    for spec in behavior_specs:
+        spec.subplot_position = behavior_pos
+        plot_specs.append(spec)
+
+    # Add embeddings (last 2 positions: PCA, UMAP)
+    for i, spec in enumerate(embedding_specs):
+        if i < len(embedding_positions):
+            spec.subplot_position = embedding_positions[i]
+            plot_specs.append(spec)
+
+    return plot_specs, nrows, ncols
+
+
+def _assign_subplot_positions_single(
+    raster_specs: list[PlotSpec],
+    coverage_specs: list[PlotSpec],
+    example_cell_specs: list[PlotSpec],
+    ground_truth_specs: list[PlotSpec],
+    behavior_specs: list[PlotSpec],
+    embedding_specs: list[PlotSpec],
+    n_example_cells: int,
+) -> tuple[list[PlotSpec], int, int]:
+    """Assign subplot positions for single cell type.
+
+    Returns:
+        Tuple of (plot_specs, nrows, ncols)
+    """
+    import math
+
     plot_specs = []
     n_plots = 0
 
@@ -584,13 +704,7 @@ def plot_synthetic_data(
         plot_specs.append(spec)
         n_plots += 1
 
-    # Create grid layout
-    if n_plots == 0:
-        raise ValueError("No plots to show. Enable at least one plot type.")
-
     # Compute optimal grid layout (minimize empty subplots)
-    import math
-
     if n_plots <= 2:
         nrows, ncols = 1, n_plots
     elif n_plots <= 4:
@@ -602,7 +716,22 @@ def plot_synthetic_data(
         ncols = min(3, n_plots)
         nrows = math.ceil(n_plots / ncols)
 
-    # Create plot grid
+    return plot_specs, nrows, ncols
+
+
+def _create_and_render_grid(
+    plot_specs: list[PlotSpec],
+    nrows: int,
+    ncols: int,
+    cell_type: str,
+    cell_types: list[str] | None,
+    figsize: tuple[float, float] | None,
+    backend: str,
+) -> Figure:
+    """Create and render the final plot grid."""
+    if len(plot_specs) == 0:
+        raise ValueError("No plots to show. Enable at least one plot type.")
+
     from neural_analysis.plotting.grid_config import GridLayoutConfig, PlotConfig
 
     grid = PlotGrid(
@@ -611,8 +740,8 @@ def plot_synthetic_data(
         layout=GridLayoutConfig(
             rows=nrows,
             cols=ncols,
-            vertical_spacing=0.35,  # Increase vertical spacing to prevent overlap
-            horizontal_spacing=0.25,  # Horizontal spacing
+            vertical_spacing=0.35,
+            horizontal_spacing=0.25,
         ),
         backend=cast('Literal["matplotlib", "plotly"]', backend),
     )
@@ -639,6 +768,118 @@ def plot_synthetic_data(
         fig.update_layout(title_text=title)
 
     return fig
+
+
+def plot_synthetic_data(
+    activity: npt.NDArray[np.float64],
+    metadata: dict[str, Any],
+    show_raster: bool = True,
+    show_fields: bool = True,
+    show_behavior: bool = True,
+    show_ground_truth: bool = True,
+    show_embeddings: bool = True,
+    embedding_methods: list[str] | None = None,
+    n_embedding_dims: int = 2,
+    max_raster_cells: int = 100,
+    figsize: tuple[float, float] | None = None,
+    backend: str = "matplotlib",
+) -> Figure:
+    """Plot comprehensive visualization of synthetic neural data.
+
+    Creates a multi-panel figure showing:
+    - Raster plot of neural activity (color-coded by cell type)
+    - Place fields or tuning curves (if applicable)
+    - Behavioral trajectory
+    - Ground truth embedding (ring/torus if available)
+    - Learned embeddings (PCA, UMAP, etc.)
+
+    Args:
+        activity: Neural activity matrix, shape (n_samples, n_cells).
+        metadata: Dictionary with dataset metadata (positions, cell_type, etc.).
+        show_raster: Show neural activity raster plot.
+        show_fields: Show place fields or tuning curves.
+        show_behavior: Show behavioral trajectory.
+        show_ground_truth: Show ground truth embedding (if available).
+        show_embeddings: Show learned embeddings.
+        embedding_methods: List of embedding methods ('pca', 'umap', 'tsne', etc.).
+        n_embedding_dims: Dimensionality of embeddings (2 or 3).
+        max_raster_cells: Maximum number of cells to show in raster.
+        figsize: Figure size as (width, height).
+        backend: 'matplotlib' or 'plotly'.
+
+    Returns:
+        fig: Matplotlib figure or Plotly figure object.
+
+    Examples:
+        >>> from neural_analysis.data.synthetic_data import generate_place_cells
+        >>> activity, meta = generate_place_cells(50, 1000, plot=True)
+        # This automatically calls plot_synthetic_data internally
+
+        >>> # Or plot manually
+        >>> activity, meta = generate_place_cells(50, 1000, plot=False)
+        >>> fig = plot_synthetic_data(activity, meta)
+    """
+    if embedding_methods is None:
+        embedding_methods = ["pca", "umap"]
+
+    # Determine cell types and colors
+    cell_type, cell_types, colors = _get_cell_colors(activity, metadata)
+
+    # Count fixed plots and calculate optimal example cells
+    n_fixed_plots = _count_fixed_plots(
+        metadata, show_raster, show_fields, show_behavior, show_ground_truth, show_embeddings, embedding_methods
+    )
+    n_example_cells = _calculate_optimal_example_cells(n_fixed_plots, cell_type)
+
+    # Collect all plot specs
+    (
+        raster_specs,
+        coverage_specs,
+        example_cell_specs,
+        behavior_specs,
+        ground_truth_specs,
+        embedding_specs,
+    ) = _collect_plot_specs(
+        activity,
+        metadata,
+        colors,
+        cell_types,
+        n_example_cells,
+        show_raster,
+        show_fields,
+        show_behavior,
+        show_ground_truth,
+        show_embeddings,
+        embedding_methods,
+        n_embedding_dims,
+        max_raster_cells,
+    )
+
+    # Assign subplot positions based on population type
+    if cell_types is not None:
+        plot_specs, nrows, ncols = _assign_subplot_positions_mixed(
+            raster_specs,
+            coverage_specs,
+            example_cell_specs,
+            ground_truth_specs,
+            behavior_specs,
+            embedding_specs,
+        )
+    else:
+        plot_specs, nrows, ncols = _assign_subplot_positions_single(
+            raster_specs,
+            coverage_specs,
+            example_cell_specs,
+            ground_truth_specs,
+            behavior_specs,
+            embedding_specs,
+            n_example_cells,
+        )
+
+    # Create and render the grid
+    return _create_and_render_grid(
+        plot_specs, nrows, ncols, cell_type, cell_types, figsize, backend
+    )
 
 
 def _create_raster_plot(
@@ -1166,11 +1407,10 @@ def _create_coverage_heatmap_3d(
     metadata: dict[str, Any],
     subplot_position: int,
 ) -> list[PlotSpec] | None:
-    """Create 3D spatial autocorrelation visualization to detect repetitive patterns.
+    """Create 3D spatial coverage visualization.
 
-    Uses 3D autocorrelation to reveal periodic spatial structure in firing patterns.
-    For grid cells, this should show clear hexagonal/tetrahedral periodicity.
-    For place cells, this should show localized autocorrelation with no periodicity.
+    For place cells: shows spatial coverage heatmap (average firing rate across all cells).
+    For grid cells: shows autocorrelation to reveal periodic structure.
     """
     positions = metadata.get("positions")
     arena_size = metadata.get("arena_size", (1.0, 1.0, 1.0))
@@ -1182,86 +1422,116 @@ def _create_coverage_heatmap_3d(
     # Get arena dimensions
     x_max, y_max, z_max = arena_size
 
-    # Use spatial binning of actual neural activity
-    if cell_type == "grid":
-        # For grid cells: show a single example cell (cell 0) to see pattern
-        # Use higher resolution (60 bins) to better capture grid structure
-        n_bins = 60
-        _, _, _, firing_volume = _compute_spatial_bins_3d(
-            positions, activity, arena_size, n_bins=n_bins, cell_idx=0
-        )
-    else:
-        # For place cells: use trajectory-based spatial binning of all neurons
-        n_bins = 30
-        _, _, _, firing_volume = _compute_spatial_bins_3d(
-            positions, activity, arena_size, n_bins=n_bins, cell_idx=None
-        )
-
     # Choose colormap based on cell type
     cmap = "hot" if cell_type == "place" else "viridis"
 
-    # Create 3D autocorrelation visualization
     specs = []
 
-    try:
-        # Normalize firing volume to have zero mean for autocorrelation
-        firing_volume_centered = firing_volume - np.nanmean(firing_volume)
-        firing_volume_centered = np.nan_to_num(firing_volume_centered, nan=0.0)
+    if cell_type == "grid":
+        # For grid cells: compute autocorrelation to reveal periodic structure
+        try:
+            # Use spatial binning first
+            n_bins = 60
+            x_centers, y_centers, z_centers, firing_volume = _compute_spatial_bins_3d(
+                positions, activity, arena_size, n_bins=n_bins, cell_idx=0
+            )
 
-        # Compute 3D autocorrelation using FFT (faster than spatial method)
-        # Use power spectrum approach (Wiener-Khinchin theorem):
-        # autocorrelation = IFFT(|FFT(signal)|^2)
-        fft_3d = np.fft.fftn(firing_volume_centered)
-        power_spectrum = np.abs(fft_3d) ** 2
-        autocorr = np.fft.ifftn(power_spectrum).real
-        autocorr = np.fft.fftshift(autocorr)  # Center the zero-lag peak
+            # Normalize firing volume to have zero mean for autocorrelation
+            firing_volume_centered = firing_volume - np.nanmean(firing_volume)
+            firing_volume_centered = np.nan_to_num(firing_volume_centered, nan=0.0)
 
-        # Normalize autocorrelation by zero-lag value
-        center_idx = tuple(s // 2 for s in autocorr.shape)
-        if autocorr[center_idx] != 0:
-            autocorr_normalized = autocorr / autocorr[center_idx]
-        else:
-            autocorr_normalized = autocorr
+            # Compute 3D autocorrelation using FFT (faster than spatial method)
+            # Use power spectrum approach (Wiener-Khinchin theorem):
+            # autocorrelation = IFFT(|FFT(signal)|^2)
+            fft_3d = np.fft.fftn(firing_volume_centered)
+            power_spectrum = np.abs(fft_3d) ** 2
+            autocorr = np.fft.ifftn(power_spectrum).real
+            autocorr = np.fft.fftshift(autocorr)  # Center the zero-lag peak
 
-        # Create orthogonal slices through the center (where zero-lag peak is)
-        # These slices will show the brightest spot in the middle
-        center_x, center_y, center_z = center_idx
-        xy_slice = autocorr_normalized[:, :, center_z]  # XY plane through center Z
-        xz_slice = autocorr_normalized[:, center_y, :]  # XZ plane through center Y
-        yz_slice = autocorr_normalized[center_x, :, :]  # YZ plane through center X
+            # Normalize autocorrelation by zero-lag value
+            center_idx = tuple(s // 2 for s in autocorr.shape)
+            if autocorr[center_idx] != 0:
+                autocorr_normalized = autocorr / autocorr[center_idx]
+            else:
+                autocorr_normalized = autocorr
 
-        # Create lag axes (in meters, centered at 0)
-        x_lags = np.linspace(-x_max, x_max, autocorr_normalized.shape[0])
-        y_lags = np.linspace(-y_max, y_max, autocorr_normalized.shape[1])
-        z_lags = np.linspace(-z_max, z_max, autocorr_normalized.shape[2])
+            # Create orthogonal slices through the center (where zero-lag peak is)
+            center_x, center_y, center_z = center_idx
+            xy_slice = autocorr_normalized[:, :, center_z]  # XY plane through center Z
+            xz_slice = autocorr_normalized[:, center_y, :]  # XZ plane through center Y
+            yz_slice = autocorr_normalized[center_x, :, :]  # YZ plane through center X
+
+            # Create lag axes (in meters, centered at 0)
+            x_lags = np.linspace(-x_max, x_max, autocorr_normalized.shape[0])
+            y_lags = np.linspace(-y_max, y_max, autocorr_normalized.shape[1])
+            z_lags = np.linspace(-z_max, z_max, autocorr_normalized.shape[2])
+
+            wall_spec = PlotSpec(
+                data={
+                    "xy": xy_slice,
+                    "xz": xz_slice,
+                    "yz": yz_slice,
+                    "x_centers": x_lags,
+                    "y_centers": y_lags,
+                    "z_centers": z_lags,
+                    # Add wall positions to place at boundaries
+                    "xy_position": z_lags[0],  # Place XY plane at minimum Z
+                    "xz_position": y_lags[0],  # Place XZ plane at minimum Y
+                    "yz_position": x_lags[0],  # Place YZ plane at minimum X
+                },
+                plot_type="heatmap_walls",
+                subplot_position=subplot_position,
+                title="Grid Field Autocorrelation (3D)",
+                cmap=cmap,
+                colorbar=True,
+                colorbar_label="Normalized Autocorr",
+                kwargs={},
+            )
+            specs.append(wall_spec)
+        except Exception as e:
+            # If anything goes wrong creating the autocorrelation, skip it silently
+            import warnings
+
+            warnings.warn(f"Failed to create 3D autocorrelation: {e}", stacklevel=2)
+    else:
+        # For place cells: use spatial binning of all neurons (coverage heatmap)
+        n_bins = 30
+        x_centers, y_centers, z_centers, firing_volume = _compute_spatial_bins_3d(
+            positions, activity, arena_size, n_bins=n_bins, cell_idx=None
+        )
+
+        # Create orthogonal slices through the center
+        center_x, center_y, center_z = (
+            firing_volume.shape[0] // 2,
+            firing_volume.shape[1] // 2,
+            firing_volume.shape[2] // 2,
+        )
+        xy_slice = firing_volume[:, :, center_z]  # XY plane through center Z
+        xz_slice = firing_volume[:, center_y, :]  # XZ plane through center Y
+        yz_slice = firing_volume[center_x, :, :]  # YZ plane through center X
 
         wall_spec = PlotSpec(
             data={
                 "xy": xy_slice,
                 "xz": xz_slice,
                 "yz": yz_slice,
-                "x_centers": x_lags,
-                "y_centers": y_lags,
-                "z_centers": z_lags,
+                "x_centers": x_centers,
+                "y_centers": y_centers,
+                "z_centers": z_centers,
                 # Add wall positions to place at boundaries
-                "xy_position": z_lags[0],  # Place XY plane at minimum Z
-                "xz_position": y_lags[0],  # Place XZ plane at minimum Y
-                "yz_position": x_lags[0],  # Place YZ plane at minimum X
+                "xy_position": z_centers[0],  # Place XY plane at minimum Z
+                "xz_position": y_centers[0],  # Place XZ plane at minimum Y
+                "yz_position": x_centers[0],  # Place YZ plane at minimum X
             },
             plot_type="heatmap_walls",
             subplot_position=subplot_position,
-            title=f"{cell_type.title()} Field Autocorrelation (3D)",
+            title="Place Field Coverage (3D)",
             cmap=cmap,
             colorbar=True,
-            colorbar_label="Normalized Autocorr",
+            colorbar_label="Avg. Firing Rate (Hz)",
             kwargs={},
         )
         specs.append(wall_spec)
-    except Exception as e:
-        # If anything goes wrong creating the autocorrelation, skip it silently
-        import warnings
-
-        warnings.warn(f"Failed to create 3D autocorrelation: {e}", stacklevel=2)
 
     return specs
 

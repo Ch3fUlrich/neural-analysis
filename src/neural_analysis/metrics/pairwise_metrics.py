@@ -1115,6 +1115,14 @@ def compute_all_pairs(
             )
             # Extract scalar from tuple if shape metric
             dist = result[0] if isinstance(result, tuple) else float(result)
+            
+            # Validate result is finite (especially for distribution metrics)
+            if not np.isfinite(dist):
+                logger.warning(
+                    f"Non-finite distance ({dist}) computed for {name_i} vs {name_j} "
+                    f"with metric '{metric_normalized}'. Replacing with np.nan."
+                )
+                dist = np.nan
 
         results[name_i][name_j] = dist
 

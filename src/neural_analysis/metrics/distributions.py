@@ -154,8 +154,29 @@ def wasserstein_distance_multi(
             f"points2 has {p2.shape[1]} features"
         )
 
-    distances = [wasserstein_distance(p1[:, i], p2[:, i]) for i in range(p1.shape[1])]
-    return float(np.sum(distances))
+    distances = []
+    for i in range(p1.shape[1]):
+        dist = wasserstein_distance(p1[:, i], p2[:, i])
+        # Check for inf or nan values
+        if not np.isfinite(dist):
+            logger.warning(
+                f"Wasserstein distance returned non-finite value ({dist}) for feature {i}. "
+                f"Replacing with np.nan. This may indicate numerical issues or disjoint distributions."
+            )
+            dist = np.nan
+        distances.append(dist)
+    
+    total_distance = float(np.sum(distances))
+    
+    # Final check to ensure result is finite
+    if not np.isfinite(total_distance):
+        logger.warning(
+            f"Total Wasserstein distance is non-finite ({total_distance}). "
+            "Replacing with np.nan."
+        )
+        total_distance = np.nan
+    
+    return total_distance
 
 
 @log_calls(level=logging.DEBUG)
@@ -205,7 +226,19 @@ def kolmogorov_smirnov_distance(
         )
 
     ks_stats = [ks_2samp(p1[:, i], p2[:, i]).statistic for i in range(p1.shape[1])]
-    return float(np.max(ks_stats))
+    max_ks = float(np.max(ks_stats))
+    
+    # KS statistic ranges from 0 to 1, where:
+    # - 0: identical distributions
+    # - 1: perfect separation (no overlap) in at least one dimension
+    # A value of 1.0 is valid and indicates complete separation in at least one feature
+    if max_ks == 1.0:
+        logger.debug(
+            f"KS distance = 1.0 indicates perfect separation in at least one feature. "
+            f"Individual feature KS stats: {[f'{s:.4f}' for s in ks_stats]}"
+        )
+    
+    return max_ks
 
 
 @log_calls(level=logging.DEBUG)
@@ -1083,12 +1116,10 @@ def shape_distance_procrustes(
     """
     m1, m2, disparity = procrustes(mtx1, mtx2)
 
-    # Extract pairs after alignment - compute distances between aligned points
-    # m1 is standardized mtx1, m2 is mtx2 transformed to best match m1
+    # Compute distance between pairs
     distances = np.linalg.norm(m1 - m2, axis=1)
-
-    # Create pairs dictionary with point indices and their post-alignment distances
-    pairs = {(i, i): float(distances[i]) for i in range(len(distances))}
+    # Create pairs dictionary with point indices and their post-alignment squared distances
+    pairs = {(i, i): float(distance) for i, distance in enumerate(distances)}
 
     return float(disparity), pairs
 
@@ -1096,18 +1127,13 @@ def shape_distance_procrustes(
 def shape_distance_one_to_one(
     mtx1: npt.NDArray[np.float64],
     mtx2: npt.NDArray[np.float64],
-    metric: str = "sqeuclidean",
+    metric: str = "euclidean",
 ) -> tuple[float, dict[tuple[int, int], float]]:
-    """Compute shape distance using optimal one-to-one point matching after
-    Procrustes alignment.
+    """Compute shape distance using optimal one-to-one point matching via optimal transport.
 
-    First applies Procrustes transformation (centering, scaling, and optimal
-    rotation), then uses the Hungarian algorithm to find the optimal permutation
-    of points that minimizes total distance. This ensures the mathematical
-    property that one-to-one distance ≤ Procrustes distance, since we search
-    over a larger space:
-    {all permutations} × {optimal rotation} ⊇ {identity permutation} ×
-    {optimal rotation}.
+    Uses optimal transport with hard assignment constraint (one-to-one matching) to find
+    the optimal bijective matching between points. Similar to soft-matching but enforces
+    that each point is matched to exactly one other point (hard assignment).
 
     Parameters
     ----------
@@ -1116,79 +1142,76 @@ def shape_distance_one_to_one(
     mtx2 : ndarray of shape (n_samples, n_features)
         Second matrix to compare with mtx1. Must have same number of samples.
     metric : str, default='sqeuclidean'
-        Distance metric for computing pairwise costs after rotation. Passed to
-        scipy.spatial.distance.cdist. Common options:
-        - 'sqeuclidean': Squared Euclidean distance (default, comparable to Procrustes)
-        - 'euclidean': Euclidean distance
-        - 'cosine': Cosine distance
-        - 'correlation': Correlation distance
+        Distance metric for computing transport costs. Passed to cdist.
+        Common options: 'sqeuclidean', 'euclidean', 'cosine', 'correlation'.
 
     Returns
     -------
     distance : float
-        Sum of assigned distances under optimal matching after Procrustes rotation.
-        When metric='sqeuclidean', this is the sum of squared distances, directly
-        comparable to Procrustes disparity. Lower values indicate more similar shapes.
+        Optimal transport cost with hard assignment (sum of transport plan * cost matrix).
+        Uses squared distances when metric='sqeuclidean' for comparability with Procrustes.
+        Lower values indicate more similar shapes.
     pairs : dict[tuple[int, int], float]
         Dictionary mapping optimal point assignments (i, j) -> distance,
-        where point i from standardized mtx1 is matched to point j from rotated mtx2.
+        where point i from mtx1 is matched to point j from mtx2.
         Each i and j appears exactly once (bijective matching).
+        Values represent the distance between matched points.
 
     Notes
     -----
-    Unlike pure Procrustes (which fixes point correspondence as i→i) or pure optimal
-    matching (which allows permutation but no rotation), this method combines both:
-    1. Applies Procrustes standardization (center, scale, rotate)
-    2. Finds optimal permutation on the already-aligned matrices
+    This method uses optimal transport (Earth Mover's Distance) with uniform distributions
+    and equal sizes, which naturally enforces one-to-one matching (hard assignment).
+    Unlike soft-matching, each point can only be matched to one other point.
 
-    This guarantees: one-to-one distance ≤ Procrustes distance
+    Matrices are normalized to unit Frobenius norm before comparison (consistent with
+    procrustes and soft-matching methods).
 
-    The Hungarian algorithm solves the linear sum assignment problem in O(n³) time.
+    Requires the `pot` package: pip install pot
 
     Examples
     --------
     >>> mtx1 = np.random.randn(50, 10)
     >>> mtx2 = np.random.randn(50, 10)
     >>> dist, pairs = shape_distance_one_to_one(mtx1, mtx2)
-    >>> dist_proc, _ = shape_distance_procrustes(mtx1, mtx2)
-    >>> assert dist <= dist_proc  # Property always holds
-    >>> print(f"Optimal matching distance: {dist:.3f}")
-    >>> print(f"First 5 matches: {list(pairs.items())[:5]}")
+    >>> print(f"One-to-one distance: {dist:.3f}")
+    >>> print(f"Number of matched pairs: {len(pairs)}")
     """
-    # Apply Procrustes preprocessing and rotation to make one-to-one ≤ procrustes
-    # This ensures we're searching over a superset: {all perms} × {opt rotation}
-    # vs Procrustes: {identity perm} × {opt rotation}
-    m1_std, m2_rotated, _ = procrustes(mtx1, mtx2)
+    if not OT_AVAILABLE:
+        msg = "one-to-one requires the 'pot' library. Install with: pip install pot"
+        raise ImportError(msg)
 
-    # Now find optimal permutation on the already-rotated matrices
-    # m1_std is standardized mtx1, m2_rotated is mtx2 after optimal rotation
-    cost_matrix = cdist(m1_std, m2_rotated, metric=metric)
+    # Normalize matrices to unit Frobenius norm (consistent with procrustes and soft-matching)
+    m1 = modify_matrix(mtx1, whiten=False, normalize=True)
+    m2 = modify_matrix(mtx2, whiten=False, normalize=True)
 
-    # Find optimal assignment
-    row_ind, col_ind = linear_sum_assignment(cost_matrix)
+    # Compute cost matrix
+    cost_matrix = cdist(m1, m2, metric=metric)
 
-    # Get individual distances for each assignment
-    assigned_distances = cost_matrix[row_ind, col_ind]
+    # Uniform distributions (equal mass at each point)
+    a = np.ones(m1.shape[0]) / m1.shape[0]
+    b = np.ones(m2.shape[0]) / m2.shape[0]
 
-    # Sum of assigned distances
-    # NOTE: Since we use sqeuclidean metric by default, this is already
-    # sum of squared distances, directly comparable to Procrustes disparity.
-    # Do NOT take square root to maintain mathematical property:
-    # one-to-one distance ≤ Procrustes distance
-    total_distance = assigned_distances.sum()
+    # Compute optimal transport plan with hard assignment (EMD gives one-to-one matching)
+    transport_plan = ot.emd(a, b, cost_matrix)
 
-    # Create pairs dictionary with individual distances
+    # Compute distance: sum of transport plan * cost matrix
+    # For sqeuclidean metric, this gives sum of squared distances (comparable to Procrustes)
+    distance = np.sum(transport_plan * cost_matrix)
+
+    # Extract pairs with non-zero transport (hard assignment: exactly one match per point)
+    i_indices, j_indices = np.where(transport_plan > 0)
     pairs = {
-        (int(id1), int(id2)): float(dist)
-        for id1, id2, dist in zip(row_ind, col_ind, assigned_distances)
+        (int(i), int(j)): float(cost_matrix[i, j])
+        for i, j in zip(i_indices, j_indices)
     }
-    return float(total_distance), pairs
+
+    return float(distance), pairs
 
 
 def shape_distance_soft_matching(
     mtx1: npt.NDArray[np.float64],
     mtx2: npt.NDArray[np.float64],
-    metric: str = "sqeuclidean",
+    metric: str = "euclidean",
     approx: bool = False,
     reg: float = 0.1,
 ) -> tuple[float, dict[tuple[int, int], float]]:
@@ -1294,7 +1317,7 @@ def shape_distance(
     mtx1: npt.NDArray[np.float64],
     mtx2: npt.NDArray[np.float64],
     method: Literal["procrustes", "one-to-one", "soft-matching"] = "procrustes",
-    metric: str = "sqeuclidean",
+    metric: str = "euclidean",
     return_pairs: bool = False,
     **method_kwargs: Any,  # Accept Any for now, validated at runtime
 ) -> float | tuple[float, dict[tuple[int, int], float]]:

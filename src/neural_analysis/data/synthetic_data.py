@@ -1812,11 +1812,12 @@ def map_to_ring(
         )
         plot_specs.append(spec3)
 
-        # Create grid
+        # Create grid with uneven widths: first subplot (1D trajectory) is narrower
+        # Width ratios: [1, 2, 2] makes first column half width of ring embeddings
         grid = PlotGrid(
             plot_specs=plot_specs,
             config=PlotConfig(figsize=(15, 5)),
-            layout=GridLayoutConfig(rows=1, cols=3),
+            layout=GridLayoutConfig(rows=1, cols=3, width_ratios=[1, 2, 2]),
             backend="matplotlib",
         )
 
