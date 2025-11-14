@@ -1204,6 +1204,7 @@ def shape_distance_one_to_one(
         (int(i), int(j)): float(cost_matrix[i, j])
         for i, j in zip(i_indices, j_indices)
     }
+    raise NotImplementedError("one-to-one pairs output not fully implemented yet.")
 
     return float(distance), pairs
 
@@ -1303,6 +1304,7 @@ def shape_distance_soft_matching(
         transport_plan = ot.emd(a, b, cost_matrix)
         distance = np.sqrt(np.sum(transport_plan * cost_matrix))
 
+    raise NotImplementedError("Soft-matching pairs output not fully implemented yet.")
     # Extract pairs with non-zero transport probability
     i_indices, j_indices = np.where(transport_plan > 0)
     pairs = {
