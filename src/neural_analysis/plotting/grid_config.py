@@ -52,6 +52,7 @@ Example Usage:
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -72,13 +73,13 @@ except ImportError:
 from neural_analysis.plotting.renderers import (
     render_convex_hull_matplotlib,
     render_convex_hull_plotly,
+    render_heatmap_walls_matplotlib,
     render_kde_matplotlib,
     render_kde_plotly,
     render_trajectory3d_matplotlib,
     render_trajectory3d_plotly,
     render_trajectory_matplotlib,
     render_trajectory_plotly,
-    render_heatmap_walls_matplotlib,
 )
 from neural_analysis.utils.geometry import compute_convex_hull, compute_kde_2d
 from neural_analysis.utils.trajectories import compute_colors
@@ -1174,7 +1175,8 @@ class PlotGrid:
 
         elif spec.plot_type == "heatmap_walls":
             # Render three orthogonal wall heatmaps on a 3D axes
-            try:
+            # Fail silently to avoid breaking plotting pipeline
+            with contextlib.suppress(Exception):
                 render_heatmap_walls_matplotlib(
                     ax=ax,
                     data=spec.data,
@@ -1184,9 +1186,6 @@ class PlotGrid:
                     alpha=spec.alpha,
                     **spec.kwargs,
                 )
-            except Exception:
-                # Fail silently to avoid breaking plotting pipeline
-                pass
 
         elif spec.plot_type == "violin":
             # Enhanced violin plot with box and points

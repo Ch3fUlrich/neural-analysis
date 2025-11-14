@@ -98,22 +98,22 @@ import copy
 import logging
 import warnings
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any
 
 import matplotlib
 import matplotlib.pyplot as plt
-import networkx as nx  # type: ignore[import-untyped]
+import networkx as nx
 import numpy as np
 import numpy.typing as npt
 from decorator import decorator  # type: ignore[import-untyped]
-from scipy.spatial import distance_matrix  # type: ignore[import-untyped]
-from sklearn.manifold import Isomap  # type: ignore[import-untyped]
-from sklearn.metrics import pairwise_distances  # type: ignore[import-untyped]
-from sklearn.neighbors import NearestNeighbors  # type: ignore[import-untyped]
+from scipy.spatial import distance_matrix
+from sklearn.manifold import Isomap
+from sklearn.metrics import pairwise_distances
+from sklearn.neighbors import NearestNeighbors
 from tqdm.auto import tqdm
 
 try:
-    import faiss  # type: ignore[import-untyped]
+    import faiss
 
     USE_FAST = True
 except ImportError:
@@ -125,7 +125,7 @@ logger = logging.getLogger(__name__)
 DISTANCE_OPTIONS = ["euclidean", "geodesic"]
 
 
-def validate_args_types(**decls):
+def validate_args_types(**decls: Any) -> Any:
     """Decorator to check argument types.
 
     Usage:
@@ -134,8 +134,8 @@ def validate_args_types(**decls):
     def parse_rule(name, text): ...
     """
 
-    @decorator
-    def wrapper(func, *args, **kwargs):
+    @decorator  # type: ignore[misc]
+    def wrapper(func: Any, *args: Any, **kwargs: Any) -> Any:
         code = func.__code__
         fname = func.__name__
         names = code.co_varnames[: code.co_argcount]
@@ -157,7 +157,7 @@ def validate_args_types(**decls):
     return wrapper
 
 
-def _filter_noisy_outliers(data: npt.NDArray[np.floating[Any]]) -> npt.NDArray[np.floating[Any]]:
+def _outlier_detection(data: npt.NDArray[np.floating[Any]]) -> npt.NDArray[np.floating[Any]]:
     """Filter outliers from data based on local density.
     
     Identifies points that have fewer neighbors than expected based on
@@ -175,12 +175,12 @@ def _filter_noisy_outliers(data: npt.NDArray[np.floating[Any]]) -> npt.NDArray[n
     """
     D = pairwise_distances(data)
     np.fill_diagonal(D, np.nan)
-    nn_dist = np.sum(D < np.nanpercentile(D, 1), axis=1) - 1
+    nn_dist = np.sum(np.nanpercentile(D, 1) > D, axis=1) - 1
     noiseIdx = np.where(nn_dist < np.percentile(nn_dist, 20))[0]
-    return noiseIdx
+    return noiseIdx.astype(np.float64)
 
 
-def _meshgrid2(arrs: tuple) -> tuple:
+def _meshgrid2(arrs: tuple[Any, ...]) -> tuple[Any, ...]:
     """Create a meshgrid from a tuple of 1D arrays.
     
     Similar to numpy.meshgrid but with a different implementation that
@@ -353,7 +353,7 @@ def _cloud_overlap_neighbors(
             I = knn.kneighbors(return_distance=False)
     elif distance_metric == "geodesic":
         model_iso = Isomap(n_components=1)
-        emb = model_iso.fit_transform(cloud_all)
+        model_iso.fit_transform(cloud_all)
         dist_mat = model_iso.dist_matrix_
         knn = NearestNeighbors(n_neighbors=k, metric="precomputed").fit(dist_mat)
         I = knn.kneighbors(return_distance=False)
@@ -417,7 +417,7 @@ def _cloud_overlap_radius(
         D = distance_matrix(cloud_all, cloud_all, p=2)
     elif distance_metric == "geodesic":
         model_iso = Isomap(n_components=1)
-        emb = model_iso.fit_transform(cloud_all)
+        model_iso.fit_transform(cloud_all)
         D = model_iso.dist_matrix_
     else:
         raise ValueError(f"Unknown distance metric: {distance_metric}")
@@ -428,7 +428,7 @@ def _cloud_overlap_radius(
     I = I[:, 1:].astype("float32")
     D = D[:, 1:]
 
-    I[D > r] = np.nan
+    I[r < D] = np.nan
     num_neigh = I.shape[0] - np.sum(np.isnan(I), axis=1).astype("float32") - 1
 
     overlap_1_2 = np.sum(I[:idx_sep, :] >= idx_sep) / np.sum(num_neigh[:idx_sep])
@@ -437,7 +437,7 @@ def _cloud_overlap_radius(
     return overlap_1_2, overlap_2_1
 
 
-@validate_args_types(
+@validate_args_types(  # type: ignore[misc]
     data=np.ndarray,
     label=np.ndarray,
     n_bins=(int, np.integer, list),
@@ -563,9 +563,9 @@ def compute_structure_index(
         assert neighborhood_size > 0, "radius must be > 0"
         cloud_overlap = _cloud_overlap_radius
     else:
-        neighborhood_size = kwargs.get("n_neighbors", 15)
+        neighborhood_size = float(kwargs.get("n_neighbors", 15))
         assert neighborhood_size > 2, "n_neighbors must be > 2"
-        cloud_overlap = _cloud_overlap_neighbors
+        cloud_overlap = _cloud_overlap_neighbors  # type: ignore[assignment]
 
     # x) discrete_label input
     discrete_label = kwargs.get("discrete_label", False)
@@ -610,7 +610,8 @@ def compute_structure_index(
         elif n_bins[dim] >= num_unique:
             warnings.warn(
                 f"Column {dim}: fewer unique values ({num_unique}) than n_bins "
-                f"({n_bins[dim]}). Setting n_bins={num_unique} and discrete=True"
+                f"({n_bins[dim]}). Setting n_bins={num_unique} and discrete=True",
+                stacklevel=2,
             )
             n_bins[dim] = num_unique
             discrete_label[dim] = True
@@ -636,9 +637,9 @@ def compute_structure_index(
 
     # iv). Clean outliers from each bin-groups if specified in kwargs
     if kwargs.get("filter_noise", False):
-        for l in range(len(grid)):
-            noise_idx = _filter_noisy_outliers(data[bin_label == l, :])
-            noise_idx = np.where(bin_label == l)[0][noise_idx]
+        for bin_idx in range(len(grid)):
+            noise_idx = _outlier_detection(data[bin_label == bin_idx, :])
+            noise_idx = np.where(bin_label == bin_idx)[0][noise_idx.astype(int)]
             bin_label[noise_idx] = np.nan
 
     # v). Discard outlier bin-groups (n_points < n_neighbors)
@@ -657,7 +658,7 @@ def compute_structure_index(
     # d) re-computed valid bins
     unique_bin_label = np.unique(bin_label[~np.isnan(bin_label)])
     if len(unique_bin_label) <= 1:
-        return np.nan, (np.nan, np.nan), np.nan, np.nan
+        return np.nan, (np.nan, np.nan), np.nan, np.nan  # type: ignore[return-value]
 
     if verbose:
         print(" Done")
@@ -744,9 +745,11 @@ def compute_structure_index(
 
 def draw_overlap_graph(
     overlap_mat: npt.NDArray[np.floating[Any]],
-    ax: plt.Axes | None = None,
-    node_cmap=plt.cm.tab10,
-    edge_cmap=plt.cm.Greys, **kwargs) -> Any:
+    ax: Any = None,
+    node_cmap: Any = None,
+    edge_cmap: Any = None,
+    **kwargs: Any,
+) -> Any:
     """Draw weighted directed graph from overlap matrix.
 
     Parameters
@@ -932,7 +935,7 @@ def compute_structure_index_sweep(
     if data_indices is not None:
         data = data[data_indices]
         labels = labels[data_indices]
-        indices_key = _array_to_key(data_indices)
+        indices_key = _array_to_key(data_indices)  # type: ignore[name-defined]
     else:
         indices_key = "all"
     
@@ -941,7 +944,7 @@ def compute_structure_index_sweep(
         save_path=save_path,
         dataset_name=dataset_name,
     )
-    existing_results = _parse_loaded_results(existing_data, dataset_name)
+    existing_results = _parse_loaded_results(existing_data, dataset_name)  # type: ignore[name-defined]
     
     results = {}
     total_iterations = len(n_bins_list) * len(n_neighbors_list)
@@ -1087,7 +1090,7 @@ def load_structure_index_results(
     if n_neighbors is not None:
         filter_attrs["n_neighbors"] = n_neighbors
     if indices_key is not None:
-        filter_attrs["indices_key"] = indices_key
+        filter_attrs["indices_key"] = indices_key  # type: ignore[assignment]
     
     # Load data
     loaded_data = load_results_from_hdf5_dataset(
@@ -1098,8 +1101,8 @@ def load_structure_index_results(
     
     # Parse results
     results = {}
-    for ds_name, ds_results in loaded_data.items():
-        ds_parsed = _parse_loaded_results(loaded_data, ds_name)
+    for ds_name, _ in loaded_data.items():
+        ds_parsed = _parse_loaded_results(loaded_data, ds_name)  # type: ignore[name-defined]
         results.update(ds_parsed)
     
     return results
@@ -1115,7 +1118,7 @@ def _parse_loaded_results(
     if dataset_name not in loaded_data:
         return results
     
-    for result_key, result_data in loaded_data[dataset_name].items():
+    for _, result_data in loaded_data[dataset_name].items():
         attrs = result_data["attributes"]
         arrays = result_data["arrays"]
         

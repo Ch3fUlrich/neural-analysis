@@ -102,6 +102,12 @@ def plot_bar(
     if colors is None:
         colors = [DEFAULT_COLORS[i % len(DEFAULT_COLORS)] for i in range(len(labels))]
 
+    # Extract title/xlabel/ylabel before passing to PlotSpec to avoid AttributeError
+    plot_title = kwargs.pop("title", None)
+    x_label = kwargs.pop("xlabel", None)
+    y_label = kwargs.pop("ylabel", None)
+    fig_size = kwargs.pop("figsize", None)
+
     # Create a single bar spec with all data
     if orientation == "v":
         spec = PlotSpec(
@@ -132,29 +138,40 @@ def plot_bar(
             },
         )
 
+    # Override config title if provided in kwargs
+    plot_config = config or PlotConfig(title=plot_title or "Bar Plot Comparison")
+    layout_config = GridLayoutConfig(rows=1, cols=1)
+    if fig_size is not None:
+        layout_config.figsize = fig_size
+
     grid = PlotGrid(
         plot_specs=[spec],
-        config=config or PlotConfig(title="Bar Plot Comparison"),
-        layout=GridLayoutConfig(rows=1, cols=1),
+        config=plot_config,
+        layout=layout_config,
         backend=backend,
     )
 
     result = grid.plot()
 
-    # Update axes labels
+    # Update axes labels and title
     if backend == "plotly" or (backend is None and hasattr(result, "update_xaxes")):
         if orientation == "v":
             result.update_xaxes(tickvals=x_positions, ticktext=labels)
+            if x_label:
+                result.update_xaxes(title_text=x_label)
+            if y_label:
+                result.update_yaxes(title_text=y_label)
         else:
             result.update_yaxes(tickvals=x_positions, ticktext=labels)
+            if x_label:
+                result.update_xaxes(title_text=x_label)
+            if y_label:
+                result.update_yaxes(title_text=y_label)
     else:  # matplotlib
         # Check if result is a Figure or Axes
         import matplotlib.pyplot as plt
 
-        if isinstance(result, plt.Figure):
-            ax = result.axes[0]
-        else:
-            ax = result  # It's already an Axes object
+        ax = result.axes[0] if isinstance(result, plt.Figure) else result
 
         if orientation == "v":
             ax.set_xticks(x_positions)
@@ -162,6 +179,14 @@ def plot_bar(
         else:
             ax.set_yticks(x_positions)
             ax.set_yticklabels(labels)
+
+        # Apply labels if provided
+        if x_label:
+            ax.set_xlabel(x_label)
+        if y_label:
+            ax.set_ylabel(y_label)
+        if plot_title:
+            ax.set_title(plot_title)
 
     return result
 

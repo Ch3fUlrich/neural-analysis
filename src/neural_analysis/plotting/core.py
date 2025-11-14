@@ -624,7 +624,9 @@ def save_plot(
     save_path: str | Path,
     format: str = "png",
     dpi: int = 300,
-    bbox_inches: str = "tight", **kwargs: Any) -> None:
+    bbox_inches: str = "tight",
+    **kwargs: Any,
+) -> None:
     """
     Save current matplotlib figure to file.
 
@@ -662,7 +664,8 @@ def save_plot(
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")
         plt.savefig(
-            save_path, format=format, dpi=dpi, bbox_inches=bbox_inches, **kwargs)
+            save_path, format=format, dpi=dpi, bbox_inches=bbox_inches, **kwargs
+        )
 
 
 def make_list_if_not(value: Any | list[Any]) -> list[Any]:

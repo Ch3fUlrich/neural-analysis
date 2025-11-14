@@ -22,7 +22,7 @@ __all__ = ["plot_heatmap"]
 
 def plot_heatmap(
     data: npt.NDArray[np.floating[Any]],
-    config: "PlotConfig | None" = None,
+    config: PlotConfig | None = None,
     cmap: str = "viridis",
     colorbar: bool = True,
     colorbar_label: str | None = None,
@@ -37,7 +37,7 @@ def plot_heatmap(
 ) -> Any:
     """
     Create a heatmap visualization using PlotGrid.
-    
+
     Parameters
     ----------
     data : ndarray
@@ -64,7 +64,7 @@ def plot_heatmap(
         Format string for value annotations (e.g., ".1f", ".2f").
     backend : {'matplotlib', 'plotly'}, optional
         Backend to use.
-        
+
     Returns
     -------
     Figure object from the backend.
@@ -73,36 +73,36 @@ def plot_heatmap(
     data = np.asarray(data)
     if data.ndim != 2:
         raise ValueError(f"Data must be 2D, got shape {data.shape}")
-    
+
     # Build kwargs (don't include alpha - it's a PlotSpec field)
     heatmap_kwargs = {
-        'cmap': cmap,
-        'colorbar': colorbar,
+        "cmap": cmap,
+        "colorbar": colorbar,
     }
-    
+
     if vmin is not None:
-        heatmap_kwargs['vmin'] = vmin
+        heatmap_kwargs["vmin"] = vmin
     if vmax is not None:
-        heatmap_kwargs['vmax'] = vmax
+        heatmap_kwargs["vmax"] = vmax
     if x_labels is not None:
-        heatmap_kwargs['x_labels'] = x_labels
+        heatmap_kwargs["x_labels"] = x_labels
     if y_labels is not None:
-        heatmap_kwargs['y_labels'] = y_labels
+        heatmap_kwargs["y_labels"] = y_labels
     if show_values:
-        heatmap_kwargs['show_values'] = show_values
-        heatmap_kwargs['value_format'] = value_format
-    
+        heatmap_kwargs["show_values"] = show_values
+        heatmap_kwargs["value_format"] = value_format
+
     # Create spec
     spec = PlotSpec(
         data=data,
-        plot_type='heatmap',
+        plot_type="heatmap",
         color=None,
         colorbar_label=colorbar_label,
         subplot_position=0,
         alpha=alpha,  # Store alpha in PlotSpec field, not kwargs
-        kwargs=heatmap_kwargs
+        kwargs=heatmap_kwargs,
     )
-    
+
     # Create grid
     grid = PlotGrid(
         plot_specs=[spec],
@@ -110,5 +110,5 @@ def plot_heatmap(
         backend=backend,
         config=config,
     )
-    
+
     return grid.plot()

@@ -1247,8 +1247,13 @@ viz = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "mypy" },
     { name = "nbconvert" },
     { name = "pandas-stubs" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-xdist" },
+    { name = "ruff" },
     { name = "types-tqdm" },
 ]
 
@@ -1284,8 +1289,13 @@ provides-extras = ["dev", "viz"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "mypy", specifier = ">=1.18.2" },
     { name = "nbconvert", specifier = ">=7.16.6" },
     { name = "pandas-stubs", specifier = ">=2.3.2.250926" },
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "ruff", specifier = ">=0.14.3" },
     { name = "types-tqdm", specifier = ">=4.67.0.20250809" },
 ]
 

@@ -16,30 +16,29 @@ optimal transport matching.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 import numpy as np
 import numpy.typing as npt
-from scipy.linalg import orthogonal_procrustes  # type: ignore[import-untyped]
-from scipy.optimize import linear_sum_assignment  # type: ignore[import-untyped]
-from scipy.spatial import procrustes  # type: ignore[import-untyped]
-from scipy.spatial.distance import cdist  # type: ignore[import-untyped]
-from tqdm.auto import tqdm
+from scipy.linalg import orthogonal_procrustes
+from scipy.optimize import linear_sum_assignment
+from scipy.spatial import procrustes
+from scipy.spatial.distance import cdist
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from pathlib import Path
 
+if TYPE_CHECKING:
     import pandas as pd
 else:
     import pandas as pd  # noqa: PGH003
 
 # I/O functions imported locally where needed to avoid circular dependencies
 
-from .distance import pairwise_distance
+from .pairwise_metrics import compute_pairwise_matrix, pairwise_distance
 
 try:
-    import ot  # type: ignore[import-untyped]  # Python Optimal Transport
+    import ot  # Python Optimal Transport
 
     OT_AVAILABLE = True
 except ImportError:
@@ -48,15 +47,19 @@ except ImportError:
 try:
     from neural_analysis.utils.logging import get_logger, log_calls
 except ImportError:
+    if TYPE_CHECKING:
+        from collections.abc import Callable
 
-    def log_calls(**kwargs: Any):  # type: ignore[no-untyped-def,no-redef]
-        def decorator(func):  # type: ignore[no-untyped-def]
+    def log_calls(
+        *, level: int = logging.DEBUG, timeit: bool = True
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             return func
 
         return decorator
 
-    def get_logger(name: str) -> logging.Logger:  # type: ignore[no-redef]
-        return logging.getLogger(name)
+    def get_logger(name: str | None = None) -> logging.Logger:
+        return logging.getLogger(name or "neural_analysis")
 
 
 # Module logger
@@ -69,11 +72,7 @@ __all__ = [
     "kolmogorov_smirnov_distance",
     "jensen_shannon_divergence",
     "distribution_distance",
-    "pairwise_distribution_comparison_batch",
     "shape_distance",
-    "save_distribution_comparison",
-    "load_distribution_comparisons",
-    "get_comparison_summary",
 ]
 
 
@@ -133,7 +132,7 @@ def wasserstein_distance_multi(
     >>> p2 = np.random.randn(100, 3) + 1.0
     >>> dist = wasserstein_distance_multi(p1, p2)
     """
-    from scipy.stats import wasserstein_distance  # type: ignore[import-untyped]
+    from scipy.stats import wasserstein_distance
 
     p1 = np.asarray(points1)
     p2 = np.asarray(points2)
@@ -263,6 +262,20 @@ def jensen_shannon_divergence(
     ranges = [
         (all_data[:, i].min(), all_data[:, i].max()) for i in range(all_data.shape[1])
     ]
+
+    # Adaptive binning for high-dimensional data to prevent memory explosion
+    # For D dimensions with b bins, we need b^D total bins
+    # Limit to ~10^6 bins maximum (e.g., 10^2 bins for 3D, 10 bins for 6D)
+    n_dims = p1.shape[1]
+    if n_dims > 3:
+        # Reduce bins for high-D data: bins = max(3, original_bins^(3/D))
+        adaptive_bins = max(3, int(bins ** (3.0 / n_dims)))
+        if adaptive_bins < bins:
+            logger.info(
+                f"Reducing bins from {bins} to {adaptive_bins} for {n_dims}D data "
+                f"(total bins: {adaptive_bins}^{n_dims} = {adaptive_bins**n_dims:,})"
+            )
+            bins = adaptive_bins
 
     # Compute multi-dimensional histograms
     hist1, _ = np.histogramdd(p1, bins=bins, range=ranges)
@@ -492,13 +505,15 @@ def distribution_distance(
                 method_typed: Literal["procrustes", "one-to-one", "soft-matching"] = (
                     metric  # type: ignore[assignment]
                 )
-                dist, pairs = shape_distance(
+                result_shape = shape_distance(
                     points1_arr.astype(np.float64),
                     points2_arr.astype(np.float64),
                     method=method_typed,
                     return_pairs=True,
                     **metric_kwargs,
                 )
+                assert isinstance(result_shape, tuple)
+                dist, pairs = result_shape
                 logger.info(f"Shape distance computed: {dist:.6f}")
                 return (dist, pairs)
 
@@ -561,6 +576,7 @@ def compare_distributions(
         "kolmogorov-smirnov",
         "jensen-shannon",
         "euclidean",
+        "manhattan",
         "mahalanobis",
         "cosine",
         "procrustes",
@@ -575,9 +591,15 @@ def compare_distributions(
 ) -> float | tuple[float, dict[tuple[int, int], float]]:
     """Compare two point distributions using a specified metric.
 
-    This is a convenience function that wraps distribution_distance with
-    mode="between" and returns a single distance value. For more control
-    (e.g., getting multiple statistics), use distribution_distance directly.
+    .. deprecated:: 1.5.0
+        Use :func:`~neural_analysis.metrics.pairwise_metrics.compare_datasets` with
+        ``mode='between'`` instead. This function will be removed in version 2.0.0.
+
+    **RECOMMENDED**: Use compare_datasets() for new code, which provides a unified
+    API with better type safety and more flexible return types.
+
+    This function wraps compute_pairwise_matrix() for between-mode comparisons
+    and optionally saves results to HDF5.
 
     Parameters
     ----------
@@ -671,59 +693,43 @@ def compare_distributions(
         if comparison_name is None:
             comparison_name = "default"
 
-    # Delegate to distribution_distance for the actual computation
-    # This reduces code duplication
-    result = distribution_distance(
+    # Use unified pairwise computation system
+    # This reduces code duplication and provides single source of responsibility
+    result = compute_pairwise_matrix(
         points1,
         points2,
-        mode="between",
         metric=metric,
         parallel=True,
-        summary="mean",
         **metric_kwargs,
     )
 
-    # distribution_distance returns float for distribution metrics
-    # and tuple for shape metrics
+    # Handle different return types from unified pairwise system
     shape_metrics = {"procrustes", "one-to-one", "soft-matching"}
     if metric in shape_metrics:
-        # Result is tuple[float, dict[tuple[int, int], float]]
-        # Mypy can't narrow union types based on runtime checks,
-        # so we assert the type here
+        # Shape metrics return tuple[float, dict[tuple[int, int], float]]
         assert isinstance(result, tuple), f"Expected tuple for shape metric {metric}"
         value, pairs_dict = result
     else:
-        # For distribution metrics, result should be float
-        assert not isinstance(result, tuple), f"Expected float for metric {metric}"
-        value = float(result)
-        pairs_dict = None
+        # Distribution/distance metrics return float or matrix
+        if isinstance(result, np.ndarray):
+            # Point-to-point metrics return matrix; take mean as summary
+            value = float(np.mean(result))
+            pairs_dict = None
+        elif isinstance(result, tuple):
+            # Some metrics may return tuple even for non-shape metrics
+            value = float(result[0])
+            pairs_dict = result[1]
+        else:
+            # Distribution metrics return scalar
+            value = float(result)
+            pairs_dict = None
 
-    # Save if path provided
+    # NOTE: save_path parameter deprecated - save functionality moved to
+    # compare_datasets() with auto-save/load in Phase 4
     if save_path is not None:
-        # Convert points to arrays for metadata
-        p1 = np.asarray(points1)
-        p2 = np.asarray(points2)
-
-        # Build metadata
-        metadata = {
-            "n_samples_i": int(p1.shape[0]),
-            "n_samples_j": int(p2.shape[0]),
-        }
-        if p1.ndim > 1:
-            metadata["n_features_i"] = int(p1.shape[1])
-        if p2.ndim > 1:
-            metadata["n_features_j"] = int(p2.shape[1])
-
-        # Save comparison
-        save_distribution_comparison(
-            save_path=save_path,
-            comparison_name=comparison_name,
-            dataset_i=dataset_i,  # type: ignore[arg-type]
-            dataset_j=dataset_j,  # type: ignore[arg-type]
-            metric=metric,
-            value=value,
-            pairs=pairs_dict,
-            metadata=metadata,
+        logger.warning(
+            "save_path parameter in compare_distributions() is deprecated. "
+            "Use compare_datasets() with save_path for auto-save/load functionality."
         )
 
     # Return result in original format
@@ -736,13 +742,33 @@ def compare_distributions(
 def compare_distribution_groups(
     group_vectors: dict[str | tuple[str, ...], npt.NDArray[np.floating]],
     compare_type: Literal["inside", "between"] = "between",
-    metric: str = "wasserstein",
-    **metric_kwargs: Any,  # Accept Any for flexible kwargs
+    metric: Literal[
+        "euclidean",
+        "manhattan",
+        "cosine",
+        "mahalanobis",
+        "wasserstein",
+        "kolmogorov_smirnov",
+        "ks",
+        "jensen_shannon",
+        "js",
+        "procrustes",
+        "one-to-one",
+        "soft-matching",
+    ] = "wasserstein",
+    **metric_kwargs: Any,
 ) -> (
     dict[str, npt.NDArray[np.floating]]
     | dict[str | tuple[str, ...], npt.NDArray[np.floating]]
 ):
-    """Compare distributions within or between groups.
+    """Compare distributions within or between groups (legacy wrapper).
+
+    **RECOMMENDED**: Use compare_datasets() for new code. This function is
+    maintained for backward compatibility but has limitations compared to
+    the unified Phase 3 API.
+
+    Wraps Phase 3 API functions (compute_within_distances, compute_between_distances)
+    to provide group-level comparisons with legacy return format.
 
     Parameters
     ----------
@@ -750,20 +776,23 @@ def compare_distribution_groups(
         Dictionary mapping group identifiers to point arrays (n_samples, n_features).
     compare_type : {"inside", "between"}, default="between"
         - "inside": Compare each group to itself (self-similarity).
-            Only works with distribution metrics, not shape metrics.
+            Only works with point-to-point metrics (euclidean, manhattan, etc.).
         - "between": Compare each group to all others.
     metric : str, default="wasserstein"
         Distance metric to use. Supported metrics:
 
-        **Distribution metrics** (work with both "inside" and "between"):
+        **Point-to-point metrics** (work with "inside" mode):
+        - "euclidean": Euclidean distance
+        - "manhattan": Manhattan (L1) distance
+        - "cosine": Cosine similarity
+        - "mahalanobis": Mahalanobis distance
+
+        **Distribution metrics** (only "between" mode):
         - "wasserstein": Wasserstein distance (Earth Mover's Distance)
         - "kolmogorov_smirnov" or "ks": Kolmogorov-Smirnov statistic
         - "jensen_shannon" or "js": Jensen-Shannon divergence
-        - "euclidean": Euclidean distance between distributions
-        - "mahalanobis": Mahalanobis distance
-        - "cosine": Cosine distance
 
-        **Shape metrics** (only work with "between" mode):
+        **Shape metrics** (only "between" mode):
         - "procrustes": Procrustes distance after optimal alignment
         - "one-to-one": Bipartite matching distance
         - "soft-matching": Soft assignment via optimal transport
@@ -783,7 +812,22 @@ def compare_distribution_groups(
     Raises
     ------
     ValueError
-        If a shape metric is used with compare_type="inside".
+        If an invalid metric-mode combination is used.
+
+    Notes
+    -----
+    **Migration to Phase 3 API**:
+
+    For new code, consider using the Phase 3 API directly:
+
+    >>> # Instead of compare_distribution_groups with compare_type="between"
+    >>> from neural_analysis.metrics import compute_all_pairs
+    >>> results = compute_all_pairs(group_vectors, metric="wasserstein")
+    >>> # results is dict[str, dict[str, float]]
+
+    >>> # For single within-group comparison
+    >>> from neural_analysis.metrics import compute_within_distances
+    >>> mean_dist = compute_within_distances(data, metric="euclidean")
 
     Examples
     --------
@@ -803,23 +847,18 @@ def compare_distribution_groups(
     ...     groups, compare_type="between", metric="procrustes"
     ... )
 
-    >>> # Within-group variability (only distribution metrics)
+    >>> # Within-group variability (only point-to-point metrics)
     >>> within_stats = compare_distribution_groups(
-    ...     groups, compare_type="inside", metric="wasserstein"
+    ...     groups, compare_type="inside", metric="euclidean"
     ... )
     >>> within_stats["mean"]  # mean within-group distances
     """
-    # Define shape metrics
-    shape_metrics = {"procrustes", "one-to-one", "soft-matching"}
+    # Import Phase 3 functions
+    from neural_analysis.metrics.pairwise_metrics import (
+        compute_between_distances,
+        compute_within_distances,
+    )
 
-    # Validate metric/mode combination
-    if compare_type == "inside" and metric in shape_metrics:
-        raise ValueError(
-            f"Shape metric '{metric}' cannot be used with compare_type='inside'. "
-            f"Shape metrics only work in 'between' mode. "
-            f"Use a distribution metric instead: "
-            f"wasserstein, kolmogorov_smirnov, jensen_shannon, etc."
-        )
     n_groups = len(group_vectors)
 
     logger.info(
@@ -830,7 +869,8 @@ def compare_distribution_groups(
     # Use match/case for cleaner dispatch
     match compare_type:
         case "inside":
-            # Within-group variability using new distance.py functions
+            # Within-group variability using Phase 3 API
+            # compute_within_distances validates that metric is point-to-point
             means = np.zeros(n_groups)
             stds = np.zeros(n_groups)
 
@@ -841,41 +881,49 @@ def compare_distribution_groups(
                     stds[idx] = 0.0
                     continue
 
-                # Use unified distribution_distance from distance.py
-                stats = distribution_distance(
-                    points,
-                    mode="within",
-                    metric=metric,
-                    summary="all",
-                )
-                means[idx] = stats["mean"]
-                stds[idx] = stats["std"]
+                # Get full distance matrix and compute statistics
+                try:
+                    dist_matrix = compute_within_distances(
+                        points,
+                        metric=metric,
+                        return_matrix=True,
+                        **metric_kwargs,
+                    )
+                    # Extract upper triangle (excluding diagonal)
+                    mask = np.triu(np.ones_like(dist_matrix, dtype=bool), k=1)
+                    dists = dist_matrix[mask]
+                    means[idx] = float(np.mean(dists))
+                    stds[idx] = float(np.std(dists))
+                except ValueError as e:
+                    # Re-raise with more context
+                    raise ValueError(
+                        f"Metric '{metric}' cannot be used with "
+                        f"compare_type='inside'. Only point-to-point metrics "
+                        f"(euclidean, manhattan, cosine, mahalanobis) are allowed "
+                        f"for within-group comparisons."
+                    ) from e
 
             logger.info(f"Within-group statistics computed: mean={means}, std={stds}")
             return {"mean": means, "std": stds}  # type: ignore[return-value]
 
         case "between":
-            # Between-group distances
+            # Between-group distances using Phase 3 API
             similarities = {}
             for _i, (name_i, group_i) in enumerate(group_vectors.items()):
                 dists_to_all = np.zeros(n_groups)
                 for j, (_name_j, group_j) in enumerate(group_vectors.items()):
-                    # Use distribution_distance which now handles both distribution
-                    # and shape metrics
-                    result = distribution_distance(
+                    # Use Phase 3 API - handles all metric types
+                    dist = compute_between_distances(
                         group_i,
                         group_j,
-                        mode="between",
                         metric=metric,
-                        summary="mean",
+                        return_matrix=False,  # Get mean distance
                         **metric_kwargs,
                     )
+                    # Extract value from dict
+                    dist_value = dist["value"] if isinstance(dist, dict) else dist
+                    dists_to_all[j] = float(dist_value)
 
-                    # Extract distance value (handle both float and tuple returns)
-                    # Shape metrics: (distance, pairs), distribution: float
-                    dist = result[0] if isinstance(result, tuple) else float(result)
-
-                    dists_to_all[j] = dist
                 similarities[name_i] = dists_to_all
                 logger.debug(f"Group '{name_i}' distances to all: {dists_to_all}")
 
@@ -1050,12 +1098,16 @@ def shape_distance_one_to_one(
     mtx2: npt.NDArray[np.float64],
     metric: str = "sqeuclidean",
 ) -> tuple[float, dict[tuple[int, int], float]]:
-    """Compute shape distance using optimal one-to-one point matching.
+    """Compute shape distance using optimal one-to-one point matching after
+    Procrustes alignment.
 
-    Uses the Hungarian algorithm to find the optimal assignment of points
-    between the two matrices that minimizes total distance. Unlike Procrustes,
-    this method does not assume point correspondence and finds the best
-    permutation-invariant matching.
+    First applies Procrustes transformation (centering, scaling, and optimal
+    rotation), then uses the Hungarian algorithm to find the optimal permutation
+    of points that minimizes total distance. This ensures the mathematical
+    property that one-to-one distance ≤ Procrustes distance, since we search
+    over a larger space:
+    {all permutations} × {optimal rotation} ⊇ {identity permutation} ×
+    {optimal rotation}.
 
     Parameters
     ----------
@@ -1064,9 +1116,9 @@ def shape_distance_one_to_one(
     mtx2 : ndarray of shape (n_samples, n_features)
         Second matrix to compare with mtx1. Must have same number of samples.
     metric : str, default='sqeuclidean'
-        Distance metric for computing pairwise costs. Passed to
+        Distance metric for computing pairwise costs after rotation. Passed to
         scipy.spatial.distance.cdist. Common options:
-        - 'sqeuclidean': Squared Euclidean distance
+        - 'sqeuclidean': Squared Euclidean distance (default, comparable to Procrustes)
         - 'euclidean': Euclidean distance
         - 'cosine': Cosine distance
         - 'correlation': Correlation distance
@@ -1074,36 +1126,43 @@ def shape_distance_one_to_one(
     Returns
     -------
     distance : float
-        Square root of the sum of assigned distances under optimal matching.
-        Lower values indicate more similar point cloud shapes.
+        Sum of assigned distances under optimal matching after Procrustes rotation.
+        When metric='sqeuclidean', this is the sum of squared distances, directly
+        comparable to Procrustes disparity. Lower values indicate more similar shapes.
     pairs : dict[tuple[int, int], float]
         Dictionary mapping optimal point assignments (i, j) -> distance,
-        where point i from mtx1 is matched to point j from mtx2.
+        where point i from standardized mtx1 is matched to point j from rotated mtx2.
         Each i and j appears exactly once (bijective matching).
 
     Notes
     -----
-    The Hungarian algorithm solves the linear sum assignment problem,
-    finding the best bijection between point sets. This is appropriate
-    when point correspondence is unknown and you want to find the optimal
-    permutation-invariant alignment.
+    Unlike pure Procrustes (which fixes point correspondence as i→i) or pure optimal
+    matching (which allows permutation but no rotation), this method combines both:
+    1. Applies Procrustes standardization (center, scale, rotate)
+    2. Finds optimal permutation on the already-aligned matrices
 
-    Matrices are normalized to unit Frobenius norm before comparison to
-    ensure scale-invariant shape comparison.
+    This guarantees: one-to-one distance ≤ Procrustes distance
+
+    The Hungarian algorithm solves the linear sum assignment problem in O(n³) time.
 
     Examples
     --------
     >>> mtx1 = np.random.randn(50, 10)
     >>> mtx2 = np.random.randn(50, 10)
-    >>> dist, pairs = shape_distance_one_to_one(mtx1, mtx2, metric='euclidean')
+    >>> dist, pairs = shape_distance_one_to_one(mtx1, mtx2)
+    >>> dist_proc, _ = shape_distance_procrustes(mtx1, mtx2)
+    >>> assert dist <= dist_proc  # Property always holds
     >>> print(f"Optimal matching distance: {dist:.3f}")
     >>> print(f"First 5 matches: {list(pairs.items())[:5]}")
     """
-    m1 = modify_matrix(mtx1, whiten=False, normalize=True)
-    m2 = modify_matrix(mtx2, whiten=False, normalize=True)
+    # Apply Procrustes preprocessing and rotation to make one-to-one ≤ procrustes
+    # This ensures we're searching over a superset: {all perms} × {opt rotation}
+    # vs Procrustes: {identity perm} × {opt rotation}
+    m1_std, m2_rotated, _ = procrustes(mtx1, mtx2)
 
-    # Compute pairwise distances
-    cost_matrix = cdist(m1, m2, metric=metric)
+    # Now find optimal permutation on the already-rotated matrices
+    # m1_std is standardized mtx1, m2_rotated is mtx2 after optimal rotation
+    cost_matrix = cdist(m1_std, m2_rotated, metric=metric)
 
     # Find optimal assignment
     row_ind, col_ind = linear_sum_assignment(cost_matrix)
@@ -1112,8 +1171,11 @@ def shape_distance_one_to_one(
     assigned_distances = cost_matrix[row_ind, col_ind]
 
     # Sum of assigned distances
+    # NOTE: Since we use sqeuclidean metric by default, this is already
+    # sum of squared distances, directly comparable to Procrustes disparity.
+    # Do NOT take square root to maintain mathematical property:
+    # one-to-one distance ≤ Procrustes distance
     total_distance = assigned_distances.sum()
-    total_distance = np.sqrt(total_distance)
 
     # Create pairs dictionary with individual distances
     pairs = {
@@ -1135,6 +1197,9 @@ def shape_distance_soft_matching(
     Uses optimal transport to compute a soft matching between point distributions,
     allowing fractional assignment of mass. Can use exact (Earth Mover's Distance)
     or approximate (Sinkhorn) algorithms.
+
+    Reference:
+    https://proceedings.mlr.press/v243/khosla24a/khosla24a.pdf
 
     Parameters
     ----------
@@ -1229,7 +1294,7 @@ def shape_distance(
     mtx1: npt.NDArray[np.float64],
     mtx2: npt.NDArray[np.float64],
     method: Literal["procrustes", "one-to-one", "soft-matching"] = "procrustes",
-    metric: str = "euclidean",
+    metric: str = "sqeuclidean",
     return_pairs: bool = False,
     **method_kwargs: Any,  # Accept Any for now, validated at runtime
 ) -> float | tuple[float, dict[tuple[int, int], float]]:
@@ -1252,7 +1317,7 @@ def shape_distance(
             Permutation-invariant, finds best bijective matching.
         - 'soft-matching': Optimal transport with soft assignment.
             Allows fractional matching, handles different point cloud sizes.
-    metric : str, default='euclidean'
+    metric : str, default='sqeuclidean'
         Distance metric for 'one-to-one' and 'soft-matching' methods.
         Ignored for 'procrustes' method.
     **method_kwargs
@@ -1320,240 +1385,6 @@ def shape_distance(
     return dist
 
 
-def pairwise_distribution_comparison_batch(
-    data: dict[str, npt.NDArray[np.floating]],
-    metrics: list[str] | dict[str, dict[str, object]],
-    comparison_name: str = "default",
-    save_path: str | Path | None = None,
-    regenerate: bool = False,
-    progress_desc: str = "Computing pairwise comparisons",
-    batch_size: int = 1000,
-) -> pd.DataFrame:
-    """Compute pairwise distribution comparisons for multiple metrics.
-
-    This function provides a general framework for batch computation of
-    distribution comparisons using any metric. Results are stored in HDF5
-    format with incremental computation support.
-
-    Parameters
-    ----------
-    data : dict[str, Any] of str to ndarray
-        Dictionary mapping dataset names to data arrays.
-        Arrays can be 1D (samples) or 2D (samples × features).
-    metrics : list[Any] of str or dict of str to dict
-        Either a list of metric names or a dict mapping metric names to
-        their keyword arguments. Supported metrics:
-        - 'wasserstein', 'ks', 'js', 'euclidean', 'mahalanobis', 'cosine'
-        - Shape distances: 'procrustes', 'one-to-one', 'soft-matching'
-    comparison_name : str, default='default'
-        Name for this comparison group (e.g., "experiment_001", "session_A")
-    save_path : str or Path, optional
-        Path to HDF5 file for caching results. If None, defaults to
-        './output/distribution_comparisons.h5'
-    regenerate : bool, default=False
-        If True, recompute all pairs even if cached.
-    progress_desc : str, default='Computing pairwise comparisons'
-        Description for progress bar.
-
-    Returns
-    -------
-    DataFrame
-        Long-format DataFrame with columns:
-        - dataset_i: first dataset name
-        - dataset_j: second dataset name
-        - metric: name of the distance/similarity metric
-        - value: computed distance/similarity value
-        - n_samples_i: number of samples in dataset_i
-        - n_samples_j: number of samples in dataset_j
-        - n_features_i: number of features in dataset_i (NaN for 1D)
-        - n_features_j: number of features in dataset_j (NaN for 1D)
-        - pairs: dict[str, Any] or None, point-to-point correspondence for shape metrics
-
-    Notes
-    -----
-    For shape metrics (procrustes, one-to-one, soft-matching), the 'pairs' column
-    contains a dictionary mapping point pairs to their distances/probabilities.
-    Keys are formatted as "i,j" strings (for JSON compatibility), values are floats.
-    For distribution metrics, the 'pairs' column is None.
-
-    Example of accessing pairs data:
-        >>> df = pairwise_distribution_comparison_batch(data, ['procrustes'])
-        >>> pairs_dict = df.loc[0, 'pairs']  # Get pairs for first row
-        >>> # Parse pair indices: "0,0" -> (0, 0)
-        >>> parsed_pairs = {tuple(map(int, k.split(','))): v
-        ...                 for k, v in pairs_dict.items()}
-
-    Examples
-    --------
-    >>> # Shape distance comparisons
-    >>> data = {
-    ...     "session_001": np.random.rand(50, 20),
-    ...     "session_002": np.random.rand(60, 20),
-    ... }
-    >>> metrics = {
-    ...     'procrustes': {},
-    ...     'one-to-one': {'metric': 'euclidean'},
-    ...     'soft-matching': {'reg': 0.05}
-    ... }
-    >>> df = pairwise_distribution_comparison_batch(
-    ...     data, metrics, save_path='comparisons.h5'
-    ... )
-
-    >>> # Distribution comparisons
-    >>> data_1d = {
-    ...     "condition_A": np.random.randn(1000),
-    ...     "condition_B": np.random.randn(1000),
-    ... }
-    >>> metrics = ['wasserstein', 'ks', 'js']
-    >>> df = pairwise_distribution_comparison_batch(data_1d, metrics)
-    """
-    # Set default save path if not provided
-    if save_path is None:
-        save_path = Path("./output/distribution_comparisons.h5")
-    else:
-        save_path = Path(save_path).with_suffix(".h5")
-
-    save_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Normalize metrics to dict format
-    metrics_dict = {m: {} for m in metrics} if isinstance(metrics, list) else metrics
-
-    # Generate all dataset pairs
-    labels = list(data.keys())
-    item_pairs = [
-        (l1, l2) for i, l1 in enumerate(labels) for j, l2 in enumerate(labels) if i < j
-    ]
-
-    # Load existing results if available
-    existing_results = {}
-    if save_path.exists() and not regenerate:
-        try:
-            loaded_data = load_distribution_comparisons(
-                save_path=save_path,
-                comparison_name=comparison_name,
-            )
-            if comparison_name in loaded_data:
-                existing_results = loaded_data[comparison_name]
-        except Exception as e:
-            logger.warning(f"Could not load existing results: {e}")
-
-    # Determine which computations are missing
-    missing_computations = []
-    for name_i, name_j in item_pairs:
-        for metric_name in metrics_dict:
-            result_key = f"{name_i}_vs_{name_j}_{metric_name}"
-            if regenerate or result_key not in existing_results:
-                missing_computations.append((name_i, name_j, metric_name))
-
-    # Early exit if all cached
-    total_comparisons = len(item_pairs) * len(metrics_dict)
-    if not missing_computations:
-        logger.info(f"All {total_comparisons} computations cached.")
-        # Convert existing results to DataFrame
-        return _comparison_results_to_dataframe(existing_results)
-    elif existing_results:
-        n_cached = len(existing_results)
-        logger.info(
-            f"Found {n_cached} cached. Computing {len(missing_computations)} missing."
-        )
-    else:
-        logger.info(f"Computing all {len(missing_computations)} pairs × metrics.")
-
-    # Compute missing comparisons
-    for idx, (name_i, name_j, metric_name) in enumerate(
-        tqdm(missing_computations, desc=progress_desc), start=1
-    ):
-        data_i = data[name_i]
-        data_j = data[name_j]
-        metric_kwargs = metrics_dict[metric_name]
-
-        # Use compare_distributions which now handles both types
-        try:
-            result = compare_distributions(
-                data_i, data_j, metric=metric_name, **metric_kwargs
-            )
-
-            # Handle both distribution and shape metric returns
-            pairs_dict = None
-            if isinstance(result, tuple):
-                # Shape metrics return (distance, pairs)
-                value, pairs = result
-                pairs_dict = pairs  # Keep as dict with tuple keys
-            else:
-                # Distribution metrics return float
-                value = float(result)
-
-        except Exception as e:
-            logger.warning(f"Error for {name_i} vs {name_j} ({metric_name}): {e}")
-            value = np.nan
-            pairs_dict = None
-
-        # Record metadata
-        n_features_i = int(data_i.shape[1]) if data_i.ndim > 1 else None
-        n_features_j = int(data_j.shape[1]) if data_j.ndim > 1 else None
-
-        metadata = {
-            "n_samples_i": int(data_i.shape[0]),
-            "n_samples_j": int(data_j.shape[0]),
-        }
-        if n_features_i is not None:
-            metadata["n_features_i"] = n_features_i
-        if n_features_j is not None:
-            metadata["n_features_j"] = n_features_j
-
-        # Save both directions (symmetric)
-        save_distribution_comparison(
-            save_path=save_path,
-            comparison_name=comparison_name,
-            dataset_i=name_i,
-            dataset_j=name_j,
-            metric=metric_name,
-            value=value,
-            pairs=pairs_dict,
-            metadata=metadata,
-        )
-
-        # Also save reverse direction
-        save_distribution_comparison(
-            save_path=save_path,
-            comparison_name=comparison_name,
-            dataset_i=name_j,
-            dataset_j=name_i,
-            metric=metric_name,
-            value=value,
-            pairs=pairs_dict,
-            metadata={
-                "n_samples_i": int(data_j.shape[0]),
-                "n_samples_j": int(data_i.shape[0]),
-                "n_features_i": n_features_j,
-                "n_features_j": n_features_i,
-            },
-        )
-
-        # Log progress periodically
-        if idx % batch_size == 0:
-            n_total = len(missing_computations)
-            logger.info(f"Computed {idx}/{n_total} comparisons")
-
-    # Load all results and convert to DataFrame
-    all_results = load_distribution_comparisons(
-        save_path=save_path,
-        comparison_name=comparison_name,
-    )
-
-    if comparison_name not in all_results or not all_results[comparison_name]:
-        raise ValueError("No comparison data computed or loaded.")
-
-    # Convert to DataFrame and remove duplicates
-    df_final = _comparison_results_to_dataframe(all_results[comparison_name])
-    df_final = df_final.drop_duplicates(
-        subset=["dataset_i", "dataset_j", "metric"], keep="first"
-    )
-    df_final = df_final.sort_values(["metric", "dataset_i", "dataset_j"])
-
-    return df_final
-
-
 def _comparison_results_to_dataframe(
     results: dict[str, dict[str, Any]],
 ) -> pd.DataFrame:
@@ -1597,271 +1428,3 @@ def _comparison_results_to_dataframe(
         rows.append(row)
 
     return pd.DataFrame(rows)
-
-
-# ============================================================================
-# Distribution Comparison I/O Functions
-# ============================================================================
-
-
-def save_distribution_comparison(
-    save_path: str | Path,
-    comparison_name: str,
-    dataset_i: str,
-    dataset_j: str,
-    metric: str,
-    value: float,
-    pairs: dict[tuple[int, int], float] | None = None,
-    metadata: dict[str, Any] | None = None,
-) -> None:
-    """Save a single distribution comparison result to HDF5.
-
-    Uses hierarchical structure: comparison_name / result_key / {scalars, arrays}
-    where result_key is formatted as "{dataset_i}_vs_{dataset_j}_{metric}"
-
-    Parameters
-    ----------
-    save_path : str or Path
-        Path to HDF5 file
-    comparison_name : str
-        Top-level comparison group name (e.g., "session_comparisons", "experiment_001")
-    dataset_i : str
-        Name of first dataset
-    dataset_j : str
-        Name of second dataset
-    metric : str
-        Distance/similarity metric used
-    value : float
-        Computed comparison value
-    pairs : dict[str, Any], optional
-        For shape metrics: point-to-point correspondence mapping
-    metadata : dict[str, Any], optional
-        Additional metadata to store (n_samples, n_features, etc.)
-
-    Examples
-    --------
-    >>> save_distribution_comparison(
-    ...     "output/comparisons.h5",
-    ...     comparison_name="session_001",
-    ...     dataset_i="condition_A",
-    ...     dataset_j="condition_B",
-    ...     metric="wasserstein",
-    ...     value=0.523,
-    ...     metadata={"n_samples_i": 100, "n_samples_j": 120}
-    ... )
-    """
-    from neural_analysis.utils.io import save_result_to_hdf5_dataset
-
-    # Create unique result key
-    result_key = f"{dataset_i}_vs_{dataset_j}_{metric}"
-
-    # Prepare scalar data
-    scalar_data = {
-        "dataset_i": dataset_i,
-        "dataset_j": dataset_j,
-        "metric": metric,
-        "value": float(value),
-    }
-
-    # Add metadata if provided
-    if metadata is not None:
-        scalar_data.update(metadata)
-
-    # Prepare array data
-    array_data = {}
-    if pairs is not None:
-        # Convert pairs dict to arrays for HDF5 storage
-        pair_indices = np.array(list(pairs.keys()), dtype=np.int64)
-        pair_values = np.array(list(pairs.values()), dtype=np.float64)
-        array_data["pair_indices"] = pair_indices
-        array_data["pair_values"] = pair_values
-
-    # Use generalized saving function
-    save_result_to_hdf5_dataset(
-        save_path=save_path,
-        dataset_name=comparison_name,
-        result_key=result_key,
-        scalar_data=scalar_data,
-        array_data=array_data,
-    )
-
-
-def batch_comparison(
-    datasets: dict[str, npt.NDArray[np.floating]],
-    comparison_fn: Callable[..., float],
-    **comparison_kwargs: Any,
-) -> pd.DataFrame:
-    """Compute pairwise comparisons for all dataset pairs.
-
-    Simplified batch comparison function for computing pairwise
-    distances/similarities between datasets using any comparison function.
-
-    Parameters
-    ----------
-    datasets : dict[str, ndarray]
-        Dictionary mapping dataset names to data arrays.
-        Each array should have shape (n_samples, n_features).
-    comparison_fn : callable
-        Function to compute comparison between two datasets.
-        Must accept two arrays and return a float.
-        Example: compare_distributions, shape_distance
-    **comparison_kwargs
-        Additional keyword arguments to pass to comparison_fn.
-
-    Returns
-    -------
-    df : pd.DataFrame
-        DataFrame with columns:
-        - dataset_1: Name of first dataset
-        - dataset_2: Name of second dataset
-        - distance: Comparison result
-        - Any additional metadata from comparison_fn
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from neural_analysis.metrics.distributions import (
-    ...     batch_comparison, compare_distributions
-    ... )
-    >>> datasets = {
-    ...     "A": np.random.randn(100, 3),
-    ...     "B": np.random.randn(100, 3) + 1.0,
-    ...     "C": np.random.randn(100, 3) + 2.0,
-    ... }
-    >>> df = batch_comparison(
-    ...     datasets,
-    ...     comparison_fn=compare_distributions,
-    ...     metric="wasserstein"
-    ... )
-    >>> print(df.head())
-    """
-    results = []
-    dataset_names = list(datasets.keys())
-
-    # Compute all pairwise comparisons
-    for name1 in dataset_names:
-        for name2 in dataset_names:
-            data1 = datasets[name1]
-            data2 = datasets[name2]
-
-            try:
-                # Call comparison function
-                result = comparison_fn(data1, data2, **comparison_kwargs)
-
-                # Handle different return types
-                distance = result[0] if isinstance(result, tuple) else result
-
-                results.append(
-                    {
-                        "dataset_1": name1,
-                        "dataset_2": name2,
-                        "distance": float(distance),
-                    }
-                )
-            except Exception as e:
-                logger.warning(f"Failed to compare {name1} vs {name2}: {e}")
-                results.append(
-                    {
-                        "dataset_1": name1,
-                        "dataset_2": name2,
-                        "distance": np.nan,
-                    }
-                )
-
-    return pd.DataFrame(results)
-
-
-def load_distribution_comparisons(
-    save_path: str | Path,
-    comparison_name: str | None = None,
-    dataset_i: str | None = None,
-    dataset_j: str | None = None,
-    metric: str | None = None,
-) -> dict[str, dict[str, Any]]:
-    """Load distribution comparison results from HDF5.
-
-    Parameters
-    ----------
-    save_path : str or Path
-        Path to HDF5 file
-    comparison_name : str, optional
-        Filter by comparison group name
-    dataset_i : str, optional
-        Filter by first dataset name
-    dataset_j : str, optional
-        Filter by second dataset name
-    metric : str, optional
-        Filter by metric name
-
-    Returns
-    -------
-    results : dict[str, Any]
-        Nested dictionary: {comparison_name: {result_key: {scalars, arrays}}}
-
-    Examples
-    --------
-    >>> # Load all comparisons
-    >>> results = load_distribution_comparisons("output/comparisons.h5")
-    >>>
-    >>> # Load specific comparison group
-    >>> results = load_distribution_comparisons(
-    ...     "output/comparisons.h5",
-    ...     comparison_name="session_001"
-    ... )
-    >>>
-    >>> # Filter by datasets and metric
-    >>> results = load_distribution_comparisons(
-    ...     "output/comparisons.h5",
-    ...     dataset_i="condition_A",
-    ...     metric="wasserstein"
-    ... )
-    """
-    from neural_analysis.utils.io import load_results_from_hdf5_dataset
-
-    # Build filter attributes
-    filter_attrs = {}
-    if dataset_i is not None:
-        filter_attrs["dataset_i"] = dataset_i
-    if dataset_j is not None:
-        filter_attrs["dataset_j"] = dataset_j
-    if metric is not None:
-        filter_attrs["metric"] = metric
-
-    # Load using generalized function
-    return load_results_from_hdf5_dataset(
-        save_path=save_path,
-        dataset_name=comparison_name,
-        filter_attrs=filter_attrs if filter_attrs else None,
-    )
-
-
-def get_comparison_summary(
-    save_path: str | Path,
-    comparison_name: str | None = None,
-) -> pd.DataFrame:
-    """Get summary DataFrame of all comparison results.
-
-    Parameters
-    ----------
-    save_path : str or Path
-        Path to HDF5 file
-    comparison_name : str, optional
-        Filter by comparison group name
-
-    Returns
-    -------
-    DataFrame
-        Summary with columns: comparison_name, result_key, dataset_i, dataset_j,
-        metric, value, and any additional metadata
-
-    Examples
-    --------
-    >>> df = get_comparison_summary("output/comparisons.h5")
-    >>> print(df[['dataset_i', 'dataset_j', 'metric', 'value']])
-    """
-    from neural_analysis.utils.io import get_hdf5_result_summary
-
-    return get_hdf5_result_summary(
-        save_path=save_path,
-        dataset_name=comparison_name,
-    )

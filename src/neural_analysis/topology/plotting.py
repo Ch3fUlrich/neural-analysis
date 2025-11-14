@@ -8,7 +8,7 @@ computations, including parameter sweeps, overlap matrices, and directed graphs.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -30,11 +30,11 @@ def plot_structure_index(
     labels: npt.NDArray[Any] | None = None,
     overlap_mat: npt.NDArray[Any] | None = None,
     si_value: float | None = None,
-    bin_label: tuple | None = None,
+    bin_label: tuple[Any, ...] | None = None,
     sweep_results: dict[tuple[int, int], dict[str, Any]] | None = None,
     save_path: str | Path | None = None,
     title: str = "Structure Index Analysis",
-    backend: str = "matplotlib",
+    backend: Literal["matplotlib", "plotly"] = "matplotlib",
     figsize: tuple[int, int] = (18, 6),
     show: bool = True,
 ) -> Any:
@@ -116,6 +116,12 @@ def plot_structure_index(
         )
 
     elif all(v is not None for v in [data, labels, overlap_mat, si_value, bin_label]):
+        # Type narrowing: all values are not None here
+        assert data is not None
+        assert labels is not None
+        assert overlap_mat is not None
+        assert si_value is not None
+        assert bin_label is not None
         return _plot_single_result(
             data=data,
             labels=labels,
@@ -142,10 +148,10 @@ def _plot_single_result(
     labels: npt.NDArray[Any],
     overlap_mat: npt.NDArray[Any],
     si_value: float,
-    bin_label: tuple,
+    bin_label: tuple[Any, ...],
     save_path: str | Path | None,
     title: str,
-    backend: str,
+    backend: Literal["matplotlib", "plotly"],
     figsize: tuple[int, int],
     show: bool,
 ) -> Any:
@@ -158,7 +164,7 @@ def _plot_single_result(
 
     if data.shape[1] >= 3:
         # 3D scatter plot
-        scatter = ax1.scatter(
+        scatter = ax1.scatter(  # type: ignore[misc]
             data[:, 0],
             data[:, 1],
             data[:, 2],
@@ -172,13 +178,15 @@ def _plot_single_result(
         ax1.set_zlabel("Dim 3")  # type: ignore[attr-defined]
     elif data.shape[1] == 2:
         # 2D scatter plot
-        scatter = ax1.scatter(
+        ax1.scatter(
             data[:, 0],
             data[:, 1],
-            c=labels.ravel() if labels.ndim > 1 else labels,
-            cmap="rainbow",
-            s=20,
+            c=labels,
+            cmap="tab10",
+            s=30,
             alpha=0.6,
+            edgecolors="k",
+            linewidth=0.5,
         )
         ax1.set_xlabel("Dim 1")
         ax1.set_ylabel("Dim 2")
@@ -217,11 +225,13 @@ def _plot_single_result(
         overlap_mat,
         ax=ax3,
         node_cmap=matplotlib.cm.get_cmap("rainbow"),
-        edge_cmap=plt.cm.Greys,
+        edge_cmap=matplotlib.cm.get_cmap("Greys"),
         node_names=node_labels,
     )
-    ax3.set_xlim(1.2 * np.array(ax3.get_xlim()))
-    ax3.set_ylim(1.2 * np.array(ax3.get_ylim()))
+    xlim = ax3.get_xlim()
+    ylim = ax3.get_ylim()
+    ax3.set_xlim((xlim[0] * 1.2, xlim[1] * 1.2))
+    ax3.set_ylim((ylim[0] * 1.2, ylim[1] * 1.2))
     ax3.set_title("Directed Graph", fontsize=14)
 
     # Add SI value as text
@@ -324,8 +334,9 @@ def _plot_parameter_sweep(
     grid = PlotGrid(
         plot_specs=[spec],
         layout=layout,
-        backend=backend,
-        global_config=config,
+        backend=backend
+        if isinstance(backend, str) and backend in ["matplotlib", "plotly"]
+        else "matplotlib",  # type: ignore[arg-type]
     )
 
     fig = grid.plot()
@@ -387,7 +398,6 @@ def _plot_parameter_heatmap(
         plot_specs=[spec],
         layout=layout,
         backend="matplotlib",  # Heatmap works best with matplotlib
-        global_config=config,
     )
 
     fig = grid.plot()
@@ -455,7 +465,7 @@ def plot_structure_index_comparison(
 
     # Create plot specs for each dataset
     plot_specs = []
-    colors = plt.cm.tab10(np.linspace(0, 1, len(results_dict)))
+    colors = matplotlib.cm.get_cmap("tab10")(np.linspace(0, 1, len(results_dict)))
 
     for idx, (dataset_name, results) in enumerate(results_dict.items()):
         # Extract values for the specified parameter
@@ -515,8 +525,9 @@ def plot_structure_index_comparison(
     grid = PlotGrid(
         plot_specs=plot_specs,
         layout=layout,
-        backend=backend,
-        global_config=config,
+        backend=backend
+        if isinstance(backend, str) and backend in ["matplotlib", "plotly"]
+        else "matplotlib",  # type: ignore[arg-type]
     )
 
     fig = grid.plot()

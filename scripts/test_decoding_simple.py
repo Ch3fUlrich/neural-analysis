@@ -4,8 +4,8 @@ This script tests the decoding module independently of pytest.
 Run with: python3 test_decoding_simple.py
 """
 
-import sys
 import os
+import sys
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -19,7 +19,7 @@ except ImportError:
     sys.exit(1)
 
 try:
-    from sklearn.neighbors import KNeighborsRegressor
+    import sklearn  # noqa: F401
 
     print("✓ scikit-learn imported")
 except ImportError:
@@ -71,7 +71,8 @@ try:
         print("✓ Population vector decoder test PASSED")
     else:
         print(
-            f"✗ Population vector decoder test FAILED (error too high: {mean_error:.4f})"
+            f"✗ Population vector decoder test FAILED "
+            f"(error too high: {mean_error:.4f})"
         )
 except Exception as e:
     print(f"✗ Population vector decoder test FAILED: {e}")
@@ -122,14 +123,14 @@ try:
     from neural_analysis.learning.decoding import cross_validated_knn_decoder
 
     metrics = cross_validated_knn_decoder(activity, meta["positions"], k=5, n_folds=5)
-    print(f"✓ Cross-validation completed")
+    print("Cross-validation completed")
     print(f"  Mean R²: {metrics['mean_r2']:.4f} ± {metrics['std_r2']:.4f}")
     print(f"  Mean error: {metrics['mean_error']:.4f} ± {metrics['std_error']:.4f}")
 
     if metrics["mean_r2"] > 0.7 and metrics["mean_error"] < 0.3:
-        print("✓ Cross-validated k-NN decoder test PASSED")
+        print("Cross-validated k-NN decoder test PASSED")
     else:
-        print(f"✗ Cross-validated k-NN decoder test FAILED")
+        print("Cross-validated k-NN decoder test FAILED")
         print(f"  R² = {metrics['mean_r2']:.4f} (should be > 0.7)")
         print(f"  Error = {metrics['mean_error']:.4f} (should be < 0.3)")
 except Exception as e:
@@ -158,16 +159,16 @@ try:
     comparison = compare_highd_lowd_decoding(
         activity, embedding, meta["positions"], k=5, n_folds=5
     )
-    print(f"✓ Comparison completed")
+    print("✓ Comparison completed")
     print(f"  High-D R²: {comparison['high_d']['mean_r2']:.4f}")
     print(f"  Low-D R²: {comparison['low_d']['mean_r2']:.4f}")
     print(f"  Performance ratio: {comparison['performance_ratio']:.4f}")
     print(f"  Dimensionality reduction: {comparison['dimensionality_reduction']}")
 
     if comparison["high_d"]["mean_r2"] > 0.7 and comparison["performance_ratio"] > 0.7:
-        print("✓ High-D vs Low-D comparison test PASSED")
+        print("High-D vs Low-D comparison test PASSED")
     else:
-        print(f"✗ High-D vs Low-D comparison test FAILED")
+        print("High-D vs Low-D comparison test FAILED")
 except Exception as e:
     print(f"✗ High-D vs Low-D comparison test FAILED: {e}")
     import traceback

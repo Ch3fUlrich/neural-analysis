@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
 Execute all example notebooks to refresh outputs.
-This script runs all notebooks in the examples/ directory and saves them with fresh outputs.
+This script runs all notebooks in the examples/ directory and saves them
+with fresh outputs.
 """
 
 import sys
 from pathlib import Path
+
 import nbformat
-from nbconvert.preprocessors import ExecutePreprocessor, CellExecutionError
+from nbconvert.preprocessors import CellExecutionError, ExecutePreprocessor
 
 
 def execute_notebook(notebook_path: Path, timeout: int = 600) -> bool:
@@ -17,7 +19,7 @@ def execute_notebook(notebook_path: Path, timeout: int = 600) -> bool:
     print(f"{'=' * 80}")
 
     try:
-        with open(notebook_path, "r", encoding="utf-8") as f:
+        with open(notebook_path, encoding="utf-8") as f:
             nb = nbformat.read(f, as_version=4)  # type: ignore[no-untyped-call]
 
         # Create executor
@@ -69,7 +71,7 @@ def main() -> None:
         sys.exit(1)
 
     print(f"Found {len(notebooks)} notebooks to execute")
-    print(f"Execution timeout per notebook: 600 seconds (10 minutes)")
+    print("Execution timeout per notebook: 600 seconds (10 minutes)")
 
     # Execute each notebook
     results = {}

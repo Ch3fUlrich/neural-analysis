@@ -255,6 +255,29 @@ class TestShapeDistance:
         with pytest.raises(ValueError, match="same shape"):
             shape_distance(points1, points2, method="procrustes")
 
+    def test_one_to_one_less_than_or_equal_procrustes(self) -> None:
+        """Test that one-to-one distance ≤ Procrustes distance.
+
+        This property must hold because one-to-one searches over a larger space:
+        {all permutations} × {optimal rotation} ⊇ {identity permutation} × {optimal rotation}
+        """
+        from neural_analysis.metrics.distributions import shape_distance
+
+        # Test with multiple random datasets
+        np.random.seed(42)
+        for _ in range(10):
+            points1 = np.random.randn(20, 5)
+            points2 = np.random.randn(20, 5)
+
+            dist_procrustes = shape_distance(points1, points2, method="procrustes")
+            dist_one_to_one = shape_distance(points1, points2, method="one-to-one")
+
+            # Allow small numerical tolerance
+            assert dist_one_to_one <= dist_procrustes * 1.0001, (
+                f"One-to-one ({dist_one_to_one:.6f}) should be ≤ "
+                f"Procrustes ({dist_procrustes:.6f})"
+            )
+
     def test_invalid_method_raises(self) -> None:
         """Test that invalid method raises error."""
         from neural_analysis.metrics.distributions import shape_distance

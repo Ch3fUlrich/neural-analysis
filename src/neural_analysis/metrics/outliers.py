@@ -11,8 +11,8 @@ from typing import Any, Literal
 
 import numpy as np
 import numpy.typing as npt
-from sklearn.covariance import EllipticEnvelope  # type: ignore[import-untyped]
-from sklearn.neighbors import LocalOutlierFactor  # type: ignore[import-untyped]
+from sklearn.covariance import EllipticEnvelope
+from sklearn.neighbors import LocalOutlierFactor
 
 try:
     from neural_analysis.utils.logging import get_logger, log_calls
@@ -184,7 +184,7 @@ def _mask_outliers_isolation(
     points: npt.NDArray[Any], contamination: float
 ) -> npt.NDArray[np.bool_]:
     """Return inlier mask using Isolation Forest (leverages n_jobs=-1)."""
-    from sklearn.ensemble import IsolationForest  # type: ignore[import-untyped]
+    from sklearn.ensemble import IsolationForest
 
     detector = IsolationForest(contamination=contamination, random_state=42, n_jobs=-1)
     labels = detector.fit_predict(points)

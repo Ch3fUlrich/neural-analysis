@@ -55,7 +55,11 @@ def _level_from_env(default: int) -> int:
     if not env:
         return default
     try:
-        return getattr(logging, env.upper())
+        val = getattr(logging, env.upper())
+        if isinstance(val, int):
+            return val
+        else:
+            return default
     except Exception:
         return default
 
@@ -185,10 +189,12 @@ def log_calls(
     ...     return x * 2
     """
 
+    from functools import wraps
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         log = get_logger(func.__module__)
 
-        def wrapper(*args: Any, **kwargs):
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             log.log(
                 level,
                 f"→ {func.__name__}(args=%d, kwargs=%d)" % (len(args), len(kwargs)),
@@ -204,9 +210,6 @@ def log_calls(
                 else:
                     log.log(level, f"← {func.__name__} done")
 
-        wrapper.__name__ = func.__name__
-        wrapper.__doc__ = func.__doc__
-        wrapper.__qualname__ = func.__qualname__
         return wrapper
 
     return decorator

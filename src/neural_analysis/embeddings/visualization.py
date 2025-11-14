@@ -9,16 +9,16 @@ and flexible customization.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import numpy.typing as npt
 
-from neural_analysis.plotting.grid import (
+from neural_analysis.plotting.core import PlotConfig
+from neural_analysis.plotting.grid_config import (
+    GridLayoutConfig,
     PlotGrid,
     PlotSpec,
-    PlotConfig,
-    GridLayoutConfig,
 )
 
 if TYPE_CHECKING:
@@ -33,22 +33,24 @@ __all__ = [
 
 
 def plot_multiple_embeddings(
-    embeddings: Dict[str, np.ndarray],
+    embeddings: dict[str, npt.NDArray[np.floating]],
     labels: npt.ArrayLike | None = None,
-    colors: Union[List[str | None, str]] = None,
+    colors: list[str] | str | None = None,
     title: str = "Dimensionality Reduction Comparison",
     figsize: tuple[int, int] = (16, 10),
     point_size: int = 20,
     alpha: float = 0.7,
     show_legend: bool = True,
-    backend: str = "matplotlib", **kwargs) -> Figure:
+    backend: Literal["matplotlib", "plotly"] = "matplotlib",
+    **kwargs: Any,
+) -> Figure:
     """
     Plot multiple embeddings side-by-side for comparison.
-    
+
     This function creates a grid of subplots showing different dimensionality
     reduction methods applied to the same data. Uses the PlotGrid system for
     consistent styling and flexibility.
-    
+
     Parameters
     ----------
     embeddings : dict[str, Any]
@@ -77,13 +79,13 @@ def plot_multiple_embeddings(
         Plotting backend to use
     **kwargs
         Additional keyword arguments passed to PlotGrid configuration
-    
+
     Returns
     -------
     fig : Figure
         Matplotlib Figure object (if backend="matplotlib")
         or Plotly Figure (if backend="plotly")
-    
+
     Examples
     --------
     >>> from neural_analysis.embeddings import (
@@ -91,7 +93,7 @@ def plot_multiple_embeddings(
     ...     plot_multiple_embeddings
     ... )
     >>> import numpy as np
-    >>> 
+    >>>
     >>> # Generate synthetic data with 3 clusters
     >>> rng = np.random.default_rng(42)
     >>> data = np.vstack([
@@ -100,14 +102,14 @@ def plot_multiple_embeddings(
     ...     rng.normal(-3, 1, (100, 50))
     ... ])
     >>> labels = np.repeat([0, 1, 2], 100)
-    >>> 
+    >>>
     >>> # Compute embeddings
     >>> embeddings = compute_multiple_embeddings(
     ...     data,
     ...     methods=["pca", "umap", "tsne"],
     ...     n_components=2
     ... )
-    >>> 
+    >>>
     >>> # Plot comparison
     >>> fig = plot_multiple_embeddings(
     ...     embeddings,
@@ -115,7 +117,7 @@ def plot_multiple_embeddings(
     ...     colors=["steelblue", "coral", "mediumseagreen"],
     ...     title="Neural Population Activity Embeddings"
     ... )
-    
+
     Notes
     -----
     This function automatically arranges subplots in a grid based on the number
@@ -124,10 +126,10 @@ def plot_multiple_embeddings(
     - 3-4 embeddings: 2 rows
     - 5-6 embeddings: 2 rows
     - 7+ embeddings: 3 rows
-    
+
     Each subplot shows the embedding with the method name as the title.
     If labels are provided, points are colored by category and a legend is shown.
-    
+
     See Also
     --------
     compute_multiple_embeddings : Compute multiple embeddings at once
@@ -135,7 +137,7 @@ def plot_multiple_embeddings(
     """
     if not embeddings:
         raise ValueError("No embeddings provided")
-    
+
     # Determine grid layout
     n_embeddings = len(embeddings)
     if n_embeddings <= 2:
@@ -146,18 +148,23 @@ def plot_multiple_embeddings(
         rows, cols = 2, 3
     else:
         rows, cols = 3, (n_embeddings + 2) // 3
-    
+
     # Prepare labels and colors
     if labels is not None:
         labels = np.asarray(labels)
         unique_labels = np.unique(labels)
         n_categories = len(unique_labels)
-        
+
         # Default colors if not provided
         if colors is None:
             from matplotlib import cm
-            cmap = cm.get_cmap('tab10')
-            colors = [cmap(i) for i in range(n_categories)]
+
+            cmap = cm.get_cmap("tab10")
+            colors_list: list[str] = [
+                f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
+                for r, g, b, _ in (cmap(i) for i in range(n_categories))
+            ]
+            colors = colors_list
         elif isinstance(colors, str):
             colors = [colors] * n_categories
     else:
@@ -166,26 +173,26 @@ def plot_multiple_embeddings(
             colors = "steelblue"
         labels = None
         unique_labels = None
-    
+
     # Create PlotSpecs for each embedding
     plot_specs = []
     for idx, (method_name, embedding) in enumerate(embeddings.items()):
         embedding = np.asarray(embedding)
-        
+
         if embedding.ndim != 2:
             raise ValueError(
                 f"Embedding '{method_name}' must be 2D, got shape {embedding.shape}"
             )
-        
+
         n_samples, n_dims = embedding.shape
-        
+
         if n_dims not in [2, 3]:
             logger.warning(
                 f"Embedding '{method_name}' has {n_dims} dimensions. "
                 "Only 2D and 3D embeddings are supported for visualization."
             )
             continue
-        
+
         # Create scatter plot(s) for this embedding
         if labels is None:
             # Single scatter plot (no categories)
@@ -202,7 +209,7 @@ def plot_multiple_embeddings(
                         "x_label": "Component 1" if n_dims >= 1 else None,
                         "y_label": "Component 2" if n_dims >= 2 else None,
                         "z_label": "Component 3" if n_dims == 3 else None,
-                    }
+                    },
                 )
             )
         else:
@@ -210,14 +217,15 @@ def plot_multiple_embeddings(
             for cat_idx, label_value in enumerate(unique_labels):
                 mask = labels == label_value
                 cat_embedding = embedding[mask]
-                
+
+                cat_color = colors[cat_idx] if isinstance(colors, list) else colors
                 plot_specs.append(
                     PlotSpec(
                         data=cat_embedding,
                         plot_type="scatter",
                         subplot_position=idx,
                         title=method_name.upper(),
-                        color=colors[cat_idx] if isinstance(colors, list) else colors,
+                        color=cat_color,
                         alpha=alpha,
                         label=f"Category {label_value}",
                         kwargs={
@@ -225,13 +233,13 @@ def plot_multiple_embeddings(
                             "x_label": "Component 1" if n_dims >= 1 else None,
                             "y_label": "Component 2" if n_dims >= 2 else None,
                             "z_label": "Component 3" if n_dims == 3 else None,
-                        }
+                        },
                     )
                 )
-    
+
     if not plot_specs:
         raise ValueError("No valid embeddings to plot")
-    
+
     # Create PlotGrid
     grid = PlotGrid(
         plot_specs=plot_specs,
@@ -239,29 +247,33 @@ def plot_multiple_embeddings(
             title=title,
             figsize=figsize,
             show=True,
-            legend=show_legend and labels is not None, **kwargs),
+            legend=show_legend and labels is not None,
+            **kwargs,
+        ),
         layout=GridLayoutConfig(rows=rows, cols=cols),
-        backend=backend
+        backend=backend,
     )
-    
+
     logger.info(f"Created embedding comparison plot with {n_embeddings} methods")
-    return grid.fig
+    return grid.plot()  # type: ignore[no-any-return]
 
 
 def plot_pca_variance(
-    variance_info: Dict[str, np.ndarray],
+    variance_info: dict[str, npt.NDArray[np.floating]],
     cumulative: bool = True,
     n_components_to_show: int | None = None,
-    threshold_lines: List[float] = None,
+    threshold_lines: list[float] | None = None,
     figsize: tuple[int, int] = (12, 5),
-    colors: List[str] = None,
-    backend: str = "matplotlib", **kwargs) -> Figure:
+    colors: list[str] | None = None,
+    backend: Literal["matplotlib", "plotly"] = "matplotlib",
+    **kwargs: Any,
+) -> Figure:
     """
     Plot PCA explained variance (scree plot).
-    
+
     This function creates a visualization of how much variance is explained by
     each PCA component. Useful for determining how many components to keep.
-    
+
     Parameters
     ----------
     variance_info : dict[str, Any]
@@ -285,35 +297,35 @@ def plot_pca_variance(
         Plotting backend to use
     **kwargs
         Additional keyword arguments passed to PlotGrid configuration
-    
+
     Returns
     -------
     fig : Figure
         Matplotlib Figure object (if backend="matplotlib")
         or Plotly Figure (if backend="plotly")
-    
+
     Examples
     --------
     >>> from neural_analysis.embeddings import pca_explained_variance, plot_pca_variance
     >>> import numpy as np
-    >>> 
+    >>>
     >>> # Generate data
     >>> rng = np.random.default_rng(42)
     >>> data = rng.normal(0, 1, (200, 50))
-    >>> 
+    >>>
     >>> # Compute variance info
     >>> variance_info = pca_explained_variance(data)
-    >>> 
+    >>>
     >>> # Plot scree plot
     >>> fig = plot_pca_variance(
     ...     variance_info,
     ...     cumulative=True,
     ...     threshold_lines=[0.9, 0.95, 0.99]
     ... )
-    >>> 
+    >>>
     >>> # Check how many components needed for 90% variance
     >>> print(f"Components for 90%: {variance_info['n_components_90']}")
-    
+
     Notes
     -----
     The scree plot helps determine the "elbow point" where adding more components
@@ -321,7 +333,7 @@ def plot_pca_variance(
     - Keep components until cumulative variance reaches 90-95%
     - Look for "elbow" in individual variance plot
     - Keep components with eigenvalues > 1 (Kaiser criterion)
-    
+
     See Also
     --------
     pca_explained_variance : Compute variance information
@@ -329,23 +341,23 @@ def plot_pca_variance(
     """
     if colors is None:
         colors = ["steelblue", "coral"]
-    
+
     if threshold_lines is None:
         threshold_lines = [0.90, 0.95] if cumulative else []
-    
+
     # Get variance data
     var_ratio = variance_info["explained_variance_ratio"]
     n_components = len(var_ratio)
-    
+
     if n_components_to_show is not None:
         n_components = min(n_components, n_components_to_show)
         var_ratio = var_ratio[:n_components]
-    
+
     component_indices = np.arange(1, n_components + 1)
-    
+
     # Create plot specs
     plot_specs = []
-    
+
     # Individual variance bar plot
     plot_specs.append(
         PlotSpec(
@@ -361,14 +373,14 @@ def plot_pca_variance(
                 "y_label": "Explained Variance Ratio",
                 "show_values": False,
                 "grid": {"axis": "y", "alpha": 0.3},
-            }
+            },
         )
     )
-    
+
     # Cumulative variance line plot
     if cumulative and "cumulative_variance_ratio" in variance_info:
         cumvar_ratio = variance_info["cumulative_variance_ratio"][:n_components]
-        
+
         plot_specs.append(
             PlotSpec(
                 data=cumvar_ratio,
@@ -385,19 +397,19 @@ def plot_pca_variance(
                     "x_label": "Principal Component",
                     "y_label": "Cumulative Variance Ratio",
                     "grid": {"axis": "both", "alpha": 0.3},
-                }
+                },
             )
         )
-        
+
         # Add threshold lines as horizontal reference lines
         # Note: PlotGrid doesn't have built-in support for axhline yet,
         # so we'll document this for future enhancement
         # For now, thresholds are visual guides users can add manually
-    
+
     # Create layout
     n_plots = 2 if cumulative and "cumulative_variance_ratio" in variance_info else 1
     rows, cols = (1, n_plots)
-    
+
     # Create PlotGrid
     grid = PlotGrid(
         plot_specs=plot_specs,
@@ -405,15 +417,20 @@ def plot_pca_variance(
             title="PCA Explained Variance",
             figsize=figsize,
             show=True,
-            legend=False, **kwargs),
+            legend=False,
+            **kwargs,
+        ),
         layout=GridLayoutConfig(rows=rows, cols=cols),
-        backend=backend
+        backend=backend,
     )
-    
+
+    # Create the plot
+    fig = grid.plot()
+
     # Add threshold lines manually if matplotlib backend
     if backend == "matplotlib" and threshold_lines and cumulative and n_plots == 2:
         # Access the cumulative variance subplot (second subplot)
-        ax = grid.fig.axes[1] if len(grid.fig.axes) > 1 else grid.fig.axes[0]
+        ax = fig.axes[1] if len(fig.axes) > 1 else fig.axes[0]
         for threshold in threshold_lines:
             ax.axhline(
                 threshold,
@@ -421,13 +438,13 @@ def plot_pca_variance(
                 linestyle="--",
                 linewidth=1,
                 alpha=0.5,
-                label=f"{threshold:.0%} variance"
+                label=f"{threshold:.0%} variance",
             )
         ax.legend()
-    
+
     logger.info(
         f"Created PCA variance plot: "
         f"{n_components} components, {var_ratio.sum():.2%} total variance"
     )
-    
-    return grid.fig
+
+    return fig  # type: ignore[no-any-return]

@@ -12,9 +12,12 @@ All functions follow a consistent interface:
 """
 
 from __future__ import annotations
-from typing import TYPE_CHECKING, Literal, Any
+
+import contextlib
+from typing import TYPE_CHECKING, Any
+
 import numpy as np
-import numpy.typing as npt
+from numpy.typing import NDArray
 
 if TYPE_CHECKING:
     import plotly.graph_objects as go
@@ -33,8 +36,8 @@ except ImportError:
 
 
 def extract_xy_from_data(
-    data: dict[str, Any] | np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
+    data: dict[str, Any] | np.ndarray[Any, Any],
+) -> tuple[NDArray[np.floating[Any]], NDArray[np.floating[Any]]]:
     """
     Extract x and y coordinates from various data formats.
 
@@ -62,8 +65,8 @@ def extract_xy_from_data(
 
 
 def extract_xyz_from_data(
-    data: dict[str, Any] | np.ndarray,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    data: dict[str, Any] | np.ndarray[Any, Any],
+) -> tuple[NDArray[np.floating[Any]], NDArray[np.floating[Any]], NDArray[np.floating[Any]]]:
     """
     Extract x, y, and z coordinates from various data formats.
 
@@ -129,9 +132,9 @@ __all__ = [
 
 def render_scatter_matplotlib(
     ax,
-    data: npt.NDArray[np.floating[Any]],
+    data: NDArray[np.floating[Any]],
     color: str | None = None,
-    colors: npt.NDArray[np.floating[Any]] | None = None,
+    colors: NDArray[np.floating[Any]] | None = None,
     cmap: str | None = None,
     marker: str = "o",
     marker_size: float | None = None,
@@ -215,13 +218,13 @@ def render_scatter_matplotlib(
 
 
 def render_scatter_plotly(
-    data: npt.NDArray[np.floating[Any]],
+    data: NDArray[np.floating[Any]],
     color: str | None = None,
-    colors: npt.NDArray[np.floating[Any]] | None = None,
+    colors: NDArray[np.floating[Any]] | None = None,
     cmap: str | None = None,
     marker: str = "circle",
     marker_size: float | None = None,
-    sizes: npt.NDArray[np.floating[Any]] | None = None,
+    sizes: NDArray[np.floating[Any]] | None = None,
     alpha: float = 0.7,
     label: str | None = None,
     showlegend: bool = True,
@@ -302,12 +305,12 @@ def render_scatter_plotly(
 
 
 def render_scatter3d_plotly(
-    data: npt.NDArray[np.floating[Any]],
+    data: NDArray[np.floating[Any]],
     color: str | None = None,
-    colors: npt.NDArray[np.floating[Any]] | None = None,
+    colors: NDArray[np.floating[Any]] | None = None,
     cmap: str | None = None,
     marker_size: float | None = None,
-    sizes: npt.NDArray[np.floating[Any]] | None = None,
+    sizes: NDArray[np.floating[Any]] | None = None,
     alpha: float = 0.7,
     label: str | None = None,
     showlegend: bool = True,
@@ -392,13 +395,13 @@ def render_scatter3d_plotly(
 
 def render_line_matplotlib(
     ax,
-    data: npt.NDArray[np.floating[Any]],
+    data: NDArray[np.floating[Any]],
     color: str | None = None,
     line_width: float = 1.5,
     linestyle: str = "-",
     marker: str | None = None,
     marker_size: float | None = None,
-    error_y: npt.NDArray[np.floating[Any]] | None = None,
+    error_y: NDArray[np.floating[Any]] | None = None,
     alpha: float = 1.0,
     label: str | None = None,
     show_values: bool = False,
@@ -442,9 +445,9 @@ def render_line_matplotlib(
         List of Line2D objects
     """
     # Extract custom parameters that matplotlib doesn't support directly
-    false_color = kwargs.pop("false_color", None)
-    true_label = kwargs.pop("true_label", None)
-    false_label = kwargs.pop("false_label", None)
+    _ = kwargs.pop("false_color", None)
+    _ = kwargs.pop("true_label", None)
+    _ = kwargs.pop("false_label", None)
     # Pop axis label parameters (handled by PlotConfig)
     kwargs.pop("x_label", None)
     kwargs.pop("y_label", None)
@@ -543,11 +546,11 @@ def render_line_matplotlib(
 
 
 def render_line_plotly(
-    data: npt.NDArray[np.floating[Any]],
+    data: NDArray[np.floating[Any]],
     color: str | None = None,
     line_width: float = 2,
     linestyle: str | None = None,
-    error_y: npt.NDArray[np.floating[Any]] | None = None,
+    error_y: NDArray[np.floating[Any]] | None = None,
     alpha: float = 1.0,
     label: str | None = None,
     showlegend: bool = True,
@@ -678,7 +681,7 @@ def render_line_plotly(
 
 def render_histogram_matplotlib(
     ax,
-    data: npt.NDArray[np.floating[Any]],
+    data: NDArray[np.floating[Any]],
     color: str | None = None,
     alpha: float = 0.7,
     bins: int = 30,
@@ -714,7 +717,7 @@ def render_histogram_matplotlib(
 
 
 def render_histogram_plotly(
-    data: npt.NDArray[np.floating[Any]],
+    data: NDArray[np.floating[Any]],
     color: str | None = None,
     alpha: float = 0.7,
     bins: int = 30,
@@ -768,7 +771,7 @@ def render_histogram_plotly(
 
 def render_heatmap_matplotlib(
     ax,
-    data: npt.NDArray[np.floating[Any]],
+    data: NDArray[np.floating[Any]],
     cmap: str = "viridis",
     alpha: float = 1.0,
     **kwargs,
@@ -842,22 +845,18 @@ def render_heatmap_matplotlib(
 
     # Apply explicit axis limits if requested
     if set_xlim is not None:
-        try:
+        # ignore invalid limits
+        with contextlib.suppress(Exception):
             ax.set_xlim(set_xlim)
-        except Exception:
-            # ignore invalid limits
-            pass
     if set_ylim is not None:
-        try:
+        with contextlib.suppress(Exception):
             ax.set_ylim(set_ylim)
-        except Exception:
-            pass
 
     # Add value annotations if requested
     if show_values:
         for i in range(data.shape[0]):
             for j in range(data.shape[1]):
-                text = ax.text(
+                ax.text(
                     j,
                     i,
                     format(data[i, j], value_format),
@@ -1017,7 +1016,7 @@ def render_heatmap_walls_matplotlib(
 
 
 def render_heatmap_plotly(
-    data: npt.NDArray[np.floating[Any]],
+    data: NDArray[np.floating[Any]],
     cmap: str | None = None,
     colorscale: str | None = None,
     **kwargs,
@@ -1073,15 +1072,15 @@ def render_heatmap_plotly(
 
 def render_bar_matplotlib(
     ax,
-    data: npt.NDArray[np.floating[Any]],
-    x: npt.NDArray[np.floating[Any]] | None = None,
+    data: NDArray[np.floating[Any]],
+    x: NDArray[np.floating[Any]] | None = None,
     color: str | None = None,
     colors: list | None = None,
     alpha: float = 0.7,
     label: str | None = None,
     orientation: str = "v",
-    error_y: npt.NDArray[np.floating[Any]] | None = None,
-    error_x: npt.NDArray[np.floating[Any]] | None = None,
+    error_y: NDArray[np.floating[Any]] | None = None,
+    error_x: NDArray[np.floating[Any]] | None = None,
     show_values: bool = False,
     value_format: str = ".3f",
     x_labels: list | None = None,
@@ -1195,15 +1194,15 @@ def render_bar_matplotlib(
 
 
 def render_bar_plotly(
-    data: npt.NDArray[np.floating[Any]],
-    x: npt.NDArray[np.floating[Any]] | None = None,
+    data: NDArray[np.floating[Any]],
+    x: NDArray[np.floating[Any]] | None = None,
     color: str | None = None,
     colors: list | None = None,
     alpha: float = 0.7,
     label: str | None = None,
     showlegend: bool = True,
-    error_y: npt.NDArray[np.floating[Any]] | None = None,
-    error_x: npt.NDArray[np.floating[Any]] | None = None,
+    error_y: NDArray[np.floating[Any]] | None = None,
+    error_x: NDArray[np.floating[Any]] | None = None,
     **kwargs,
 ) -> go.Bar:
     """
@@ -1273,7 +1272,7 @@ def render_bar_plotly(
 
 def render_violin_matplotlib(
     ax,
-    data: npt.NDArray[np.floating[Any]],
+    data: NDArray[np.floating[Any]],
     position: int = 1,
     color: str | None = None,
     alpha: float = 0.7,
@@ -1439,7 +1438,7 @@ def render_violin_matplotlib(
 
 
 def render_violin_plotly(
-    data: npt.NDArray[np.floating[Any]],
+    data: NDArray[np.floating[Any]],
     color: str | None = None,
     alpha: float = 0.7,
     meanline: dict | None = None,
@@ -1536,7 +1535,7 @@ def render_violin_plotly(
 
 def render_box_matplotlib(
     ax,
-    data: npt.NDArray[np.floating[Any]],
+    data: NDArray[np.floating[Any]],
     position: int = 1,
     color: str | None = None,
     alpha: float = 0.7,
@@ -1618,7 +1617,7 @@ def render_box_matplotlib(
 
 
 def render_box_plotly(
-    data: npt.NDArray[np.floating[Any]],
+    data: NDArray[np.floating[Any]],
     color: str | None = None,
     alpha: float = 0.7,
     label: str | None = None,
@@ -1688,9 +1687,9 @@ def render_box_plotly(
 
 def render_trajectory_matplotlib(
     ax,
-    x: npt.NDArray[np.floating[Any]],
-    y: npt.NDArray[np.floating[Any]],
-    colors: npt.NDArray[np.floating[Any]] | None = None,
+    x: NDArray[np.floating[Any]],
+    y: NDArray[np.floating[Any]],
+    colors: NDArray[np.floating[Any]] | None = None,
     cmap: str = "viridis",
     linewidth: float = 2.0,
     alpha: float = 1.0,
@@ -1741,8 +1740,8 @@ def render_trajectory_matplotlib(
     LineCollection
         The matplotlib LineCollection object
     """
-    from matplotlib.collections import LineCollection
     from matplotlib import pyplot as plt
+    from matplotlib.collections import LineCollection
 
     # Calculate segments internally
     if len(x) != len(y):
@@ -1790,9 +1789,9 @@ def render_trajectory_matplotlib(
 
 
 def render_trajectory_plotly(
-    x: npt.NDArray[np.floating[Any]],
-    y: npt.NDArray[np.floating[Any]],
-    colors: npt.NDArray[np.floating[Any]] | None = None,
+    x: NDArray[np.floating[Any]],
+    y: NDArray[np.floating[Any]],
+    colors: NDArray[np.floating[Any]] | None = None,
     cmap: str = "Viridis",
     linewidth: float = 2.0,
     alpha: float = 1.0,
@@ -1885,10 +1884,10 @@ def render_trajectory_plotly(
 
 
 def render_trajectory3d_plotly(
-    x: npt.NDArray[np.floating[Any]],
-    y: npt.NDArray[np.floating[Any]],
-    z: npt.NDArray[np.floating[Any]],
-    colors: npt.NDArray[np.floating[Any]] | None = None,
+    x: NDArray[np.floating[Any]],
+    y: NDArray[np.floating[Any]],
+    z: NDArray[np.floating[Any]],
+    colors: NDArray[np.floating[Any]] | None = None,
     cmap: str = "Viridis",
     linewidth: float = 2.0,
     alpha: float = 1.0,
@@ -1971,10 +1970,10 @@ def render_trajectory3d_plotly(
 
 def render_trajectory3d_matplotlib(
     ax,
-    x: npt.NDArray[np.floating[Any]],
-    y: npt.NDArray[np.floating[Any]],
-    z: npt.NDArray[np.floating[Any]],
-    colors: npt.NDArray[np.floating[Any]] | None = None,
+    x: NDArray[np.floating[Any]],
+    y: NDArray[np.floating[Any]],
+    z: NDArray[np.floating[Any]],
+    colors: NDArray[np.floating[Any]] | None = None,
     cmap: str = "viridis",
     linewidth: float = 2.0,
     alpha: float = 1.0,
@@ -2024,8 +2023,8 @@ def render_trajectory3d_matplotlib(
     Line3DCollection
         The matplotlib Line3DCollection object
     """
-    from mpl_toolkits.mplot3d.art3d import Line3DCollection
     from matplotlib import pyplot as plt
+    from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
     # Calculate segments internally
     if not (len(x) == len(y) == len(z)):
@@ -2075,9 +2074,9 @@ def render_trajectory3d_matplotlib(
 
 def render_kde_matplotlib(
     ax,
-    xi: npt.NDArray[np.floating[Any]],
-    yi: npt.NDArray[np.floating[Any]],
-    zi: npt.NDArray[np.floating[Any]],
+    xi: NDArray[np.floating[Any]],
+    yi: NDArray[np.floating[Any]],
+    zi: NDArray[np.floating[Any]],
     fill: bool = True,
     n_levels: int = 10,
     cmap: str = "viridis",
@@ -2142,9 +2141,9 @@ def render_kde_matplotlib(
 
 
 def render_kde_plotly(
-    xi: npt.NDArray[np.floating[Any]],
-    yi: npt.NDArray[np.floating[Any]],
-    zi: npt.NDArray[np.floating[Any]],
+    xi: NDArray[np.floating[Any]],
+    yi: NDArray[np.floating[Any]],
+    zi: NDArray[np.floating[Any]],
     fill: bool = True,
     n_levels: int = 10,
     cmap: str = "Viridis",
@@ -2221,8 +2220,8 @@ def render_kde_plotly(
 
 def render_convex_hull_matplotlib(
     ax,
-    hull_x: npt.NDArray[np.floating[Any]],
-    hull_y: npt.NDArray[np.floating[Any]],
+    hull_x: NDArray[np.floating[Any]],
+    hull_y: NDArray[np.floating[Any]],
     color: str = "black",
     linewidth: float = 2.0,
     linestyle: str = "-",
@@ -2285,8 +2284,8 @@ def render_convex_hull_matplotlib(
 
 
 def render_convex_hull_plotly(
-    hull_x: npt.NDArray[np.floating[Any]],
-    hull_y: npt.NDArray[np.floating[Any]],
+    hull_x: NDArray[np.floating[Any]],
+    hull_y: NDArray[np.floating[Any]],
     color: str = "black",
     linewidth: float = 2.0,
     alpha: float = 1.0,
@@ -2349,8 +2348,8 @@ def render_convex_hull_plotly(
 
 def render_boolean_states_matplotlib(
     ax,
-    x: npt.NDArray[np.floating[Any]],
-    states: npt.NDArray[np.floating[Any]],
+    x: NDArray[np.floating[Any]],
+    states: NDArray[np.floating[Any]],
     true_color: str = "#2ca02c",
     false_color: str = "#d62728",
     true_label: str = "True",
@@ -2441,8 +2440,8 @@ def render_boolean_states_matplotlib(
 
 
 def render_boolean_states_plotly(
-    x: npt.NDArray[np.floating[Any]],
-    states: npt.NDArray[np.floating[Any]],
+    x: NDArray[np.floating[Any]],
+    states: NDArray[np.floating[Any]],
     true_color: str = "#2ca02c",
     false_color: str = "#d62728",
     true_label: str = "True",
@@ -2543,10 +2542,10 @@ def render_boolean_states_plotly(
 
 def render_ellipse_matplotlib(
     ax,
-    centers: npt.NDArray[np.float64],
-    widths: npt.NDArray[np.float64],
-    heights: npt.NDArray[np.float64],
-    angles: npt.NDArray[np.float64] | None = None,
+    centers: NDArray[np.float64],
+    widths: NDArray[np.float64],
+    heights: NDArray[np.float64],
+    angles: NDArray[np.float64] | None = None,
     color: str = "red",
     alpha: float = 0.3,
     edgecolor: str | None = None,
@@ -2586,7 +2585,6 @@ def render_ellipse_matplotlib(
         List of patch objects added to axes
     """
     from matplotlib.patches import Ellipse, Rectangle
-    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
     patches = []
     n_dims = centers.shape[1] if centers.ndim > 1 else 1
@@ -2662,10 +2660,10 @@ def render_ellipse_matplotlib(
 
 
 def render_ellipse_plotly(
-    centers: npt.NDArray[np.float64],
-    widths: npt.NDArray[np.float64],
-    heights: npt.NDArray[np.float64],
-    angles: npt.NDArray[np.float64] | None = None,
+    centers: NDArray[np.float64],
+    widths: NDArray[np.float64],
+    heights: NDArray[np.float64],
+    angles: NDArray[np.float64] | None = None,
     color: str = "red",
     alpha: float = 0.3,
     name: str | None = None,

@@ -1,9 +1,11 @@
 """Tests for 2D plotting functions."""
 
+from typing import Any
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-from typing import Any
+from matplotlib.axes import Axes
 
 # Test both backends
 from neural_analysis.plotting import (
@@ -39,7 +41,7 @@ class TestPlotScatter2D:
         set_backend("matplotlib")
         x, y = sample_data
         ax = plot_scatter_2d(x, y, PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not available")
@@ -57,7 +59,7 @@ class TestPlotScatter2D:
         ax = plot_scatter_2d(
             x, y, colors=colors, colorbar=True, config=PlotConfig(show=False)
         )
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_scatter_with_color_string(self, sample_data: Any) -> None:
@@ -65,7 +67,7 @@ class TestPlotScatter2D:
         set_backend("matplotlib")
         x, y = sample_data
         ax = plot_scatter_2d(x, y, colors="red", config=PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_scatter_with_variable_sizes(self, sample_data: Any) -> None:
@@ -74,7 +76,7 @@ class TestPlotScatter2D:
         x, y = sample_data
         sizes = np.random.uniform(10, 50, len(x))
         ax = plot_scatter_2d(x, y, sizes=sizes, config=PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_scatter_with_config(self, sample_data: Any) -> None:
@@ -114,7 +116,7 @@ class TestPlotScatter2D:
             colorbar_label="Values",
             config=PlotConfig(show=False),
         )
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_scatter_with_custom_alpha(self, sample_data: Any) -> None:
@@ -122,7 +124,7 @@ class TestPlotScatter2D:
         set_backend("matplotlib")
         x, y = sample_data
         ax = plot_scatter_2d(x, y, alpha=0.3, config=PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
 
@@ -142,7 +144,7 @@ class TestPlotTrajectory2D:
         set_backend("matplotlib")
         x, y = trajectory_data
         ax = plot_trajectory_2d(x, y, PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not available")
@@ -157,7 +159,7 @@ class TestPlotTrajectory2D:
         set_backend("matplotlib")
         x, y = trajectory_data
         ax = plot_trajectory_2d(x, y, color_by="time", config=PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_trajectory_without_points(self, trajectory_data: Any) -> None:
@@ -165,7 +167,7 @@ class TestPlotTrajectory2D:
         set_backend("matplotlib")
         x, y = trajectory_data
         ax = plot_trajectory_2d(x, y, show_points=False, config=PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_trajectory_custom_linewidth(self, trajectory_data: Any) -> None:
@@ -173,7 +175,7 @@ class TestPlotTrajectory2D:
         set_backend("matplotlib")
         x, y = trajectory_data
         ax = plot_trajectory_2d(x, y, linewidth=3, config=PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_trajectory_without_time_color(self, trajectory_data: Any) -> None:
@@ -181,7 +183,7 @@ class TestPlotTrajectory2D:
         set_backend("matplotlib")
         x, y = trajectory_data
         ax = plot_trajectory_2d(x, y, color_by=None, config=PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_trajectory_mismatched_lengths(self) -> None:
@@ -210,7 +212,7 @@ class TestPlotGroupedScatter2D:
         """Test basic grouped scatter with matplotlib."""
         set_backend("matplotlib")
         ax = plot_grouped_scatter_2d(grouped_data, PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not available")
@@ -227,7 +229,7 @@ class TestPlotGroupedScatter2D:
         ax = plot_grouped_scatter_2d(
             grouped_data, show_hulls=True, config=PlotConfig(show=False)
         )
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_grouped_scatter_custom_colors(self, grouped_data: Any) -> None:
@@ -237,7 +239,7 @@ class TestPlotGroupedScatter2D:
         ax = plot_grouped_scatter_2d(
             grouped_data, colors=colors, config=PlotConfig(show=False)
         )
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_grouped_scatter_empty_dict(self) -> None:
@@ -262,7 +264,7 @@ class TestPlotGroupedScatter2D:
         ax = plot_grouped_scatter_2d(
             groups, show_hulls=True, config=PlotConfig(show=False)
         )
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_grouped_scatter_with_config(self, grouped_data: Any) -> None:
@@ -295,7 +297,7 @@ class TestPlotKDE2D:
         set_backend("matplotlib")
         x, y = kde_data
         ax = plot_kde_2d(x, y, PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     @pytest.mark.skipif(not PLOTLY_AVAILABLE, reason="Plotly not available")
@@ -310,7 +312,7 @@ class TestPlotKDE2D:
         set_backend("matplotlib")
         x, y = kde_data
         ax = plot_kde_2d(x, y, show_points=True, config=PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_kde_contour_only(self, kde_data: Any) -> None:
@@ -318,7 +320,7 @@ class TestPlotKDE2D:
         set_backend("matplotlib")
         x, y = kde_data
         ax = plot_kde_2d(x, y, fill=False, config=PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_kde_custom_levels(self, kde_data: Any) -> None:
@@ -326,7 +328,7 @@ class TestPlotKDE2D:
         set_backend("matplotlib")
         x, y = kde_data
         ax = plot_kde_2d(x, y, n_levels=15, config=PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_kde_mismatched_lengths(self) -> None:
@@ -378,7 +380,7 @@ class TestEdgeCases:
         # Should work but return empty plot
         set_backend("matplotlib")
         ax = plot_scatter_2d(x, y, config=PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_single_point_scatter(self) -> None:
@@ -387,7 +389,7 @@ class TestEdgeCases:
         y = np.array([2.0])
         set_backend("matplotlib")
         ax = plot_scatter_2d(x, y, config=PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_single_point_trajectory(self) -> None:
@@ -396,7 +398,7 @@ class TestEdgeCases:
         y = np.array([2.0])
         set_backend("matplotlib")
         ax = plot_trajectory_2d(x, y, config=PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_large_dataset(self) -> None:
@@ -406,7 +408,7 @@ class TestEdgeCases:
         y = np.random.randn(10000)
         set_backend("matplotlib")
         ax = plot_scatter_2d(x, y, config=PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()
 
     def test_inf_and_nan_values(self) -> None:
@@ -416,5 +418,5 @@ class TestEdgeCases:
         set_backend("matplotlib")
         # Matplotlib should handle these gracefully
         ax = plot_scatter_2d(x, y, config=PlotConfig(show=False))
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close()

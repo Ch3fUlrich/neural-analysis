@@ -6,11 +6,12 @@ transformations, such as convex hulls, density estimates, and spatial statistics
 """
 
 import numpy as np
+from numpy.typing import NDArray
 
 
 def compute_convex_hull(
-    x: np.ndarray, y: np.ndarray
-) -> tuple[np.ndarray, np.ndarray] | None:
+    x: NDArray[np.floating], y: NDArray[np.floating]
+) -> tuple[NDArray[np.floating], NDArray[np.floating]] | None:
     """
     Compute the convex hull boundary points for 2D data.
 
@@ -63,12 +64,12 @@ def compute_convex_hull(
 
 
 def compute_kde_2d(
-    x: np.ndarray,
-    y: np.ndarray,
+    x: NDArray[np.floating],
+    y: NDArray[np.floating],
     bandwidth: float | None = None,
     grid_size: int = 100,
     expand_fraction: float = 0.1,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.floating]]:
     """
     Compute 2D kernel density estimation on a grid.
 

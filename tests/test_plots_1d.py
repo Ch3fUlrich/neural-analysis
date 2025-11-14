@@ -10,10 +10,12 @@ Tests cover:
 - Both matplotlib and plotly backends
 """
 
+from typing import Any
+
 import matplotlib
 import numpy as np
 import pytest
-from typing import Any
+from matplotlib.axes import Axes
 
 matplotlib.use("Agg")  # Non-interactive backend for testing
 import matplotlib.pyplot as plt
@@ -58,7 +60,7 @@ class TestPlotLine:
         config = PlotConfig(show=False)
         ax = plot_line(y, x=x, config=config, backend="matplotlib")
 
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         assert len(ax.lines) == 1
         plt.close("all")
 
@@ -68,7 +70,7 @@ class TestPlotLine:
         config = PlotConfig(show=False)
         ax = plot_line(y, x=x, std=std, config=config, backend="matplotlib")
 
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         assert len(ax.lines) == 1
         # Check that fill_between was called (creates a PolyCollection)
         assert len(ax.collections) > 0
@@ -82,7 +84,7 @@ class TestPlotLine:
             y, x=x, config=config, marker="o", markersize=3, backend="matplotlib"
         )
 
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close("all")
 
     def test_line_plot_with_label(self, sample_data_1d: Any) -> None:
@@ -102,7 +104,7 @@ class TestPlotLine:
         config = PlotConfig(show=False)
         ax = plot_line(y, config=config, backend="matplotlib")
 
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         # Check that x is range(len(y))
         line = ax.lines[0]
         x_data = line.get_xdata()
@@ -182,7 +184,7 @@ class TestPlotMultipleLines:
         config = PlotConfig(show=False)
         ax = plot_multiple_lines(data_dict, x=x, config=config, backend="matplotlib")
 
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         assert len(ax.lines) == 3
         plt.close("all")
 
@@ -231,7 +233,7 @@ class TestPlotBooleanStates:
             sample_boolean_states, config=config, backend="matplotlib"
         )
 
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         assert ax.get_ylim() == (0, 1)
         plt.close("all")
 
@@ -246,7 +248,7 @@ class TestPlotBooleanStates:
             backend="matplotlib",
         )
 
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close("all")
 
     def test_boolean_plot_custom_labels(self, sample_boolean_states: Any) -> None:
@@ -275,7 +277,7 @@ class TestPlotBooleanStates:
             sample_boolean_states, x=x, config=config, backend="matplotlib"
         )
 
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close("all")
 
     def test_boolean_all_true(self) -> None:
@@ -284,7 +286,7 @@ class TestPlotBooleanStates:
         config = PlotConfig(show=False)
         ax = plot_boolean_states(states, config=config, backend="matplotlib")
 
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close("all")
 
     def test_boolean_all_false(self) -> None:
@@ -293,7 +295,7 @@ class TestPlotBooleanStates:
         config = PlotConfig(show=False)
         ax = plot_boolean_states(states, config=config, backend="matplotlib")
 
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close("all")
 
 
@@ -306,7 +308,7 @@ class TestBackendSelection:
         config = PlotConfig(show=False)
         result = plot_line(y, config=config, backend="matplotlib")
 
-        assert isinstance(result, Any)
+        assert isinstance(result, Axes)
         plt.close("all")
 
     def test_global_backend_used(self, sample_data_1d: Any) -> None:
@@ -316,7 +318,7 @@ class TestBackendSelection:
         config = PlotConfig(show=False)
         result = plot_line(y, config=config)  # No explicit backend
 
-        assert isinstance(result, Any)
+        assert isinstance(result, Axes)
         plt.close("all")
 
 
@@ -330,7 +332,7 @@ class TestEdgeCases:
 
         # Should still work, just produce empty plot
         ax = plot_line(data, config=config, backend="matplotlib")
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close("all")
 
     def test_single_point(self) -> None:
@@ -339,7 +341,7 @@ class TestEdgeCases:
         config = PlotConfig(show=False)
         ax = plot_line(data, config=config, backend="matplotlib")
 
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close("all")
 
     def test_nan_values(self) -> None:
@@ -349,7 +351,7 @@ class TestEdgeCases:
         ax = plot_line(data, config=config, backend="matplotlib")
 
         # Matplotlib should handle NaN by breaking the line
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close("all")
 
     def test_inf_values(self) -> None:
@@ -358,7 +360,7 @@ class TestEdgeCases:
         config = PlotConfig(show=False)
         ax = plot_line(data, config=config, backend="matplotlib")
 
-        assert isinstance(ax, Any)
+        assert isinstance(ax, Axes)
         plt.close("all")
 
 

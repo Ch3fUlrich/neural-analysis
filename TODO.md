@@ -11,7 +11,31 @@
 ## 📊 RECENT ACCOMPLISHMENTS
 
 ### December 2025 - Code Reorganization & Configuration ✅
-1. **Shape Distance Functions Migrated**:
+
+1. **Pairwise Metrics Consolidation & Unification** (November 13, 2025):
+   - ✅ **Phase 1: Module Consolidation**
+     - Consolidated `distance.py` and `similarity.py` into `pairwise_metrics.py`
+     - Eliminated ~200 lines of duplicate code (cosine similarity, pairwise loops)
+     - Updated all imports: `__init__.py`, notebooks, plotting modules, distributions
+     - Deleted legacy modules (distance.py, similarity.py)
+   
+   - ✅ **Phase 2: Unified Pairwise System**
+     - Created `compute_pairwise_matrix()` - single entry point for all pairwise computations
+     - Unified dispatch for point-to-point, distribution, and shape metrics
+     - Refactored `pairwise_distance()` to use `_validate_pairwise_inputs()` helper
+     - Refactored `compare_distributions()` to use unified system
+     - Refactored `pairwise_distribution_comparison_batch()` to use unified system
+     - Eliminated duplication between pairwise_metrics.py and distributions.py
+   
+   - ✅ **Results**
+     - All 77 metrics tests passing (100%)
+     - Function registry updated (15 functions in pairwise_metrics)
+     - Single source of responsibility for all pairwise logic
+     - More robust and modular code architecture
+   
+   - **Benefits**: Single source of truth for all pairwise metrics, better organization, easier maintenance, reduced duplication, clearer API
+
+2. **Shape Distance Functions Migrated**:
    - ✅ Moved all shape.py functions to distributions.py
    - ✅ Created modular functions: `shape_distance_procrustes()`, `shape_distance_one_to_one()`, `shape_distance_soft_matching()`
    - ✅ Created general batch framework: `pairwise_distribution_comparison_batch()` and `batch_comparison()`

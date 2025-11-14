@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import pytest
 
@@ -60,9 +61,11 @@ class TestDoCritical:
     def test_multiline_message(self, caplog: Any) -> None:
         """Test with multiline error message."""
         message = "Line 1\nLine 2\nLine 3"
-        with caplog.at_level(logging.CRITICAL):
-            with pytest.raises(RuntimeError, match="Line 1"):
-                do_critical(RuntimeError, message)
+        with (
+            caplog.at_level(logging.CRITICAL),
+            pytest.raises(RuntimeError, match="Line 1"),
+        ):
+            do_critical(RuntimeError, message)
 
         # Verify full message was logged
         assert any(message in record.message for record in caplog.records)

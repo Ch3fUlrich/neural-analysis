@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
-from .backend import get_backend
 from .core import PlotConfig
 from .grid_config import PlotGrid, PlotSpec
 
@@ -25,7 +24,7 @@ if TYPE_CHECKING:
 
 # Optional imports
 try:
-    import plotly.graph_objects as _go
+    import plotly.graph_objects as _go  # noqa: F401 (checked for availability)
 
     PLOTLY_AVAILABLE = True
 except ImportError:
@@ -50,13 +49,13 @@ def plot_scatter_2d(
     colorbar: bool = False,
     colorbar_label: str | None = None,
     backend: Literal["matplotlib", "plotly"] | None = None,
-) -> "plt.Axes | go.Figure":
+) -> plt.Axes | go.Figure:
     """
     Create a 2D scatter plot.
-    
+
     This is a convenience function for creating simple scatter plots.
     For multi-panel layouts, use PlotGrid with PlotSpec directly.
-    
+
     Args:
         x: X coordinates (1D array)
         y: Y coordinates (1D array)
@@ -70,10 +69,10 @@ def plot_scatter_2d(
             is array)
         colorbar_label: Label for colorbar
         backend: Backend to use ('matplotlib' or 'plotly')
-        
+
     Returns:
         Matplotlib Axes or Plotly Figure object
-        
+
     Example:
         >>> x = np.random.randn(100)
         >>> y = np.random.randn(100)
@@ -84,22 +83,22 @@ def plot_scatter_2d(
         raise ValueError(
             f"Invalid backend '{backend}'. Must be 'matplotlib' or 'plotly'"
         )
-    
+
     # Input validation
     if len(x) != len(y):
         raise ValueError(f"x and y must have same length, got {len(x)} and {len(y)}")
-    
+
     # Default config
     if config is None:
         config = PlotConfig()
-    
+
     # Prepare data as (n, 2) array for PlotGrid
     data = np.column_stack([x, y])
-    
+
     # Create PlotSpec for scatter plot
     spec = PlotSpec(
         data=data,
-        plot_type='scatter',
+        plot_type="scatter",
         color=colors if isinstance(colors, str) else None,
         colors=colors if isinstance(colors, np.ndarray) else None,
         marker_size=sizes if isinstance(sizes, (int, float)) else None,
@@ -109,14 +108,14 @@ def plot_scatter_2d(
         colorbar=colorbar,
         colorbar_label=colorbar_label,
     )
-    
+
     # Create PlotGrid and plot
     grid = PlotGrid(
         plot_specs=[spec],
         config=config,
         backend=backend,
     )
-    
+
     return grid.plot()
 
 
@@ -134,9 +133,9 @@ def plot_trajectory_2d(
 ) -> plt.Axes | go.Figure:
     """
     Plot a 2D trajectory with line connecting points.
-    
+
     Args:
-        x: X coordinates  
+        x: X coordinates
         y: Y coordinates
         config: Plot configuration
         color_by: Coloring strategy. Use "time" for time progression, or None for solid color
@@ -146,10 +145,10 @@ def plot_trajectory_2d(
         point_size: Size of scatter points
         alpha: Transparency
         backend: Backend to use
-    
+
     Returns:
         Matplotlib Axes or Plotly Figure
-        
+
     Example:
         >>> t = np.linspace(0, 4*np.pi, 100)
         >>> x = np.sin(t)
@@ -159,14 +158,14 @@ def plot_trajectory_2d(
     # Input validation
     if len(x) != len(y):
         raise ValueError(f"x and y must have same length, got {len(x)} and {len(y)}")
-    
+
     if config is None:
         config = PlotConfig()
-    
+
     # Create PlotSpec for trajectory plot
     spec = PlotSpec(
-        data={'x': x, 'y': y},
-        plot_type='trajectory',
+        data={"x": x, "y": y},
+        plot_type="trajectory",
         color_by=color_by,
         cmap=cmap,
         line_width=linewidth,
@@ -175,14 +174,14 @@ def plot_trajectory_2d(
         alpha=alpha,
         equal_aspect=True,
     )
-    
+
     # Create PlotGrid and plot
     grid = PlotGrid(
         plot_specs=[spec],
         config=config,
         backend=backend,
     )
-    
+
     return grid.plot()
 
 
@@ -198,7 +197,7 @@ def plot_grouped_scatter_2d(
 ) -> plt.Axes | go.Figure:
     """
     Plot grouped scatter data with optional convex hulls.
-    
+
     Args:
         group_data: Dictionary mapping group names to (x, y) tuples
         config: Plot configuration
@@ -208,10 +207,10 @@ def plot_grouped_scatter_2d(
         point_alpha: Transparency for points
         colors: Optional list of colors for groups
         backend: Backend to use
-    
+
     Returns:
         Matplotlib Axes or Plotly Figure
-        
+
     Example:
         >>> groups = {
         ...     'Group A': (np.random.randn(50), np.random.randn(50)),
@@ -221,19 +220,19 @@ def plot_grouped_scatter_2d(
     """
     if config is None:
         config = PlotConfig()
-    
+
     # Validate input
     if not group_data:
         raise ValueError("group_data cannot be empty")
-    
+
     for name, (x, y) in group_data.items():
         if len(x) != len(y):
             raise ValueError(f"x and y must have same length for group '{name}'")
-    
+
     # Create PlotSpec for grouped scatter plot
     spec = PlotSpec(
         data=group_data,
-        plot_type='grouped_scatter',
+        plot_type="grouped_scatter",
         show_hulls=show_hulls,
         hull_alpha=hull_alpha,
         marker_size=point_size,
@@ -241,14 +240,14 @@ def plot_grouped_scatter_2d(
         colors=colors,
         equal_aspect=True,
     )
-    
+
     # Create PlotGrid and plot
     grid = PlotGrid(
         plot_specs=[spec],
         config=config,
         backend=backend,
     )
-    
+
     return grid.plot()
 
 
@@ -267,7 +266,7 @@ def plot_kde_2d(
 ) -> plt.Axes | go.Figure:
     """
     Create a 2D KDE (kernel density estimation) plot.
-    
+
     Args:
         x: X coordinates
         y: Y coordinates
@@ -280,10 +279,10 @@ def plot_kde_2d(
         point_size: Size of scatter points if shown
         bandwidth: KDE bandwidth (bw_method). If None, uses Scott's rule
         backend: Backend to use
-        
+
     Returns:
         Matplotlib Axes or Plotly Figure
-        
+
     Example:
         >>> x = np.random.randn(500)
         >>> y = np.random.randn(500)
@@ -291,17 +290,17 @@ def plot_kde_2d(
     """
     if len(x) != len(y):
         raise ValueError(f"x and y must have same length, got {len(x)} and {len(y)}")
-    
+
     if len(x) < 2:
         raise ValueError("Need at least 2 points for KDE")
-    
+
     if config is None:
         config = PlotConfig()
-    
+
     # Create PlotSpec for KDE plot
     spec = PlotSpec(
-        data={'x': x, 'y': y},
-        plot_type='kde',
+        data={"x": x, "y": y},
+        plot_type="kde",
         n_levels=n_levels,
         cmap=cmap,
         fill=fill,
@@ -310,12 +309,12 @@ def plot_kde_2d(
         marker_size=point_size,
         bandwidth=bandwidth,
     )
-    
+
     # Create PlotGrid and plot
     grid = PlotGrid(
         plot_specs=[spec],
         config=config,
         backend=backend,
     )
-    
+
     return grid.plot()

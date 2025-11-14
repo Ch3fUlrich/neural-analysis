@@ -8,6 +8,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from neural_analysis.topology import (
+    compute_structure_index_sweep,
+    load_structure_index_results,
+)
 from neural_analysis.topology.structure_index import (
     _cloud_overlap_neighbors,
     _cloud_overlap_radius,
@@ -16,10 +20,6 @@ from neural_analysis.topology.structure_index import (
     _meshgrid2,
     compute_structure_index,
     draw_overlap_graph,
-)
-from neural_analysis.topology import (
-    compute_structure_index_sweep,
-    load_structure_index_results,
 )
 
 
@@ -323,7 +323,7 @@ class TestSweepFunctionality:
             assert (8, 15) in results
 
             # Check result content
-            for key, result in results.items():
+            for _, result in results.items():
                 assert "SI" in result
                 assert "overlap_mat" in result
                 assert "metadata" in result

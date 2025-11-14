@@ -32,12 +32,14 @@ Examples:
         >>> data, labels = generate_data('grid_cells', n_samples=1000, n_features=30)
 
     Generate classification dataset:
-        >>> data, labels = generate_data('blobs', n_samples=500, n_features=10, n_classes=3)
+        >>> data, labels = generate_data(
+        ...     'blobs', n_samples=500, n_features=10, n_classes=3
+        ... )
 """
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -132,7 +134,7 @@ def generate_data(
         >>> positions = meta['positions']
     """
     # Normalize dataset type
-    dataset_type = dataset_type.lower()
+    dataset_type = dataset_type.lower()  # type: ignore[assignment]
 
     # Route to appropriate generator
     match dataset_type:
@@ -145,22 +147,26 @@ def generate_data(
         case "blobs":
             n_features = n_features or 2
             n_classes = n_classes or 3
-            return _generate_blobs(
+            data, labels = _generate_blobs(
                 n_samples, n_features, n_classes, noise, seed, **kwargs
             )
+            return data, labels.astype(np.float64)
 
         case "moons":
-            return _generate_moons(n_samples, noise, seed)
+            data, labels = _generate_moons(n_samples, noise, seed)
+            return data, labels.astype(np.float64)
 
         case "circles":
-            return _generate_circles(n_samples, noise, seed, **kwargs)
+            data, labels = _generate_circles(n_samples, noise, seed, **kwargs)
+            return data, labels.astype(np.float64)
 
         case "classification":
             n_features = n_features or 20
             n_classes = n_classes or 2
-            return _generate_classification(
+            data, labels = _generate_classification(
                 n_samples, n_features, n_classes, noise, seed, **kwargs
             )
+            return data, labels.astype(np.float64)
 
         case "regression":
             n_features = n_features or 10
@@ -198,7 +204,8 @@ def generate_data(
                 f"Unknown dataset type: {dataset_type}. "
                 f"Available types: swiss_roll, s_curve, blobs, moons, circles, "
                 f"classification, regression, place_cells, grid_cells, random_cells, "
-                f"head_direction_cells, mixed_cells, position_trajectory, head_direction"
+                f"head_direction_cells, mixed_cells, position_trajectory, "
+                f"head_direction"
             )
 
 
@@ -223,8 +230,8 @@ def _generate_s_curve(
     seed: int | None,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Generate S-curve manifold using scikit-learn."""
-    X, t = make_s_curve(n_samples=n_samples, noise=noise, random_state=seed)
-    return X, t
+    x, t = make_s_curve(n_samples=n_samples, noise=noise, random_state=seed)
+    return x, t
 
 
 def _generate_blobs(
@@ -237,14 +244,14 @@ def _generate_blobs(
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.int64]]:
     """Generate isotropic Gaussian blobs using scikit-learn."""
     cluster_std = kwargs.get("cluster_std", 1.0 + noise)
-    X, y = make_blobs(
+    x, y = make_blobs(
         n_samples=n_samples,
         n_features=n_features,
         centers=n_centers,
         cluster_std=cluster_std,
         random_state=seed,
     )
-    return X, y
+    return x, y
 
 
 def _generate_moons(
@@ -253,8 +260,8 @@ def _generate_moons(
     seed: int | None,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.int64]]:
     """Generate two interleaving half circles using scikit-learn."""
-    X, y = make_moons(n_samples=n_samples, noise=noise, random_state=seed)
-    return X, y
+    x, y = make_moons(n_samples=n_samples, noise=noise, random_state=seed)
+    return x, y
 
 
 def _generate_circles(
@@ -265,13 +272,13 @@ def _generate_circles(
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.int64]]:
     """Generate large circle containing smaller circle using scikit-learn."""
     factor = kwargs.get("factor", 0.5)
-    X, y = make_circles(
+    x, y = make_circles(
         n_samples=n_samples,
         noise=noise,
         factor=factor,
         random_state=seed,
     )
-    return X, y
+    return x, y
 
 
 def _generate_classification(
@@ -286,7 +293,7 @@ def _generate_classification(
     n_informative = kwargs.get("n_informative", min(n_features, 2 * n_classes))
     n_redundant = kwargs.get("n_redundant", 0)
 
-    X, y = make_classification(
+    x, y = make_classification(
         n_samples=n_samples,
         n_features=n_features,
         n_informative=n_informative,
@@ -295,7 +302,7 @@ def _generate_classification(
         flip_y=noise,
         random_state=seed,
     )
-    return X, y
+    return x, y
 
 
 def _generate_regression(
@@ -308,14 +315,14 @@ def _generate_regression(
     """Generate random regression problem using scikit-learn."""
     n_informative = kwargs.get("n_informative", min(n_features, 10))
 
-    X, y = make_regression(
+    x, y = make_regression(
         n_samples=n_samples,
         n_features=n_features,
         n_informative=n_informative,
         noise=noise,
         random_state=seed,
     )
-    return X, y
+    return x, y
 
 
 # ============================================================================
@@ -328,7 +335,9 @@ def _generate_position_trajectory(
     seed: int | None,
     **kwargs: Any,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Generate position trajectory - returns (positions, positions) for label compatibility."""
+    """Generate position trajectory - returns (positions, positions)
+    for label compatibility.
+    """
     arena_size = kwargs.get("arena_size", (1.0, 1.0))
     speed = kwargs.get("speed", 0.1)
     turning_rate = kwargs.get("turning_rate", 0.3)
@@ -786,7 +795,7 @@ def generate_head_direction(
 
     Returns:
         angles: Head direction angles in radians, shape (n_samples,).
-            Values are in range [-π, +π].
+            Values are in range [0, 2π).
 
     Examples:
         >>> hd = generate_head_direction(1000, turning_rate=0.2)
@@ -801,10 +810,11 @@ def generate_head_direction(
     for i in range(1, n_samples):
         angles[i] = angles[i - 1] + rng.normal(0, turning_rate)
 
-    # Wrap to [-π, +π]
+    # Wrap to [0, 2π)
     angles = np.angle(np.exp(1j * angles))
+    angles = (angles + 2 * np.pi) % (2 * np.pi)
 
-    return angles
+    return cast("npt.NDArray[np.float64]", angles)
 
 
 def generate_place_cells(
@@ -818,7 +828,7 @@ def generate_place_cells(
     sampling_rate: float = 20.0,
     seed: int | None = None,
     plot: bool = True,
-) -> tuple[npt.NDArray[np.float64], dict]:
+) -> tuple[npt.NDArray[np.float64], dict[str, Any]]:
     """Generate place cell firing data in 1D, 2D, or 3D.
 
     Place cells fire when animal is in specific locations (place fields).
@@ -878,6 +888,9 @@ def generate_place_cells(
             positions = positions.reshape(-1, 1)
 
     # Random place field centers
+    field_centers: npt.NDArray[np.floating]
+    field_radii: npt.NDArray[np.floating] | None = None
+    field_angles: npt.NDArray[np.floating] | None = None
     if n_dims == 1:
         field_centers = rng.uniform(0, arena_size[0], size=(n_cells, 1))
     else:
@@ -897,7 +910,8 @@ def generate_place_cells(
         # For 3D, we use ellipsoid without rotation (simplified)
         field_angles = None
 
-    # Compute firing rates based on distance to field center
+    # Ensure arrays are set and compute firing rates based on distance to field center
+    assert field_centers is not None
     activity = np.zeros((n_samples, n_cells))
 
     # Low baseline firing rate outside place field (realistic for place cells)
@@ -918,13 +932,19 @@ def generate_place_cells(
             dy = positions[:, 1] - field_centers[i, 1]
 
             # Rotate to field orientation
-            angle = field_angles[i]
+            assert field_angles is not None
+            fa = cast("npt.NDArray[np.floating]", field_angles)
+            angle = fa[i]
             dx_rot = dx * np.cos(angle) + dy * np.sin(angle)
             dy_rot = -dx * np.sin(angle) + dy * np.cos(angle)
 
             # Compute anisotropic distance (Mahalanobis-like distance)
-            dist_x = (dx_rot / field_radii[i, 0]) ** 2
-            dist_y = (dy_rot / field_radii[i, 1]) ** 2
+            if field_radii is not None:
+                dist_x = (dx_rot / field_radii[i, 0]) ** 2
+                dist_y = (dy_rot / field_radii[i, 1]) ** 2
+            else:
+                dist_x = dx_rot**2
+                dist_y = dy_rot**2
             rates = baseline_rate + peak_rate * np.exp(-(dist_x + dist_y) / 2)
 
         elif n_dims == 3:
@@ -1054,7 +1074,7 @@ def generate_grid_cells(
     sampling_rate: float = 20.0,
     seed: int | None = None,
     plot: bool = True,
-) -> tuple[npt.NDArray[np.float64], dict]:
+) -> tuple[npt.NDArray[np.float64], dict[str, Any]]:
     """Generate grid cell firing data in 1D, 2D, or 3D.
 
     Grid cells fire at multiple locations arranged in regular grid pattern.
@@ -1081,7 +1101,9 @@ def generate_grid_cells(
         >>> # 1D grid cells with plotting
         >>> activity, meta = generate_grid_cells(30, 1000, arena_size=2.0, plot=True)
         >>> # 2D grid cells without plotting
-        >>> activity, meta = generate_grid_cells(30, 1000, arena_size=(2.0, 2.0), plot=False)
+        >>> activity, meta = generate_grid_cells(
+        ...     30, 1000, arena_size=(2.0, 2.0), plot=False
+        ... )
     """
     rng = np.random.default_rng(seed)
 
@@ -1194,7 +1216,8 @@ def generate_grid_cells(
 
     elif n_dims == 3:
         # 3D: Hexagonal/tetrahedral grid pattern (FCC-like) with harmonics
-        # Create hierarchy of grid spacings (biological realism: dorsal-ventral gradient)
+        # Create hierarchy of grid spacings (biological realism:
+        # dorsal-ventral gradient)
         # Generate multiple scales from fine to coarse
         grid_spacings = np.zeros(n_cells)
         cells_per_scale = max(1, n_cells // 5)  # Divide into ~5 scale groups
@@ -1302,7 +1325,7 @@ def generate_head_direction_cells(
     sampling_rate: float = 20.0,
     seed: int | None = None,
     plot: bool = True,
-) -> tuple[npt.NDArray[np.float64], dict]:
+) -> tuple[npt.NDArray[np.float64], dict[str, Any]]:
     """Generate head direction cell firing data.
 
     Head direction cells fire when animal's head points in specific direction.
@@ -1310,7 +1333,8 @@ def generate_head_direction_cells(
     Args:
         n_cells: Number of head direction cells.
         n_samples: Number of time points.
-        head_direction: Optional head direction trajectory in radians, shape (n_samples,).
+        head_direction: Optional head direction trajectory in radians,
+            shape (n_samples,).
         tuning_width: Width of directional tuning curve (radians).
         peak_rate: Maximum firing rate in Hz.
         noise_level: Amount of Poisson noise.
@@ -1393,7 +1417,7 @@ def generate_random_cells(
     seed: int | None = None,
     plot: bool = True,
     arena_size: tuple[float, float] = (1.0, 1.0),
-) -> tuple[npt.NDArray[np.float64], dict]:
+) -> tuple[npt.NDArray[np.float64], dict[str, Any]]:
     """Generate random cells with no specific tuning properties.
 
     These cells have random firing patterns without spatial or directional tuning.
@@ -1453,7 +1477,7 @@ def generate_random_cells(
         # Add Poisson noise for realism
         rates = rng.poisson(rates)
 
-        activity[:, i] = rates
+        activity[:, i] = rates.astype(np.float64)  # type: ignore[assignment]
 
     # Generate uniform random 2D positions for structure index compatibility
     # These positions are synthetic and NOT used for tuning (cells are random)
@@ -1503,7 +1527,7 @@ def generate_mixed_neural_population(
     n_samples: int = 1000,
     arena_size: tuple[float, float] = (2.0, 2.0),
     seed: int | None = None,
-) -> tuple[npt.NDArray[np.float64], dict]:
+) -> tuple[npt.NDArray[np.float64], dict[str, Any]]:
     """Generate mixed population of place, grid, and head direction cells.
 
     Useful for testing cell type classification and decoding methods.
@@ -1611,7 +1635,7 @@ def add_noise(
 
     elif noise_type == "uniform":
         noise = rng.uniform(-noise_level, noise_level, size=data.shape)
-        return data + noise
+        return cast("npt.NDArray[np.floating[Any]]", data + noise)
 
     else:
         raise ValueError(f"Unknown noise type: {noise_type}")
@@ -1651,7 +1675,7 @@ def generate_swiss_roll(
         ...     colors=colors
         ... )
     """
-    return generate_data("swiss_roll", n_samples=n_samples, noise=noise, seed=seed)
+    return generate_data("swiss_roll", n_samples=n_samples, noise=noise, seed=seed)  # type: ignore[return-value]
 
 
 def generate_s_curve(
@@ -1711,10 +1735,7 @@ def map_to_ring(
         >>> ring_coords = map_to_ring(activity, meta['positions'], plot=True)
     """
     # Flatten positions if needed
-    if positions.ndim > 1:
-        positions_flat = positions.ravel()
-    else:
-        positions_flat = positions
+    positions_flat = positions.ravel() if positions.ndim > 1 else positions
 
     # Normalize positions to [0, 2π]
     pos_min, pos_max = positions_flat.min(), positions_flat.max()
@@ -1757,7 +1778,7 @@ def map_to_ring(
             plot_type="scatter",
             subplot_position=1,
             title="Ring Embedding (S¹) - Colored by Time",
-            color_by=time_array,
+            color_by=time_array,  # type: ignore[arg-type]
             cmap="viridis",
             marker_size=10,
             alpha=0.7,
@@ -1777,7 +1798,7 @@ def map_to_ring(
             plot_type="scatter",
             subplot_position=2,
             title="Ring Embedding - Colored by Position",
-            color_by=positions_flat,
+            color_by=positions_flat,  # type: ignore[arg-type]
             cmap="plasma",
             marker_size=10,
             alpha=0.7,
@@ -1868,7 +1889,7 @@ def map_to_torus(
             plot_type="trajectory",
             subplot_position=0,
             title="2D Position Trajectory",
-            color_by=time_array,
+            color_by=time_array,  # type: ignore[arg-type]
             cmap="viridis",
             marker_size=5,
             alpha=0.7,
@@ -1957,7 +1978,9 @@ def generate_mixed_population_flexible(
             {
                 'place': {'n_cells': 50, 'field_size': 0.2, 'noise_level': 0.1},
                 'grid': {'n_cells': 30, 'grid_spacing': 0.4, 'noise_level': 0.05},
-                'head_direction': {'n_cells': 20, 'tuning_width': np.pi/6, 'noise_level': 0.1},
+                'head_direction': {
+                    'n_cells': 20, 'tuning_width': np.pi/6, 'noise_level': 0.1
+                },
                 'random': {'n_cells': 15, 'baseline_rate': 2.0, 'variability': 1.0},
             }
             If None, uses default configuration with all cell types.
@@ -1977,7 +2000,9 @@ def generate_mixed_population_flexible(
 
     Examples:
         >>> # Use default configuration with automatic plotting
-        >>> activity, meta = generate_mixed_population_flexible(n_samples=1500, seed=42, plot=True)
+        >>> activity, meta = generate_mixed_population_flexible(
+        ...     n_samples=1500, seed=42, plot=True
+        ... )
 
         >>> # Custom configuration without plotting
         >>> config = {
@@ -1986,7 +2011,9 @@ def generate_mixed_population_flexible(
         ...     'head_direction': {'n_cells': 20, 'noise_level': 0.1},
         ...     'random': {'n_cells': 15, 'baseline_rate': 3.0},
         ... }
-        >>> activity, meta = generate_mixed_population_flexible(config, n_samples=2000, plot=False)
+        >>> activity, meta = generate_mixed_population_flexible(
+        ...     config, n_samples=2000, plot=False
+        ... )
         >>> # Access specific cell types
         >>> place_indices = meta['cell_indices']['place']
         >>> place_activity = activity[:, place_indices]

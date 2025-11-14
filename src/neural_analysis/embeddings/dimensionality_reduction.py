@@ -20,7 +20,7 @@ Functions are organized by:
 from __future__ import annotations
 
 import logging
-from typing import Literal
+from typing import Literal, Any
 
 import numpy as np
 import numpy.typing as npt
@@ -68,7 +68,9 @@ def compute_embedding(
     n_components: int = 2,
     metric: str = "euclidean",
     n_neighbors: int = 15,
-    random_state: int | None = 42, **kwargs) -> np.ndarray:
+    random_state: int | None = 42,
+    **kwargs: Any,
+) -> npt.NDArray[np.floating]:
     """
     Compute dimensionality reduction embedding using specified method.
 
@@ -212,16 +214,16 @@ def compute_embedding(
             f"n_components ({n_components}) cannot exceed n_samples ({data.shape[0]})"
         )
 
-    method = method.lower()
+    method_norm = method.lower()
 
     # PCA - works in feature space
-    if method == "pca":
+    if method_norm == "pca":
         model = PCA(n_components=n_components, random_state=random_state, **kwargs)
-        embedding = model.fit_transform(data)
+        embedding = np.asarray(model.fit_transform(data), dtype=float)
         logger.info(f"PCA: Explained variance ratio: {model.explained_variance_ratio_}")
 
     # UMAP - requires separate installation
-    elif method == "umap":
+    elif method_norm == "umap":
         if not UMAP_AVAILABLE:
             raise ImportError(
                 "UMAP is not installed. Install with: pip install umap-learn"
@@ -230,11 +232,13 @@ def compute_embedding(
             n_components=n_components,
             n_neighbors=n_neighbors,
             metric=metric,
-            random_state=random_state, **kwargs)
-        embedding = model.fit_transform(data)
+            random_state=random_state,
+            **kwargs,
+        )
+        embedding = np.asarray(model.fit_transform(data), dtype=float)
 
     # t-SNE - stochastic, good for visualization
-    elif method == "tsne":
+    elif method_norm == "tsne":
         perplexity = kwargs.pop("perplexity", 30.0)
         learning_rate = kwargs.pop("learning_rate", 200.0)
         max_iter = kwargs.pop("max_iter", 1000)
@@ -247,11 +251,13 @@ def compute_embedding(
             learning_rate=learning_rate,
             max_iter=max_iter,
             metric=metric,
-            random_state=random_state, **kwargs)
-        embedding = model.fit_transform(data)
+            random_state=random_state,
+            **kwargs,
+        )
+        embedding = np.asarray(model.fit_transform(data), dtype=float)
 
     # MDS - preserves pairwise distances
-    elif method == "mds":
+    elif method_norm == "mds":
         dissimilarity = "precomputed" if metric == "precomputed" else "euclidean"
         # Set n_init=1 to avoid FutureWarning (will be default in sklearn 1.9)
         n_init = kwargs.pop("n_init", 1)
@@ -259,31 +265,38 @@ def compute_embedding(
             n_components=n_components,
             dissimilarity=dissimilarity,
             n_init=n_init,
-            random_state=random_state, **kwargs)
-        embedding = model.fit_transform(data)
+            random_state=random_state,
+            **kwargs,
+        )
+        embedding = np.asarray(model.fit_transform(data), dtype=float)
 
     # Isomap - geodesic distances
-    elif method == "isomap":
+    elif method_norm == "isomap":
         model = Isomap(
-            n_components=n_components, n_neighbors=n_neighbors, metric=metric, **kwargs)
-        embedding = model.fit_transform(data)
+            n_components=n_components, n_neighbors=n_neighbors, metric=metric, **kwargs
+        )
+        embedding = np.asarray(model.fit_transform(data), dtype=float)
 
     # LLE - local linear relationships
-    elif method == "lle":
+    elif method_norm == "lle":
         model = LocallyLinearEmbedding(
             n_components=n_components,
             n_neighbors=n_neighbors,
-            random_state=random_state, **kwargs)
-        embedding = model.fit_transform(data)
+            random_state=random_state,
+            **kwargs,
+        )
+        embedding = np.asarray(model.fit_transform(data), dtype=float)
 
     # Spectral - graph-based
-    elif method == "spectral":
+    elif method_norm == "spectral":
         affinity = kwargs.pop("affinity", "nearest_neighbors")
         model = SpectralEmbedding(
             n_components=n_components,
             n_neighbors=n_neighbors,
             affinity=affinity,
-            random_state=random_state, **kwargs)
+            random_state=random_state,
+            **kwargs,
+        )
         embedding = model.fit_transform(data)
 
     else:
@@ -300,11 +313,13 @@ def compute_embedding(
 
 def compute_multiple_embeddings(
     data: npt.ArrayLike,
-    methods: list[EmbeddingMethod] = None,
+    methods: list[EmbeddingMethod] | None = None,
     n_components: int = 2,
     metric: str = "euclidean",
     n_neighbors: int = 15,
-    random_state: int | None = 42, **kwargs) -> dict[str, np.ndarray]:
+    random_state: int | None = 42,
+    **kwargs: Any,
+) -> dict[str, npt.NDArray[np.floating]]:
     """
     Compute multiple embeddings for comparison.
 
@@ -368,7 +383,7 @@ def compute_multiple_embeddings(
     if methods is None:
         methods = ["pca", "umap", "tsne"] if UMAP_AVAILABLE else ["pca", "tsne"]
 
-    embeddings = {}
+    embeddings: dict[str, npt.NDArray[np.floating]] = {}
     for method in methods:
         try:
             embedding = compute_embedding(
@@ -377,8 +392,10 @@ def compute_multiple_embeddings(
                 n_components=n_components,
                 metric=metric,
                 n_neighbors=n_neighbors,
-                random_state=random_state, **kwargs)
-            embeddings[method] = embedding
+                random_state=random_state,
+                **kwargs,
+            )
+            embeddings[str(method)] = embedding
         except ImportError as e:
             logger.warning(f"Skipping {method}: {e}")
         except Exception as e:
@@ -389,7 +406,7 @@ def compute_multiple_embeddings(
 
 def pca_explained_variance(
     data: npt.ArrayLike, n_components: int | None = None, cumulative: bool = True
-) -> dict[str, np.ndarray]:
+) -> dict[str, npt.NDArray[np.floating]]:
     """
     Compute explained variance for PCA components.
 

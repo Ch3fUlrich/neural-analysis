@@ -8,12 +8,22 @@ for neural data analysis.
 from typing import Any
 
 __all__ = [
-    # Distance metrics
+    # Distance metrics (Phase 1-2 API)
     "euclidean_distance",
     "mahalanobis_distance",
     "cosine_similarity",
     "pairwise_distance",
     "distribution_distance",
+    # Phase 3: New explicit comparison functions
+    "compute_within_distances",
+    "compute_between_distances",
+    "compute_all_pairs",
+    # Metric category constants (Phase 3)
+    "POINT_TO_POINT_METRICS",
+    "DISTRIBUTION_METRICS",
+    "SHAPE_METRICS",
+    "SCALAR_METRICS",
+    "ALL_METRICS",
     # Distribution comparison
     "compare_distributions",
     "compare_distribution_groups",
@@ -46,8 +56,18 @@ def __getattr__(name: str) -> Any:
         "cosine_similarity",
         "pairwise_distance",
         "distribution_distance",
+        # Phase 3: New functions
+        "compute_within_distances",
+        "compute_between_distances",
+        "compute_all_pairs",
+        # Phase 3: Metric categories
+        "POINT_TO_POINT_METRICS",
+        "DISTRIBUTION_METRICS",
+        "SHAPE_METRICS",
+        "SCALAR_METRICS",
+        "ALL_METRICS",
     ):
-        mod = importlib.import_module("neural_analysis.metrics.distance")
+        mod = importlib.import_module("neural_analysis.metrics.pairwise_metrics")
         return getattr(mod, name)
     if name in (
         "compare_distributions",
@@ -62,7 +82,7 @@ def __getattr__(name: str) -> Any:
         "angular_similarity_matrix",
         "similarity_matrix",
     ):
-        mod = importlib.import_module("neural_analysis.metrics.similarity")
+        mod = importlib.import_module("neural_analysis.metrics.pairwise_metrics")
         return getattr(mod, name)
     if name in (
         "shape_distance",

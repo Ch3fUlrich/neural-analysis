@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 # Optional imports
 try:
-    import plotly.graph_objects as _go
+    import plotly.graph_objects as _go  # noqa: F401 (checked for availability)
 
     PLOTLY_AVAILABLE = True
 except ImportError:
@@ -54,10 +54,10 @@ def plot_scatter_3d(
     colorbar_label: str | None = None,
     marker: str = "o",
     backend: Literal["matplotlib", "plotly"] | None = None,
-) -> "plt.Axes | go.Figure":
+) -> plt.Axes | go.Figure:
     """
     Create a 3D scatter plot.
-    
+
     Args:
         x: X coordinates (1D array)
         y: Y coordinates (1D array)
@@ -72,10 +72,10 @@ def plot_scatter_3d(
         colorbar_label: Label for colorbar
         marker: Marker style
         backend: Backend to use ('matplotlib' or 'plotly')
-        
+
     Returns:
         Matplotlib Axes or Plotly Figure object
-        
+
     Example:
         >>> x = np.random.randn(100)
         >>> y = np.random.randn(100)
@@ -87,17 +87,17 @@ def plot_scatter_3d(
         raise ValueError(
             f"x, y, z must have same length, got {len(x)}, {len(y)}, {len(z)}"
         )
-    
+
     if config is None:
         config = PlotConfig()
-    
+
     # Prepare data as (n, 3) array
     data = np.column_stack([x, y, z])
-    
+
     # Create PlotSpec
     spec = PlotSpec(
         data=data,
-        plot_type='scatter3d',
+        plot_type="scatter3d",
         color=colors if isinstance(colors, str) else None,
         colors=colors if isinstance(colors, np.ndarray) else None,
         marker=marker,
@@ -108,14 +108,14 @@ def plot_scatter_3d(
         colorbar=colorbar,
         colorbar_label=colorbar_label,
     )
-    
+
     # Create PlotGrid and plot
     grid = PlotGrid(
         plot_specs=[spec],
         config=config,
         backend=backend,
     )
-    
+
     return grid.plot()
 
 
@@ -131,10 +131,10 @@ def plot_trajectory_3d(
     point_size: float = 10,
     alpha: float = 0.7,
     backend: Literal["matplotlib", "plotly"] | None = None,
-) -> "plt.Axes | go.Figure":
+) -> plt.Axes | go.Figure:
     """
     Plot a 3D trajectory with line connecting points.
-    
+
     Args:
         x: X coordinates
         y: Y coordinates
@@ -147,10 +147,10 @@ def plot_trajectory_3d(
         point_size: Size of scatter points
         alpha: Transparency
         backend: Backend to use
-        
+
     Returns:
         Matplotlib Axes or Plotly Figure
-        
+
     Example:
         >>> t = np.linspace(0, 4*np.pi, 100)
         >>> x = np.sin(t)
@@ -163,17 +163,17 @@ def plot_trajectory_3d(
         raise ValueError(
             f"x, y, z must have same length, got {len(x)}, {len(y)}, {len(z)}"
         )
-    
+
     if config is None:
         config = PlotConfig()
-    
+
     # Prepare data as (n, 3) array or dict
-    data = {'x': x, 'y': y, 'z': z}
-    
+    data = {"x": x, "y": y, "z": z}
+
     # Create PlotSpec
     spec = PlotSpec(
         data=data,
-        plot_type='trajectory3d',
+        plot_type="trajectory3d",
         color_by=color_by,
         cmap=cmap,
         line_width=linewidth,
@@ -181,12 +181,12 @@ def plot_trajectory_3d(
         marker_size=point_size,
         alpha=alpha,
     )
-    
+
     # Create PlotGrid and plot
     grid = PlotGrid(
         plot_specs=[spec],
         config=config,
         backend=backend,
     )
-    
+
     return grid.plot()

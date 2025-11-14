@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -295,7 +297,7 @@ class TestComparisonBatch:
         from neural_analysis.utils.io import get_missing_comparisons
 
         item_pairs = [("A", "B"), ("C", "D"), ("E", "F")]
-        metrics_dict = {"wasserstein": {}, "procrustes": {}}
+        metrics_dict: dict[str, dict[str, Any]] = {"wasserstein": {}, "procrustes": {}}
 
         missing = get_missing_comparisons(item_pairs, metrics_dict, None)
 
@@ -309,7 +311,7 @@ class TestComparisonBatch:
         from neural_analysis.utils.io import get_missing_comparisons
 
         item_pairs = [("A", "B"), ("C", "D"), ("E", "F")]
-        metrics_dict = {"wasserstein": {}, "procrustes": {}}
+        metrics_dict: dict[str, dict[str, Any]] = {"wasserstein": {}, "procrustes": {}}
 
         # Create partial cache
         df_partial = pd.DataFrame(
@@ -341,7 +343,7 @@ class TestComparisonBatch:
         from neural_analysis.utils.io import get_missing_comparisons
 
         item_pairs = [("A", "B")]
-        metrics_dict = {"wasserstein": {}}
+        metrics_dict: dict[str, dict[str, Any]] = {"wasserstein": {}}
 
         df_empty = pd.DataFrame()
         missing = get_missing_comparisons(item_pairs, metrics_dict, df_empty)

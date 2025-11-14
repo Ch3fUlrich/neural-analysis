@@ -41,16 +41,16 @@ jobs:
       run: |
         echo "Running ruff lint with Python 3.12"
         uv run python --version
-        uv run ruff check . --output-format=github
+        uv run ruff check src tests scripts --output-format=github
     
     - name: Run ruff format check (Python 3.12)
       run: |
         echo "Running ruff format check with Python 3.12"
-        uv run ruff format --check .
+        uv run ruff format --check src tests scripts
       continue-on-error: true
     
     - name: Run mypy type check
-      run: uv run mypy src/neural_analysis --ignore-missing-imports
+      run: uv run mypy src/neural_analysis tests scripts --ignore-missing-imports
       continue-on-error: true
     
     - name: Run tests with coverage

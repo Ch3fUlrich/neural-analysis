@@ -34,13 +34,15 @@ try:
     from .logging import get_logger, log_calls
 except ImportError:
     # Fallback no-op decorator if logging module unavailable
-    def log_calls(**kwargs: Any):  # type: ignore[no-untyped-def,no-redef]
-        def decorator(func):  # type: ignore[no-untyped-def]
+    from collections.abc import Callable
+    def log_calls(
+        *, level: int = logging.DEBUG, timeit: bool = True
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             return func
-
         return decorator
 
-    def get_logger(name: str) -> logging.Logger:  # type: ignore[no-redef]
+    def get_logger(name: str | None = None) -> logging.Logger:
         return logging.getLogger(name)
 
 
@@ -187,7 +189,7 @@ def save_array(
         _ensure_parent_dir(p)
         if p.exists() and not allow_overwrite:
             raise ValueError(f"Path already exists: {p}")
-        np.savez(p, **{k: np.asarray(v) for k, v in data.items()})  # type: ignore[arg-type]
+        np.savez(p, **(dict[str, Any]({k: np.asarray(v) for k, v in data.items()})))
         logger.info(f"Successfully saved {len(data)} arrays to {p}")
         return p
     else:
@@ -238,7 +240,7 @@ def update_array(path: str | Path, new_data: Mapping[str, npt.NDArray[Any]]) -> 
         with np.load(p, allow_pickle=False) as data:
             merged.update({k: data[k] for k in data.files})
     merged.update({k: np.asarray(v) for k, v in new_data.items()})
-    np.savez(p, **merged)  # type: ignore[arg-type]
+    np.savez(p, **(dict[str, Any](merged)))
     return p
 
 
@@ -271,7 +273,7 @@ def save_hdf5(
     This maintains backward compatibility with existing tests and wrappers.
     """
     _ensure_parent_dir(path)
-    import h5py  # type: ignore[import-untyped]  # local import to avoid hard dependency
+    import h5py  # local import to avoid hard dependency
 
     is_dataframe = HAS_PANDAS and "DataFrame" in type(data).__name__
     data_type = "DataFrame" if is_dataframe else "array"
@@ -594,7 +596,7 @@ def save_result_to_hdf5_dataset(
     ...     array_data={"matrix": overlap_matrix, "shuffles": shuf_values}
     ... )
     """
-    import h5py  # type: ignore[import-untyped]
+    import h5py
 
     save_path = Path(save_path)
     _ensure_parent_dir(save_path)
@@ -674,7 +676,7 @@ def load_results_from_hdf5_dataset(
     ...     filter_attrs={"n_bins": 10, "n_neighbors": 15}
     ... )
     """
-    import h5py  # type: ignore[import-untyped]
+    import h5py
 
     save_path = Path(save_path)
 
@@ -714,12 +716,13 @@ def load_results_from_hdf5_dataset(
                     attrs = dict(result_group.attrs)
 
                     # Apply filters
-                    if filter_attrs is not None:
-                        if not all(attrs.get(k) == v for k, v in filter_attrs.items()):
-                            continue
+                    if filter_attrs is not None and not all(
+                        attrs.get(k) == v for k, v in filter_attrs.items()
+                    ):
+                        continue
 
                     # Load arrays
-                    arrays = {key: result_group[key][:] for key in result_group.keys()}
+                    arrays = {key: result_group[key][:] for key in result_group}
 
                     results[ds_name][res_key] = {
                         "attributes": attrs,
@@ -751,7 +754,7 @@ def get_hdf5_dataset_names(save_path: str | Path) -> list[str]:
     >>> datasets = get_hdf5_dataset_names("results.h5")
     >>> print(f"Found {len(datasets)} datasets")
     """
-    import h5py  # type: ignore[import-untyped]
+    import h5py
 
     save_path = Path(save_path)
 
@@ -789,7 +792,7 @@ def get_hdf5_result_summary(
     >>> summary = get_hdf5_result_summary("results.h5")
     >>> print(summary[['dataset_name', 'result_key', 'metric_value']])
     """
-    import h5py  # type: ignore[import-untyped]
+    import h5py
 
     if not HAS_PANDAS:
         raise ImportError("pandas is required for get_hdf5_result_summary")
@@ -810,7 +813,7 @@ def get_hdf5_result_summary(
             for ds_name in dataset_names_list:
                 ds_group = f[ds_name]
 
-                for res_key in ds_group.keys():
+                for res_key in ds_group:
                     result_group = ds_group[res_key]
                     attrs = dict(result_group.attrs)
 

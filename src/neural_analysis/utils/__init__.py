@@ -20,6 +20,11 @@ __all__ = [
     "log_section",
     "log_kv",
     "log_calls",
+    # Phase 3: HDF5 comparison storage
+    "save_comparison",
+    "load_comparison",
+    "query_comparisons",
+    "rebuild_index",
     # Trajectory utilities
     "prepare_trajectory_segments",
     "compute_colors",
@@ -60,5 +65,14 @@ def __getattr__(name: str) -> Any:
     # Geometry utilities
     if name in {"compute_convex_hull", "compute_kde_2d"}:
         mod = importlib.import_module("neural_analysis.utils.geometry")
+        return getattr(mod, name)
+    # Phase 3: HDF5 comparison storage
+    if name in {
+        "save_comparison",
+        "load_comparison",
+        "query_comparisons",
+        "rebuild_index",
+    }:
+        mod = importlib.import_module("neural_analysis.utils.comparison_store")
         return getattr(mod, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -15,16 +15,17 @@ Features:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 import numpy.typing as npt
 
 from neural_analysis.embeddings.dimensionality_reduction import compute_embedding
+from neural_analysis.metrics.pairwise_metrics import spatial_autocorrelation
 from neural_analysis.plotting.grid_config import PlotGrid, PlotSpec
 
 if TYPE_CHECKING:
-    import matplotlib.pyplot as plt
+    from matplotlib.figure import Figure
 
 # Define consistent colors for each cell type
 CELL_TYPE_COLORS = {
@@ -251,12 +252,12 @@ def plot_synthetic_data(
     show_behavior: bool = True,
     show_ground_truth: bool = True,
     show_embeddings: bool = True,
-    embedding_methods: list[str] = None,
+    embedding_methods: list[str] | None = None,
     n_embedding_dims: int = 2,
     max_raster_cells: int = 100,
     figsize: tuple[float, float] | None = None,
     backend: str = "matplotlib",
-) -> plt.Figure:
+) -> Figure:
     """Plot comprehensive visualization of synthetic neural data.
 
     Creates a multi-panel figure showing:
@@ -324,7 +325,7 @@ def plot_synthetic_data(
     n_fixed_plots += len(embedding_methods) if show_embeddings else 0
 
     # Calculate grid for different example cell counts to find optimal configuration
-    def calc_grid(n_total):
+    def calc_grid(n_total: int) -> tuple[int, int]:
         """Calculate grid dimensions for given number of plots."""
         if n_total <= 2:
             return 1, n_total
@@ -361,12 +362,12 @@ def plot_synthetic_data(
     n_example_cells = best_n_examples
 
     # Collect all plot specs without assigning positions yet
-    raster_specs = []
-    coverage_specs = []
-    example_cell_specs = []
-    behavior_specs = []
-    ground_truth_specs = []
-    embedding_specs = []
+    raster_specs: list[PlotSpec] = []
+    coverage_specs: list[PlotSpec] = []
+    example_cell_specs: list[PlotSpec] = []
+    behavior_specs: list[PlotSpec] = []
+    ground_truth_specs: list[PlotSpec] = []
+    embedding_specs: list[PlotSpec] = []
 
     # 1. Raster plot (will be first)
     if show_raster:
@@ -613,7 +614,7 @@ def plot_synthetic_data(
             vertical_spacing=0.35,  # Increase vertical spacing to prevent overlap
             horizontal_spacing=0.25,  # Horizontal spacing
         ),
-        backend=backend,
+        backend=cast('Literal["matplotlib", "plotly"]', backend),
     )
 
     result = grid.plot()
@@ -974,45 +975,17 @@ def _create_coverage_heatmap(
     cmap = "hot" if cell_type == "place" else "viridis"
 
     if cell_type == "grid":
-        # For grid cells: compute autocorrelation for multiple cells and average
-        # This gives a cleaner hexagonal pattern than a single noisy cell
-        n_cells_to_average = min(10, activity.shape[1])  # Use up to 10 cells
-        autocorr_sum = None
-
-        for cell_idx in range(n_cells_to_average):
-            _, _, firing_map = _compute_spatial_bins_2d(
-                positions, activity, arena_size, n_bins=n_bins, cell_idx=cell_idx
-            )
-
-            # Normalize firing map to have zero mean
-            firing_map_centered = firing_map - np.nanmean(firing_map)
-            firing_map_centered = np.nan_to_num(firing_map_centered, 0)
-
-            # Compute 2D autocorrelation using FFT
-            fft_2d = np.fft.fft2(firing_map_centered)
-            power_spectrum = np.abs(fft_2d) ** 2
-            autocorr = np.fft.ifft2(power_spectrum).real
-            autocorr = np.fft.fftshift(autocorr)  # Center the zero-lag peak
-
-            # Accumulate autocorrelations
-            if autocorr_sum is None:
-                autocorr_sum = autocorr
-            else:
-                autocorr_sum += autocorr
-
-        # Average the autocorrelations
-        autocorr_avg = autocorr_sum / n_cells_to_average
-
-        # Normalize by zero-lag value
-        center_idx = (autocorr_avg.shape[0] // 2, autocorr_avg.shape[1] // 2)
-        if autocorr_avg[center_idx] != 0:
-            autocorr_normalized = autocorr_avg / autocorr_avg[center_idx]
-        else:
-            autocorr_normalized = autocorr_avg
-
-        # Create lag axes (in meters, centered at 0)
-        x_lags = np.linspace(-x_max, x_max, autocorr_normalized.shape[0])
-        y_lags = np.linspace(-y_max, y_max, autocorr_normalized.shape[1])
+        # For grid cells: compute autocorrelation using
+        # spatial_autocorrelation orchestrator. This gives a cleaner
+        # hexagonal pattern than a single noisy cell
+        autocorr_normalized, lag_axes = spatial_autocorrelation(
+            activity=activity,
+            positions=positions,
+            arena_size=arena_size,
+            n_bins=n_bins,
+            n_cells_to_average=10,
+        )
+        x_lags, y_lags = lag_axes
 
         spec = PlotSpec(
             data=autocorr_normalized,
@@ -1104,7 +1077,7 @@ def _create_example_cell_heatmaps(
 
     Unified function that handles both 1D (line plots) and 2D (heatmaps).
     """
-    specs = []
+    specs: list[PlotSpec] = []
     positions = metadata.get("positions")
     arena_size = metadata.get("arena_size", 1.0)
     cell_type = metadata.get("cell_type", "place")
@@ -1233,7 +1206,7 @@ def _create_coverage_heatmap_3d(
     try:
         # Normalize firing volume to have zero mean for autocorrelation
         firing_volume_centered = firing_volume - np.nanmean(firing_volume)
-        firing_volume_centered = np.nan_to_num(firing_volume_centered, 0)
+        firing_volume_centered = np.nan_to_num(firing_volume_centered, nan=0.0)
 
         # Compute 3D autocorrelation using FFT (faster than spatial method)
         # Use power spectrum approach (Wiener-Khinchin theorem):
@@ -1436,7 +1409,7 @@ def _compute_hd_tuning_curve(
         angles_deg: Bin centers in degrees.
         rates: Mean firing rates per bin.
     """
-    angle_bins = np.linspace(-np.pi, np.pi, n_bins + 1)
+    angle_bins = np.linspace(0, 2* np.pi, n_bins + 1)
     bin_centers = (angle_bins[:-1] + angle_bins[1:]) / 2
     rates = np.zeros(n_bins)
 
@@ -1484,7 +1457,7 @@ def _create_hd_example_cells(
     for idx, cell_idx in enumerate(top_cells):
         # Use shared helper function
         angles_deg, rates = _compute_hd_tuning_curve(
-            activity, head_directions, cell_idx, n_bins=72
+            activity, head_directions, int(cell_idx), n_bins=72
         )
 
         # Get the preferred direction for this cell for the title
@@ -1510,53 +1483,6 @@ def _create_hd_example_cells(
     return specs
 
 
-def _create_random_example_cells(
-    activity: npt.NDArray[np.float64],
-    metadata: dict[str, Any],
-    colors: list[str],
-    subplot_position: int,
-    n_examples: int = 3,
-) -> list[PlotSpec]:
-    """Create example random cell firing patterns.
-
-    Args:
-        activity: Neural activity matrix.
-        metadata: Dataset metadata.
-        colors: Color list for cells.
-        subplot_position: Starting subplot position.
-        n_examples: Number of example cells to show (2-4).
-
-    Returns:
-        List of PlotSpec objects.
-    """
-    specs: list[PlotSpec] = []
-
-    # Select n_examples cells with highest mean firing rates for better visualization
-    mean_rates = activity.mean(axis=0)
-    top_cells = np.argsort(mean_rates)[-n_examples:][::-1]  # Top cells, highest first
-
-    # Create time series plots showing firing rate over time
-    time_points = np.arange(activity.shape[0])
-
-    for idx, cell_idx in enumerate(top_cells):
-        spec = PlotSpec(
-            data={"x": time_points, "y": activity[:, cell_idx]},
-            plot_type="line",
-            subplot_position=subplot_position + idx,
-            title=f"Random Cell {cell_idx}",
-            color=CELL_TYPE_COLORS.get("random", "#7F8C8D"),
-            line_width=1,
-            alpha=0.6,
-            kwargs={
-                "x_label": "Time (samples)",
-                "y_label": "Firing Rate (Hz)",
-            },
-        )
-        specs.append(spec)
-
-    return specs
-
-
 def _create_random_diagnostics(
     activity: npt.NDArray[np.float64],
     metadata: dict[str, Any],
@@ -1564,11 +1490,17 @@ def _create_random_diagnostics(
 ) -> list[PlotSpec]:
     """Create diagnostic plots to verify random cells lack spatial structure.
 
-    Creates two diagnostic tests:
+    Creates three diagnostic tests:
     1. Single cell "spatial map" (should be uniform/noisy)
     2. Population coverage (should be uniform, no hotspots)
+    3. Grid field autocorrelation (should show no periodicity, unlike grid cells)
 
     This validates that random cells truly lack spatial structure like place/grid cells.
+
+    **Code Reuse:** This function uses `spatial_autocorrelation` orchestrator
+    from `neural_analysis.metrics.pairwise_metrics`, which automatically handles
+    dimensionality. Same algorithm as grid cells, different interpretation (grid
+    cells show hexagonal patterns; random cells show no structure).
 
     Args:
         activity: Neural activity matrix (n_samples, n_cells).
@@ -1576,7 +1508,7 @@ def _create_random_diagnostics(
         subplot_position: Starting subplot position.
 
     Returns:
-        List of PlotSpec objects for diagnostic plots (2 plots).
+        List of PlotSpec objects for diagnostic plots (3 plots).
     """
     specs: list[PlotSpec] = []
 
@@ -1594,7 +1526,7 @@ def _create_random_diagnostics(
     test_cell = np.argmax(cell_variances)
 
     x_bins, y_bins, firing_map = _compute_spatial_bins_2d(
-        positions, activity, arena_size, n_bins=20, cell_idx=test_cell
+        positions, activity, arena_size, n_bins=20, cell_idx=int(test_cell)
     )
 
     spec_single = PlotSpec(
@@ -1638,6 +1570,35 @@ def _create_random_diagnostics(
     )
     specs.append(spec_coverage)
 
+    # 3. Grid field autocorrelation (should show no periodicity)
+    # Use spatial_autocorrelation orchestrator (handles dimensionality automatically)
+    autocorr_normalized, lag_axes = spatial_autocorrelation(
+        activity=activity,
+        positions=positions,
+        arena_size=arena_size,
+        n_bins=40,  # Moderate resolution
+        n_cells_to_average=10,
+    )
+    x_lags, y_lags = lag_axes
+
+    spec_autocorr = PlotSpec(
+        data=autocorr_normalized,
+        plot_type="heatmap",
+        subplot_position=subplot_position + 1,
+        title="Autocorrelation (Should Show No Periodicity)",
+        cmap="viridis",
+        colorbar=True,
+        colorbar_label="Normalized Autocorr",
+        kwargs={
+            "x_label": "X Lag (m)",
+            "y_label": "Y Lag (m)",
+            "aspect": "auto",
+            "extent": [x_lags[0], x_lags[-1], y_lags[0], y_lags[-1]],
+            "origin": "lower",
+        },
+    )
+    specs.append(spec_autocorr)
+
     return specs
 
 
@@ -1679,7 +1640,7 @@ def _create_random_hd_tuning_examples(
     for idx, cell_idx in enumerate(top_cells):
         # Use shared helper function (fewer bins for random cells)
         angles_deg, rates = _compute_hd_tuning_curve(
-            activity, head_directions, cell_idx, n_bins=36
+            activity, head_directions, int(cell_idx), n_bins=36
         )
 
         spec = PlotSpec(
@@ -1744,7 +1705,7 @@ def _create_grid_field_plots(
     of firing rates in spatial domain. Displays a heatmap showing dominant
     frequencies for all cells with proper cell ID alignment.
     """
-    specs = []
+    specs: list[PlotSpec] = []
     positions = metadata.get("positions")
     n_dims = metadata.get("n_dims", 2)
     arena_size = metadata.get("arena_size", (2.0, 2.0))
@@ -1842,7 +1803,7 @@ def _create_grid_field_plots(
             )
 
             # Replace NaN with 0 for FFT
-            firing_map = np.nan_to_num(firing_map, 0)
+            firing_map = np.nan_to_num(firing_map, nan=0.0)
 
             # Apply 2D FFT
             fft_2d = np.fft.fft2(firing_map)
@@ -1928,7 +1889,7 @@ def _create_grid_field_plots(
             )
 
             # Replace NaN with 0 for FFT
-            firing_volume = np.nan_to_num(firing_volume, 0)
+            firing_volume = np.nan_to_num(firing_volume, nan=0.0)
 
             # Apply 3D FFT
             fft_3d = np.fft.fftn(firing_volume)
@@ -2148,9 +2109,13 @@ def _create_embedding_plots(
     for i, method in enumerate(methods):
         try:
             # Compute embedding
+            method_literal = cast(
+                'Literal["pca", "umap", "tsne", "mds", "isomap", "lle", "spectral"]',
+                method,
+            )
             embedding = compute_embedding(
                 activity,
-                method=method,
+                method=method_literal,
                 n_components=n_dims,
                 random_state=42,
             )
