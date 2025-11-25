@@ -1,6 +1,6 @@
 # Neural Analysis Project - Consolidated TODO & Migration Plan
 
-**Last Updated**: November 2025
+**Last Updated**: December 2025
 **Current Test Status**: 181/181 passing (100% coverage) ✅
 **Repository**: neural-analysis (migration branch)
 
@@ -265,6 +265,236 @@ src/neural_analysis/decoding/
 - Otherwise, keep as reference in `todo/Notebooks/`
 
 **Estimated Effort**: 1 hour review each
+
+---
+
+### 1.7 Multi-layer Storage System Integration 🔴
+
+- **Status**: In progress (see `todo/todo_integrate_databases.md` for the full technical plan)
+- **Scope**:
+  - Finalize the new storage helper stack (`src/neural_analysis/utils/storage/`) for Redis cache + DuckDB metadata + HDF5 persistence
+  - Ensure high-volume workflows (`pairwise_distribution_comparison_batch`, structure index sweeps) leverage the unified manager while retaining pure-HDF5 fallback paths
+  - Provide reproducible setup via Docker/Compose scripts (app + Redis + DuckDB) and document usage in `examples/storage_demo.ipynb`
+  - Backfill regression tests (`tests/test_storage_*.py`) to cover cache-miss, cache-hit, and optional-dependency scenarios
+- **Next Steps**:
+  - Finish documentation updates (this file + `todo/todo_integrate_databases.md`) so contributors know how to enable/disable each layer
+  - Harden cache invalidation + SQL query helpers before rolling out to the rest of the codebase
+  - Run end-to-end validation: docker compose up → example notebook → summary queries → teardown
+
+---
+
+### 1.8 New Research Features - Analysis Modules 🟡
+
+#### A. Grid Cell Analysis 🟡
+
+**Status**: ❌ Not Started  
+**Priority**: 🟡 MEDIUM
+
+**Features to Implement**:
+
+1. **Torus Mapping for Grid Cells**
+   - Map grid cells to Torus representation
+   - Visualize movement through Torus angles as a traversal through space
+   - Plot showing continuity of grid cell representation across space
+   - Use rainbow-colored trajectory (angle as color) to visualize spatial continuity
+
+**Target Location**:
+```
+src/neural_analysis/data/
+├── __init__.py
+├── torus_mapping.py      # Torus mapping functions
+└── visualization.py      # Grid cell visualization with PlotGrid
+```
+
+**Implementation Plan**:
+1. Implement torus mapping algorithm for grid cell data
+2. Create trajectory visualization with angle-based coloring
+3. Add spatial continuity analysis
+4. Integrate with PlotGrid for visualization
+5. Create example notebook: `examples/grid_cells_demo.ipynb`
+
+**Dependencies**:
+- numpy, scipy (geometric calculations)
+- matplotlib/plotly (visualization)
+
+**Estimated Effort**: 6-8 hours
+
+---
+
+#### B. High Dimensional Data Analysis 🟡
+
+**Status**: ❌ Not Started  
+**Priority**: 🟡 MEDIUM
+
+**Features to Implement**:
+
+1. **Tangeling as Evaluation of Efficient Coding**
+   - Calculate tangeling metric: measure of efficient coding in high-dimensional space
+   - Method: Take 3 points and compare moved distance vs. curvature in high-dimensional space
+   - Result: Single scalar value describing the tangling of a dataset
+   - Interpretation: Straight lines in tangeling plot should correspond to efficient coding of space
+
+2. **PCA Plot Improvement: Log-Log Eigenvalue Spectrum Power-Law Fitting**
+   - Enhance PCA visualization with power-law analysis
+   - Method:
+     - Take % explained variance (or eigenvalues)
+     - Put them on a log scale
+     - Fit a linear line
+     - Extract the α value (the slope)
+   - Use α as a descriptor of dimensionality structure
+
+**Target Location**:
+```
+src/neural_analysis/embeddings/dimensionality_reduction.py
+```
+
+**Implementation Plan**:
+1. Implement tangeling calculation function
+2. Create power-law fitting for eigenvalue spectra
+3. Enhance existing PCA plots with power-law analysis
+4. Add visualization functions using PlotGrid
+5. Create example notebook: `examples/dimensionality_analysis.ipynb`
+
+**Dependencies**:
+- numpy, scipy (calculations, curve fitting)
+- scikit-learn (PCA)
+
+**Estimated Effort**: 8-12 hours
+
+---
+
+#### C. Graph Analysis 🔴
+
+**Status**: ❌ Not Started  
+**Priority**: 🔴 HIGH
+
+**Features to Implement**:
+
+1. **Graph Property Extraction Methods**
+   - Implement comprehensive graph property extraction:
+     - Clustering coefficient
+     - Degree (in/out/total)
+     - Weighted degree / strength
+     - Path length (average, shortest paths)
+     - Small worldness
+     - Modularity
+     - Efficiency
+     - Assortativity
+     - Rich club coefficient
+     - Degree distribution
+     - Centrality measures:
+       - Betweenness centrality
+       - Closeness centrality
+       - Eigenvector centrality
+       - PageRank
+     - Motifs (subgraph patterns)
+     - Community detection:
+       - Louvain algorithm
+       - Girvan-Newman algorithm
+     - Spectral properties:
+       - Eigenvalues of adjacency matrix
+       - Eigenvectors of adjacency matrix
+       - Eigenvalues of Laplacian matrix
+       - Eigenvectors of Laplacian matrix
+     - Robustness analysis:
+       - Node removal effects
+       - Edge removal effects
+     - Visualization methods:
+       - Spring layout
+       - Circular layout
+       - Other layout algorithms
+
+2. **Graph Creation Pipeline**
+   - General graph creation pipeline based on different metrics
+   - Supported metrics:
+     - Correlation
+     - Mutual information
+     - Distance in space
+   - Example workflow:
+     - Take neural activity data (e.g., binarized spike data / traces)
+     - Create graphs based on correlation/STTC (spike time tiling coefficient) between neurons
+     - Use 95th percentile as threshold to create edges
+     - Create both weighted and unweighted graphs
+     - Create suite of graphs based on different metrics and thresholds
+     - Plot graphs using best layout (spring layout, circular layout, etc.)
+     - Analyze graph properties (especially important: find communities/modules)
+     - Integrate heat equation analysis to find modules
+
+**Target Location**:
+```
+src/neural_analysis/graphs/
+├── __init__.py
+├── properties.py         # Graph property extraction
+├── creation.py           # Graph creation from metrics
+├── communities.py        # Community detection & heat equation analysis
+├── visualization.py      # Graph visualization
+└── metrics.py            # Graph-specific metrics (STTC, etc.)
+```
+
+**Implementation Plan**:
+1. Implement all graph property extraction functions
+2. Create graph creation pipeline with multiple metric support
+3. Add STTC (spike time tiling coefficient) calculation
+4. Implement threshold-based edge creation
+5. Add community detection algorithms
+6. Implement heat equation analysis for module detection
+7. Create graph visualization functions
+8. Integrate with PlotGrid for visualization
+9. Create example notebook: `examples/graph_analysis_demo.ipynb`
+
+**Dependencies**:
+- networkx (graph algorithms, properties)
+- scipy (statistics, mutual information)
+- scikit-learn (clustering, community detection)
+- igraph (optional, for additional algorithms)
+- matplotlib/plotly (visualization)
+
+**Estimated Effort**: 20-30 hours
+
+---
+
+#### D. High Dimensionality Analysis Based on Extracted Properties 🟡
+
+**Status**: ❌ Not Started  
+**Priority**: 🟡 MEDIUM
+
+**Features to Implement**:
+
+1. **Property Integration Framework**
+   - Merge all extracted properties from different analyses into a single high-dimensional representation
+   - Support multiple entity types:
+     - Neurons
+     - Datasets
+     - Animals
+   - Use unified representation for:
+     - Finding similarities
+     - Clustering
+     - Trajectory analysis over learning (neurons/datasets/animals)
+
+**Target Location**:
+```
+src/neural_analysis/learning/classification.py
+```
+
+**Implementation Plan**:
+1. Design property aggregation framework
+2. Implement property merging for neurons, datasets, animals
+3. Create similarity analysis on integrated representations
+4. Add clustering methods for integrated properties
+5. Implement trajectory analysis for learning experiments
+6. Add visualization functions using PlotGrid
+7. Create example notebook: `examples/classification_demo.ipynb`
+
+**Dependencies**:
+- numpy, scipy (data manipulation)
+- scikit-learn (clustering, dimensionality reduction)
+- All other analysis modules (embeddings, metrics, graphs, etc.)
+
+**Estimated Effort**: 12-18 hours
+
+---
+
+**Total Estimated Effort for New Research Features**: 46-68 hours
 
 ---
 
