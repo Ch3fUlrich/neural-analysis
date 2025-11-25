@@ -30,6 +30,8 @@ import numpy.typing as npt
 if TYPE_CHECKING:
     import pandas as pd
 
+    from neural_analysis.utils.storage.manager import StorageManager
+
 try:
     from .logging import get_logger, log_calls
 except ImportError:
@@ -63,6 +65,23 @@ Jsonable = (
 DatasetDict = dict[str, Any]
 
 
+def _resolve_storage_manager(
+    storage_manager: "StorageManager | None",
+    *,
+    use_cache: bool,
+    use_sql: bool,
+) -> "StorageManager | None":
+    """Lazy import StorageManager ensuring single creation path."""
+    if storage_manager is not None or (not use_cache and not use_sql):
+        return storage_manager
+    try:
+        from neural_analysis.utils.storage.manager import StorageManager
+
+        return StorageManager()
+    except Exception:
+        return None
+
+
 def _ensure_parent_dir(path: str | Path) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -77,6 +96,37 @@ def _from_bytes_array(values: npt.NDArray[np.bytes_]) -> list[str]:
         v.decode("utf-8") if isinstance(v, (bytes, bytearray)) else str(v)
         for v in values.tolist()
     ]
+
+
+def _normalize_attr_value(value: Any) -> Any:
+    """Convert HDF5 attribute values to plain Python scalars/strings."""
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, (bytes, bytearray, np.bytes_)):
+        try:
+            return value.decode("utf-8")
+        except Exception:
+            return value
+    return value
+
+
+def _attr_equals(attr_value: Any, expected: Any) -> bool:
+    """Compare attribute values while handling type differences."""
+    attr_value = _normalize_attr_value(attr_value)
+    if isinstance(expected, bool):
+        try:
+            attr_value = bool(int(attr_value)) if isinstance(attr_value, str) else bool(attr_value)
+        except Exception:
+            attr_value = bool(attr_value)
+    elif isinstance(expected, (int, float)) and isinstance(attr_value, str):
+        try:
+            attr_value = type(expected)(attr_value)
+        except Exception:
+            pass
+    elif isinstance(expected, str) and not isinstance(attr_value, str):
+        attr_value = str(attr_value)
+    result = attr_value == expected
+    return bool(result)
 
 
 def _save_dataframe(
@@ -565,11 +615,15 @@ def save_result_to_hdf5_dataset(
     scalar_data: dict[str, Any],
     array_data: dict[str, npt.NDArray[Any]],
     compression: str = "gzip",
+    use_cache: bool = True,
+    use_sql_index: bool = True,
+    storage_manager: "StorageManager | None" = None,
 ) -> None:
     """Save analysis results to HDF5 file with hierarchical structure.
 
     Creates a hierarchical structure: dataset_name / result_key / {scalars, arrays}
     This is a generalized function for saving any analysis results.
+    Optionally integrates with Redis cache and SQL metadata indexing.
 
     Parameters
     ----------
@@ -585,6 +639,10 @@ def save_result_to_hdf5_dataset(
         Dictionary of numpy arrays (stored as HDF5 datasets)
     compression : str, default='gzip'
         Compression algorithm for arrays
+    use_cache : bool, default=True
+        Whether to cache in Redis (if available)
+    use_sql_index : bool, default=True
+        Whether to index in SQL metadata (if available)
 
     Examples
     --------
@@ -600,6 +658,11 @@ def save_result_to_hdf5_dataset(
 
     save_path = Path(save_path)
     _ensure_parent_dir(save_path)
+
+    # Try to use storage manager for caching/indexing
+    storage_manager = _resolve_storage_manager(
+        storage_manager, use_cache=use_cache, use_sql=use_sql_index
+    )
 
     with h5py.File(save_path, "a") as f:
         # Create or get dataset group
@@ -634,14 +697,47 @@ def save_result_to_hdf5_dataset(
                 compression=compression,
             )
 
+    # Index in SQL metadata and cache if storage manager available
+    if storage_manager:
+        group_path = f"{dataset_name}/{result_key}"
+        cache_key = f"{save_path}:{group_path}"
+
+        # Prepare metadata for indexing
+        metadata = {**scalar_data}
+        if "dataset_i" in scalar_data and "dataset_j" in scalar_data:
+            # Index as comparison
+            storage_manager.index_comparison(
+                dataset_i=scalar_data.get("dataset_i", ""),
+                dataset_j=scalar_data.get("dataset_j", ""),
+                metric=scalar_data.get("metric", ""),
+                file_path=save_path,
+                group_path=group_path,
+                mode=scalar_data.get("mode"),
+                value_type=scalar_data.get("value_type"),
+                metadata=metadata,
+            )
+        else:
+            # Index as dataset
+            storage_manager.save_data(
+                key=cache_key,
+                data=None,  # Data is in HDF5, we're just indexing metadata
+                metadata=metadata,
+                file_path=save_path,
+                group_path=group_path,
+                use_cache=False,  # Don't cache metadata-only saves
+            )
+
 
 def load_results_from_hdf5_dataset(
     save_path: str | Path,
     dataset_name: str | None = None,
     result_key: str | None = None,
     filter_attrs: dict[str, Any] | None = None,
+    use_sql_query: bool = True,
 ) -> dict[str, dict[str, Any]]:
     """Load analysis results from HDF5 file.
+
+    Optionally uses SQL metadata for fast filtering before loading from HDF5.
 
     Parameters
     ----------
@@ -653,6 +749,8 @@ def load_results_from_hdf5_dataset(
         Load only this specific result key
     filter_attrs : dict, optional
         Filter results by attribute values (e.g., {"n_bins": 10})
+    use_sql_query : bool, default=True
+        Whether to use SQL metadata for fast filtering (if available)
 
     Returns
     -------
@@ -717,7 +815,7 @@ def load_results_from_hdf5_dataset(
 
                     # Apply filters
                     if filter_attrs is not None and not all(
-                        attrs.get(k) == v for k, v in filter_attrs.items()
+                        _attr_equals(attrs.get(k), v) for k, v in filter_attrs.items()
                     ):
                         continue
 

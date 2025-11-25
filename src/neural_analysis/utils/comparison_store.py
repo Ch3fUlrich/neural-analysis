@@ -60,7 +60,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import h5py  # type: ignore[import-untyped]
+import h5py
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
@@ -165,6 +165,7 @@ def save_comparison(
     value: float | npt.NDArray[np.floating] | dict[str, dict[str, float]],
     metadata: dict[str, Any] | None = None,
     overwrite: bool = False,
+    use_cache: bool = True,
 ) -> None:
     """Save a comparison result to HDF5 (delegates to io.py backend).
 
@@ -172,6 +173,7 @@ def save_comparison(
 
     This function provides comparison-specific formatting, then delegates to
     io.save_result_to_hdf5_dataset() for actual HDF5 operations.
+    Optionally uses Redis cache and SQL metadata indexing.
 
     Parameters
     ----------
@@ -191,6 +193,8 @@ def save_comparison(
         Additional metadata to store as attributes
     overwrite : bool, default=False
         If True, overwrite existing comparison; if False, raise error
+    use_cache : bool, default=True
+        Whether to cache in Redis (if available)
 
     Raises
     ------
@@ -215,6 +219,18 @@ def save_comparison(
 
     # Infer value type
     value_type = _infer_value_type(value)
+
+    # Invalidate cache if overwriting
+    if overwrite and use_cache:
+        try:
+            from neural_analysis.utils.storage.manager import StorageManager
+
+            storage_manager = StorageManager()
+            cache_key = f"{metric}:{dataset_i}:{dataset_j}"
+            storage_manager.invalidate_cache(f"*{cache_key}*")
+        except Exception:
+            # Cache unavailable, continue
+            pass
 
     # Build hierarchical key: metric/dataset_i/dataset_j
     dataset_name = metric
@@ -260,7 +276,7 @@ def save_comparison(
     else:
         raise TypeError(f"Unexpected value_type: {value_type}")
 
-    # Delegate to io.py backend
+    # Delegate to io.py backend (with caching/indexing)
     save_result_to_hdf5_dataset(
         save_path=filepath,
         dataset_name=dataset_name,
@@ -268,6 +284,8 @@ def save_comparison(
         scalar_data=scalar_data,
         array_data=array_data,
         compression=COMPRESSION,
+        use_cache=use_cache,
+        use_sql_index=True,
     )
 
     logger.info(
@@ -378,6 +396,7 @@ def query_comparisons(
     dataset_j: str | None = None,
     mode: str | None = None,
     load_values: bool = False,
+    use_sql: bool = True,
 ) -> pd.DataFrame:
     """Query comparisons with optional filters (delegates to io.py backend).
 
@@ -386,6 +405,7 @@ def query_comparisons(
 
     This function provides comparison-specific query interface, then delegates to
     io.load_results_from_hdf5_dataset() for actual HDF5 operations.
+    Optionally uses SQL metadata for fast queries.
 
     Parameters
     ----------
@@ -401,6 +421,8 @@ def query_comparisons(
         Filter by mode ("within", "between", "all-pairs")
     load_values : bool, default=False
         If True, load comparison values into "value" column (memory intensive)
+    use_sql : bool, default=True
+        Whether to use SQL metadata for fast queries (if available)
 
     Returns
     -------
@@ -432,6 +454,38 @@ def query_comparisons(
 
     logger.info(f"Querying comparisons from {filepath}")
 
+    # Try SQL metadata query first (faster)
+    if use_sql:
+        try:
+            from neural_analysis.utils.storage.manager import StorageManager
+
+            storage_manager = StorageManager()
+            if storage_manager.metadata.is_available():
+                # Build filters
+                filters: dict[str, Any] = {"file_path": str(filepath_obj.resolve())}
+                if metric is not None:
+                    filters["metric"] = metric
+                if mode is not None:
+                    filters["mode"] = mode
+                if dataset_i is not None:
+                    filters["dataset_i"] = dataset_i
+                if dataset_j is not None:
+                    filters["dataset_j"] = dataset_j
+
+                sql_results = storage_manager.query_data(filters=filters)
+                if not sql_results.empty:
+                    logger.info(f"SQL query returned {len(sql_results)} comparisons")
+                    # If load_values, we still need to load from HDF5
+                    if load_values:
+                        # Fall through to HDF5 loading
+                        pass
+                    else:
+                        # Return metadata-only results
+                        return sql_results[["metric", "dataset_i", "dataset_j", "mode"]]
+        except Exception:
+            # SQL unavailable, continue with HDF5
+            pass
+
     # Build filter for io.py backend
     filter_attrs: dict[str, Any] = {}
     if mode is not None:
@@ -440,6 +494,8 @@ def query_comparisons(
         filter_attrs["dataset_i"] = dataset_i
     if dataset_j is not None:
         filter_attrs["dataset_j"] = dataset_j
+    if metric is not None:
+        filter_attrs["metric"] = metric
 
     # Load all results from specified metric (or all metrics if None)
     results = load_results_from_hdf5_dataset(
@@ -447,6 +503,7 @@ def query_comparisons(
         dataset_name=metric,  # None = load all metrics
         result_key=None,  # Load all comparisons
         filter_attrs=filter_attrs if filter_attrs else None,
+        use_sql_query=use_sql,
     )
 
     # Convert to DataFrame

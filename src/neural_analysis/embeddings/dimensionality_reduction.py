@@ -233,6 +233,7 @@ def compute_embedding(
             n_neighbors=n_neighbors,
             metric=metric,
             random_state=random_state,
+            n_jobs=1,  # Avoid UMAP warning when random_state is set
             **kwargs,
         )
         embedding = np.asarray(model.fit_transform(data), dtype=float)

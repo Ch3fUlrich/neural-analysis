@@ -22,6 +22,19 @@ This repository uses Astral `uv` for reproducible Python environments, enforces 
 - Heatmaps with custom labels and value annotations
 - Boolean state visualization with customizable regions
 
+### Multi-Layer Storage & Benchmarks
+- **HDF5** remains the ground-truth store for all analyses.
+- **DuckDB** mirrors HDF5 metadata for instant SQL queries (`datasets`, `comparisons`, `chunks` tables).
+- **Redis** caches hot comparison/structure-index rows with configurable TTL.
+- **StorageManager** automatically cascades Redis ➜ DuckDB ➜ HDF5 with graceful degradation.
+- `examples/storage_demo.ipynb` benchmarks write speed, reload speed, and disk usage for:
+  - Pandas + HDF5
+  - HDF5 + DuckDB metadata
+  - HDF5 + Redis cache
+  - Full stack (Redis + DuckDB + HDF5)
+
+See [`docs/storage_stack.md`](docs/storage_stack.md) for architecture diagrams, configuration flags, and notebook walkthroughs.
+
 ## Quick Start
 
 1. Install uv (see https://docs.astral.sh/uv/)
@@ -166,6 +179,25 @@ make update        # Update all dependencies
 - Dev tools (pytest, ruff, mypy, pre-commit, etc.) are in the `dev` optional dependency group
 - CI enforces linting, type-checking, and testing on all PRs
 - See `CONTRIBUTING.md` for detailed development guidelines
+
+## Multi-Service Docker Environment
+
+The repository includes a Compose stack that bundles the Python app, Redis, and PostgreSQL (placeholder for future metadata use). This is the fastest way to get Redis-backed integration tests running without local installs.
+
+```bash
+./scripts/setup_docker.sh  # builds images and launches redis/db/app
+./scripts/dev_docker.sh    # open a shell inside the Python container
+```
+
+Inside the container the default environment variables already point at the Compose services:
+
+```
+REDIS_HOST=redis
+REDIS_PORT=6379
+SQL_DB_PATH=/app/metadata.duckdb
+```
+
+Run benchmarks or tests exactly as you would on the host (for example `uv run pytest`, `uv run mypy`, or opening `examples/storage_demo.ipynb`).
 
 ## Automatic Setup Script
 

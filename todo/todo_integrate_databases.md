@@ -126,3 +126,17 @@ Each piece is necessary for handling scale, speed, flexibility, and easy access 
 [8](https://preprints.inggrid.org/repository/object/23/download/56/)
 [9](https://www.reddit.com/r/pytorch/comments/lo5gm6/writing_large_amounts_of_generated_data_to_hdf5/)
 [10](https://pythonforthelab.com/blog/how-to-use-hdf5-files-in-python)
+
+## Repository Integration Notes
+
+- **Storage helpers**: Implemented under `src/neural_analysis/utils/storage/` (`__init__.py`, `config.py`, `redis_cache.py`, `sql_metadata.py`, `manager.py`). These modules expose the unified API consumed by `utils/io.py`, `metrics/distributions.py`, and `topology/structure_index.py`.
+- **High-volume workflows**:
+  - `pairwise_distribution_comparison_batch` in `src/neural_analysis/metrics/distributions.py` now orchestrates Redis → SQL → HDF5 with cache-aware short-circuiting.
+  - `compute_structure_index_sweep` in `src/neural_analysis/topology/structure_index.py` caches sweep results per `(dataset, n_bins, n_neighbors, indices_key)` tuple.
+- **Tests**: Added `tests/test_storage_redis.py`, `tests/test_storage_sql.py`, and `tests/test_storage_manager.py` so CI can exercise cache/metadata fallbacks even without Redis/DuckDB present (tests skip automatically when dependencies are missing).
+- **Example notebook**: `examples/storage_demo.ipynb` demonstrates the end-to-end flow (synthetic datasets → pairwise comparisons → summary queries).
+- **Docker workflow**:
+  - `Dockerfile` installs the dev environment plus Redis server.
+  - `docker-compose.yml` provisions the app container alongside a standalone Redis service; point env vars (`NEURAL_ANALYSIS_USE_REDIS`, `NEURAL_ANALYSIS_USE_SQL`) here.
+  - Helper scripts `scripts/setup_docker.sh` and `scripts/dev_docker.sh` wrap common tasks (`docker compose up`, shell access, Jupyter start, log tailing).
+- **Documentation**: `TODO.md` section 1.7 references this plan; keep both files in sync as milestones (modules/tests/docs) land.

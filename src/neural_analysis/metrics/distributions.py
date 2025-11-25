@@ -15,8 +15,12 @@ optimal transport matching.
 
 from __future__ import annotations
 
+import inspect
 import logging
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from collections.abc import Callable, Mapping, Sequence, Iterable
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -24,9 +28,6 @@ from scipy.linalg import orthogonal_procrustes
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial import procrustes
 from scipy.spatial.distance import cdist
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -73,7 +74,198 @@ __all__ = [
     "jensen_shannon_divergence",
     "distribution_distance",
     "shape_distance",
+    "pairwise_distribution_comparison_batch",
+    "batch_comparison",
 ]
+
+SHAPE_METRICS = {"procrustes", "one-to-one", "soft-matching"}
+DEFAULT_COMPARISON_SAVE_PATH = Path("./output/distribution_comparisons.h5")
+
+T = TypeVar("T")
+
+
+def _progress_iterable(
+    iterable: Iterable[T],
+    *,
+    enable: bool,
+    desc: str | None = None,
+) -> Iterable[T]:
+    """Optionally wrap iterable with tqdm progress bar."""
+    if not enable:
+        return iterable
+    try:
+        from tqdm.auto import tqdm as tqdm_impl
+    except Exception:  # pragma: no cover - optional dependency
+        return iterable
+    return cast(Iterable[T], tqdm_impl(iterable, desc=desc))
+
+
+def _normalize_metrics_input(
+    metrics: Sequence[str] | Mapping[str, Mapping[str, Any]],
+    common_kwargs: dict[str, Any] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Normalize metrics input to dict[metric_name, kwargs]."""
+    common_kwargs = dict(common_kwargs or {})
+    if isinstance(metrics, Mapping):
+        return {
+            metric: {**common_kwargs, **(metric_kwargs or {})}
+            for metric, metric_kwargs in metrics.items()
+        }
+    if not metrics:
+        raise ValueError("metrics must contain at least one metric name")
+    return {metric: dict(common_kwargs) for metric in metrics}
+
+
+def _result_key(metric: str, dataset_i: str, dataset_j: str) -> str:
+    """Generate stable result key for HDF5 storage."""
+    return f"{metric}__{dataset_i}__{dataset_j}"
+
+
+def _cache_key(save_path: Path, comparison_name: str, result_key: str) -> str:
+    """Generate cache key for Redis storage."""
+    return f"pairwise::{save_path}::{comparison_name}::{result_key}"
+
+
+def _serialize_pairs(
+    pairs: dict[tuple[int, int], float] | None,
+) -> dict[str, npt.NDArray[Any]]:
+    """Serialize pairs dict to numpy arrays for HDF5 storage."""
+    if not pairs:
+        return {}
+    pair_indices = np.array(list(pairs.keys()), dtype=np.int64)
+    pair_values = np.array(list(pairs.values()), dtype=np.float64)
+    return {
+        "pair_indices": pair_indices,
+        "pair_values": pair_values,
+    }
+
+
+def _deserialize_pairs(arrays: Mapping[str, Any] | None) -> dict[tuple[int, int], float] | None:
+    """Deserialize stored pair arrays back into dictionary."""
+    if not arrays:
+        return None
+    if "pair_indices" not in arrays or "pair_values" not in arrays:
+        return None
+    indices = arrays["pair_indices"]
+    values = arrays["pair_values"]
+    pairs: dict[tuple[int, int], float] = {}
+    for idx, value in zip(indices, values, strict=False):
+        i, j = int(idx[0]), int(idx[1])
+        pairs[(i, j)] = float(value)
+    return pairs
+
+
+def _function_accepts_argument(func: Callable[..., Any], name: str) -> bool:
+    """Check if callable accepts a keyword argument."""
+    try:
+        signature = inspect.signature(func)
+    except (TypeError, ValueError):  # pragma: no cover - builtins
+        return False
+    for param in signature.parameters.values():
+        if param.kind == param.VAR_KEYWORD:
+            return True
+        if param.name == name and param.kind in (
+            param.POSITIONAL_OR_KEYWORD,
+            param.KEYWORD_ONLY,
+        ):
+            return True
+    return False
+
+
+def _compute_metric_result(
+    points_i: npt.ArrayLike,
+    points_j: npt.ArrayLike,
+    metric: str,
+    *,
+    metric_kwargs: Mapping[str, Any],
+) -> tuple[float, dict[tuple[int, int], float] | None, str]:
+    """Compute metric result and normalize output."""
+    result = compute_pairwise_matrix(
+        points_i,
+        points_j,
+        metric=metric,
+        parallel=True,
+        **metric_kwargs,
+    )
+
+    if metric in SHAPE_METRICS:
+        if not isinstance(result, tuple):
+            raise TypeError(
+                f"Expected tuple return value for shape metric '{metric}', got {type(result)!r}"
+            )
+        value = float(result[0])
+        pairs = {
+            (int(i), int(j)): float(val)
+            for (i, j), val in result[1].items()
+        }
+        return value, pairs, "shape"
+
+    if isinstance(result, np.ndarray):
+        value = float(np.mean(result))
+        return value, None, "matrix"
+
+    if isinstance(result, tuple):
+        value = float(result[0])
+        pairs = result[1] if isinstance(result[1], dict) else None
+        return value, pairs, "tuple"
+
+    # Fallback: scalar result
+    return float(result), None, "scalar"
+
+
+def _row_from_saved_entry(
+    result_key: str,
+    entry: Mapping[str, Any],
+    comparison_name: str,
+) -> dict[str, Any] | None:
+    """Convert stored HDF5 entry to dataframe row."""
+    attrs = entry.get("attributes") or entry.get("attrs") or {}
+    if not attrs or "value" not in attrs:
+        return None
+    row: dict[str, Any] = {
+        "comparison_name": attrs.get("comparison_name", comparison_name),
+        "dataset_i": attrs.get("dataset_i"),
+        "dataset_j": attrs.get("dataset_j"),
+        "metric": attrs.get("metric"),
+        "value": attrs.get("value"),
+        "value_type": attrs.get("value_type"),
+        "n_samples_i": attrs.get("n_samples_i"),
+        "n_samples_j": attrs.get("n_samples_j"),
+        "n_features": attrs.get("n_features"),
+        "timestamp": attrs.get("timestamp"),
+        "mode": attrs.get("mode", "between"),
+        "result_key": result_key,
+    }
+    arrays = entry.get("arrays")
+    pairs = _deserialize_pairs(arrays)
+    if pairs:
+        row["pairs"] = pairs
+        row["pair_count"] = len(pairs)
+    return row
+
+
+def _split_result_value(
+    result: Any,
+) -> tuple[float, Any]:
+    """Normalize result from arbitrary comparison function."""
+    if isinstance(result, tuple):
+        return float(result[0]), result[1]
+    return float(result), None
+
+
+def _prepare_datasets(
+    data: Mapping[str, npt.ArrayLike],
+) -> dict[str, npt.NDArray[np.float64]]:
+    """Convert mapping of dataset names to float64 ndarrays."""
+    if not data:
+        raise ValueError("data must contain at least one dataset")
+    prepared: dict[str, npt.NDArray[np.float64]] = {}
+    for name, values in data.items():
+        arr = np.asarray(values)
+        if arr.ndim == 1:
+            arr = arr.reshape(-1, 1)
+        prepared[str(name)] = np.asarray(arr, dtype=np.float64)
+    return prepared
 
 
 # ============================================================================
@@ -970,6 +1162,269 @@ def compare_distribution_groups(
 
 
 # ============================================================================
+# Batch Comparison Utilities
+# ============================================================================
+
+
+def pairwise_distribution_comparison_batch(
+    data: Mapping[str, npt.ArrayLike],
+    metrics: Sequence[str] | Mapping[str, Mapping[str, Any]],
+    *,
+    comparison_name: str = "default",
+    save_path: str | Path | None = None,
+    regenerate: bool = False,
+    store_pairs: bool = True,
+    progress: bool = False,
+    use_cache: bool = True,
+    use_sql_index: bool = True,
+    **common_metric_kwargs: Any,
+) -> pd.DataFrame:
+    """Compute all-pairs distribution comparisons with caching and persistence.
+
+    Parameters
+    ----------
+    data : Mapping[str, array-like]
+        Mapping of dataset name -> samples (n_samples, n_features)
+    metrics : sequence or mapping
+        - Sequence of metric names (e.g., ["wasserstein", "procrustes"])
+        - Mapping of metric name -> kwargs (e.g., {"wasserstein": {"summary": "median"}})
+    comparison_name : str, default="default"
+        Logical group name used for HDF5 storage/querying
+    save_path : str or Path, optional
+        HDF5 file path for caching results. Defaults to
+        "./output/distribution_comparisons.h5"
+    regenerate : bool, default=False
+        If True, recompute even if cached results exist
+    store_pairs : bool, default=True
+        Whether to store pair correspondences for shape metrics
+    progress : bool, default=False
+        Display tqdm progress bar when available
+    use_cache : bool, default=True
+        Use Redis cache when available
+    use_sql_index : bool, default=True
+        Index metadata in DuckDB for fast queries
+    **common_metric_kwargs
+        Additional kwargs applied to every metric (overridden by per-metric kwargs)
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with columns:
+        ['comparison_name', 'dataset_i', 'dataset_j', 'metric', 'value',
+         'value_type', 'n_samples_i', 'n_samples_j', 'n_features',
+         'timestamp', 'mode', 'pair_count', 'pairs']
+    """
+    from neural_analysis.utils.io import (
+        load_results_from_hdf5_dataset,
+        save_result_to_hdf5_dataset,
+    )
+
+    datasets = _prepare_datasets(data)
+    metrics_dict = _normalize_metrics_input(metrics, common_metric_kwargs)
+
+    if save_path is None:
+        save_path = DEFAULT_COMPARISON_SAVE_PATH
+    save_path = Path(save_path)
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+
+    storage_manager = None
+    if use_cache or use_sql_index:
+        try:
+            from neural_analysis.utils.storage.manager import StorageManager
+
+            storage_manager = StorageManager()
+        except Exception:
+            storage_manager = None
+
+    existing_rows: dict[str, dict[str, Any]] = {}
+    if save_path.exists() and not regenerate:
+        loaded = load_results_from_hdf5_dataset(
+            save_path=save_path,
+            dataset_name=comparison_name,
+            use_sql_query=use_sql_index,
+        )
+        comparison_results = loaded.get(comparison_name, {})
+        for result_key, entry in comparison_results.items():
+            saved_row = _row_from_saved_entry(result_key, entry, comparison_name)
+            if not saved_row:
+                continue
+            metric_name = saved_row.get("metric")
+            if metric_name not in metrics_dict:
+                continue
+            existing_rows[result_key] = saved_row
+            if use_cache and storage_manager:
+                cache_key = _cache_key(save_path, comparison_name, result_key)
+                storage_manager.cache_set(cache_key, saved_row)
+
+    tasks = [
+        (metric_name, dataset_i, dataset_j)
+        for metric_name in metrics_dict
+        for dataset_i in datasets
+        for dataset_j in datasets
+    ]
+
+    if not tasks:
+        return pd.DataFrame()
+
+    task_iter = _progress_iterable(
+        tasks,
+        enable=progress,
+        desc=f"Pairwise comparisons for '{comparison_name}'",
+    )
+
+    rows: list[dict[str, Any]] = []
+    for metric_name, dataset_i, dataset_j in task_iter:
+        metric_kwargs = metrics_dict[metric_name]
+        result_key = _result_key(metric_name, dataset_i, dataset_j)
+        cache_key = _cache_key(save_path, comparison_name, result_key)
+
+        if not regenerate:
+            cached_row = None
+            if use_cache and storage_manager:
+                cached_row = storage_manager.cache_get(cache_key)
+            if cached_row is not None:
+                rows.append(cached_row)
+                continue
+            if result_key in existing_rows:
+                existing_row = existing_rows[result_key]
+                rows.append(existing_row)
+                if use_cache and storage_manager:
+                    storage_manager.cache_set(cache_key, existing_row)
+                continue
+
+        value, pairs, value_type = _compute_metric_result(
+            datasets[dataset_i], datasets[dataset_j], metric_name, metric_kwargs=metric_kwargs
+        )
+
+        timestamp = datetime.now(UTC).isoformat()
+        row_data: dict[str, Any] = {
+            "comparison_name": comparison_name,
+            "dataset_i": dataset_i,
+            "dataset_j": dataset_j,
+            "metric": metric_name,
+            "value": value,
+            "value_type": value_type,
+            "n_samples_i": int(datasets[dataset_i].shape[0]),
+            "n_samples_j": int(datasets[dataset_j].shape[0]),
+            "n_features": int(datasets[dataset_i].shape[1]),
+            "timestamp": timestamp,
+            "mode": "between",
+        }
+        if pairs:
+            row_data["pair_count"] = len(pairs)
+            if store_pairs:
+                row_data["pairs"] = pairs
+
+        rows.append(row_data)
+
+        scalar_payload = {
+            "comparison_name": comparison_name,
+            "dataset_i": dataset_i,
+            "dataset_j": dataset_j,
+            "metric": metric_name,
+            "value": value,
+            "value_type": value_type,
+            "n_samples_i": row_data["n_samples_i"],
+            "n_samples_j": row_data["n_samples_j"],
+            "n_features": row_data["n_features"],
+            "timestamp": timestamp,
+            "mode": "between",
+            "result_key": result_key,
+        }
+        array_payload = _serialize_pairs(pairs) if store_pairs else {}
+
+        save_result_to_hdf5_dataset(
+            save_path=save_path,
+            dataset_name=comparison_name,
+            result_key=result_key,
+            scalar_data=scalar_payload,
+            array_data=array_payload,
+            use_cache=use_cache,
+            use_sql_index=use_sql_index,
+            storage_manager=storage_manager,
+        )
+
+        if use_cache and storage_manager:
+            storage_manager.cache_set(cache_key, row_data)
+        existing_rows[result_key] = row_data
+
+    df = pd.DataFrame(rows)
+    if "pairs" not in df.columns:
+        df["pairs"] = None
+    df = df.sort_values(["metric", "dataset_i", "dataset_j"]).reset_index(drop=True)
+    return df
+
+
+def batch_comparison(
+    datasets: Mapping[str, npt.ArrayLike],
+    comparison_fn: Callable[..., Any],
+    *,
+    include_self: bool = True,
+    symmetric: bool = False,
+    progress: bool = False,
+    **comparison_kwargs: Any,
+) -> pd.DataFrame:
+    """Generic batch-comparison utility for arbitrary comparison functions.
+
+    Parameters
+    ----------
+    datasets : Mapping[str, array-like]
+        Mapping of dataset names to arrays
+    comparison_fn : callable
+        Function accepting (dataset_i, dataset_j, **kwargs) returning scalar or tuple
+    include_self : bool, default=True
+        Include diagonal comparisons (dataset against itself)
+    symmetric : bool, default=False
+        If True, only compute upper triangle (i <= j)
+    progress : bool, default=False
+        Display tqdm progress bar when available
+    **comparison_kwargs
+        Additional kwargs forwarded to comparison_fn
+
+    Returns
+    -------
+    pandas.DataFrame
+        Columns: ['dataset_1', 'dataset_2', 'distance', 'metadata']
+    """
+    dataset_items = list(datasets.items())
+    if not dataset_items:
+        return pd.DataFrame(columns=["dataset_1", "dataset_2", "distance"])
+
+    accepts_dataset_i = _function_accepts_argument(comparison_fn, "dataset_i")
+    accepts_dataset_j = _function_accepts_argument(comparison_fn, "dataset_j")
+
+    tasks: list[tuple[str, str, npt.ArrayLike, npt.ArrayLike]] = []
+    for idx_i, (name_i, data_i) in enumerate(dataset_items):
+        for idx_j, (name_j, data_j) in enumerate(dataset_items):
+            if not include_self and name_i == name_j:
+                continue
+            if symmetric and idx_j < idx_i:
+                continue
+            tasks.append((name_i, name_j, data_i, data_j))
+
+    task_iter = _progress_iterable(tasks, enable=progress, desc="Batch comparisons")
+    rows: list[dict[str, Any]] = []
+    for name_i, name_j, data_i, data_j in task_iter:
+        call_kwargs = dict(comparison_kwargs)
+        if accepts_dataset_i:
+            call_kwargs.setdefault("dataset_i", name_i)
+        if accepts_dataset_j:
+            call_kwargs.setdefault("dataset_j", name_j)
+
+        result = comparison_fn(data_i, data_j, **call_kwargs)
+        value, metadata = _split_result_value(result)
+        row: dict[str, Any] = {
+            "dataset_1": name_i,
+            "dataset_2": name_j,
+            "distance": value,
+        }
+        if metadata is not None:
+            row["metadata"] = metadata
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    return df.reset_index(drop=True)
+# ============================================================================
 # Shape Distance Functions
 # ============================================================================
 
@@ -1202,9 +1657,9 @@ def shape_distance_one_to_one(
     i_indices, j_indices = np.where(transport_plan > 0)
     pairs = {
         (int(i), int(j)): float(cost_matrix[i, j])
-        for i, j in zip(i_indices, j_indices)
+        for i, j in zip(i_indices, j_indices, strict=False)
     }
-    raise NotImplementedError("one-to-one pairs output not fully implemented yet.")
+    return float(distance), pairs
 
     return float(distance), pairs
 
@@ -1296,22 +1751,18 @@ def shape_distance_soft_matching(
 
     # Compute optimal transport plan
     if approx:
-        # For approximate method, still need the transport plan for pairs
         transport_plan = ot.sinkhorn(a, b, cost_matrix, reg)
         distance = np.sqrt(np.sum(transport_plan * cost_matrix))
     else:
-        # Exact optimal transport
         transport_plan = ot.emd(a, b, cost_matrix)
         distance = np.sqrt(np.sum(transport_plan * cost_matrix))
 
-    raise NotImplementedError("Soft-matching pairs output not fully implemented yet.")
-    # Extract pairs with non-zero transport probability
-    i_indices, j_indices = np.where(transport_plan > 0)
+    threshold = 1e-9
+    i_idx, j_idx = np.where(transport_plan > threshold)
     pairs = {
         (int(i), int(j)): float(transport_plan[i, j])
-        for i, j in zip(i_indices, j_indices)
+        for i, j in zip(i_idx, j_idx, strict=False)
     }
-
     return float(distance), pairs
 
 

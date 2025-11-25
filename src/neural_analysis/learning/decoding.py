@@ -182,7 +182,7 @@ def knn_decoder(
     knn.fit(train_activity, train_labels)
 
     # Predict on test data
-    decoded_labels = knn.predict(test_activity)
+    decoded_labels = np.asarray(knn.predict(test_activity), dtype=float)
 
     return decoded_labels
 

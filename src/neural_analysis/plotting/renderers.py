@@ -186,18 +186,24 @@ def render_scatter_matplotlib(
     # Determine color parameter: use colors array if provided, otherwise single color
     c_param = colors if colors is not None else color
 
+    scatter_kwargs = {
+        "c": c_param,
+        "s": s_param,
+        "marker": marker,
+        "alpha": alpha,
+        "label": label,
+        **kwargs,
+    }
+    # Only pass cmap when providing a numeric/array color map
+    if colors is not None or (c_param is not None and not isinstance(c_param, str)):
+        scatter_kwargs["cmap"] = cmap
+
     if data.shape[1] == 2:
         # 2D scatter
         return ax.scatter(
             data[:, 0],
             data[:, 1],
-            c=c_param,
-            s=s_param,
-            marker=marker,
-            cmap=cmap,
-            alpha=alpha,
-            label=label,
-            **kwargs,
+            **scatter_kwargs,
         )
     elif data.shape[1] == 3:
         # 3D scatter
@@ -205,13 +211,7 @@ def render_scatter_matplotlib(
             data[:, 0],
             data[:, 1],
             data[:, 2],
-            c=c_param,
-            s=s_param,
-            marker=marker,
-            cmap=cmap,
-            alpha=alpha,
-            label=label,
-            **kwargs,
+            **scatter_kwargs,
         )
     else:
         raise ValueError(f"Scatter plot requires 2D or 3D data, got shape {data.shape}")

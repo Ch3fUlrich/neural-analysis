@@ -882,19 +882,21 @@ def generate_place_cells(
         positions = generate_position_trajectory(
             n_samples, arena_size=arena_size, seed=seed
         )
-    else:
-        n_dims = positions.shape[1] if positions.ndim > 1 else 1
-        if n_dims == 1 and positions.ndim == 1:
-            positions = positions.reshape(-1, 1)
+    positions = np.asarray(positions, dtype=np.float64)
+    positions = cast(npt.NDArray[np.float64], positions)
+    n_dims = positions.shape[1] if positions.ndim > 1 else 1
+    if n_dims == 1 and positions.ndim == 1:
+        positions = positions.reshape(-1, 1)
 
     # Random place field centers
-    field_centers: npt.NDArray[np.floating]
-    field_radii: npt.NDArray[np.floating] | None = None
-    field_angles: npt.NDArray[np.floating] | None = None
+    field_centers: npt.NDArray[np.float64]
+    field_radii: npt.NDArray[np.float64]
+    field_angles: npt.NDArray[np.float64] | None = None
     if n_dims == 1:
         field_centers = rng.uniform(0, arena_size[0], size=(n_cells, 1))
     else:
         field_centers = rng.uniform([0] * n_dims, arena_size, size=(n_cells, n_dims))
+    field_centers = np.asarray(field_centers, dtype=np.float64)
 
     # Random oval-shaped place fields (anisotropic Gaussian)
     # Each cell has random radii and orientation
@@ -907,8 +909,10 @@ def generate_place_cells(
         field_angles = rng.uniform(0, np.pi, size=n_cells)
     elif n_dims == 3:
         field_radii = rng.uniform(0.6, 1.4, size=(n_cells, 3)) * field_size
-        # For 3D, we use ellipsoid without rotation (simplified)
         field_angles = None
+    else:  # pragma: no cover - defensive
+        raise ValueError(f"Unsupported dimensionality: {n_dims}")
+    field_radii = np.asarray(field_radii, dtype=np.float64)
 
     # Ensure arrays are set and compute firing rates based on distance to field center
     assert field_centers is not None
@@ -933,18 +937,13 @@ def generate_place_cells(
 
             # Rotate to field orientation
             assert field_angles is not None
-            fa = cast("npt.NDArray[np.floating]", field_angles)
-            angle = fa[i]
+            angle = float(field_angles[i])
             dx_rot = dx * np.cos(angle) + dy * np.sin(angle)
             dy_rot = -dx * np.sin(angle) + dy * np.cos(angle)
 
             # Compute anisotropic distance (Mahalanobis-like distance)
-            if field_radii is not None:
-                dist_x = (dx_rot / field_radii[i, 0]) ** 2
-                dist_y = (dy_rot / field_radii[i, 1]) ** 2
-            else:
-                dist_x = dx_rot**2
-                dist_y = dy_rot**2
+            dist_x = (dx_rot / field_radii[i, 0]) ** 2
+            dist_y = (dy_rot / field_radii[i, 1]) ** 2
             rates = baseline_rate + peak_rate * np.exp(-(dist_x + dist_y) / 2)
 
         elif n_dims == 3:
@@ -1120,10 +1119,11 @@ def generate_grid_cells(
         positions = generate_position_trajectory(
             n_samples, arena_size=arena_size, seed=seed
         )
-    else:
-        n_dims = positions.shape[1] if positions.ndim > 1 else 1
-        if n_dims == 1 and positions.ndim == 1:
-            positions = positions.reshape(-1, 1)
+    positions = np.asarray(positions, dtype=np.float64)
+    if positions.ndim == 1:
+        positions = positions.reshape(-1, 1)
+    positions = cast(npt.NDArray[np.float64], positions)
+    n_dims = positions.shape[1] if positions.ndim > 1 else 1
 
     activity = np.zeros((n_samples, n_cells))
 
@@ -1475,9 +1475,9 @@ def generate_random_cells(
         rates = np.maximum(rates, 0)
 
         # Add Poisson noise for realism
-        rates = rng.poisson(rates)
+        rates = rng.poisson(rates).astype(np.float64, copy=False)
 
-        activity[:, i] = rates.astype(np.float64)  # type: ignore[assignment]
+        activity[:, i] = rates
 
     # Generate uniform random 2D positions for structure index compatibility
     # These positions are synthetic and NOT used for tuning (cells are random)
@@ -1620,7 +1620,7 @@ def add_noise(
 
     if noise_type == "gaussian":
         noise = rng.normal(0, noise_level, size=data.shape)
-        return data + noise
+        return cast("npt.NDArray[np.floating[Any]]", data + noise)
 
     elif noise_type == "poisson":
         # For Poisson noise, we need positive values
@@ -1631,7 +1631,7 @@ def add_noise(
             noisy = rng.poisson(data_positive / noise_level) * noise_level
         else:
             noisy = data_positive
-        return noisy
+        return cast("npt.NDArray[np.floating[Any]]", noisy)
 
     elif noise_type == "uniform":
         noise = rng.uniform(-noise_level, noise_level, size=data.shape)
@@ -1699,7 +1699,10 @@ def generate_s_curve(
     Examples:
         >>> points, colors = generate_s_curve(1000, noise=0.05)
     """
-    return generate_data("s_curve", n_samples=n_samples, noise=noise, seed=seed)
+    data, labels = generate_data("s_curve", n_samples=n_samples, noise=noise, seed=seed)
+    if not isinstance(labels, np.ndarray):
+        labels = np.asarray(labels, dtype=np.float64)
+    return np.asarray(data, dtype=np.float64), np.asarray(labels, dtype=np.float64)
 
 
 # ============================================================================
@@ -1746,7 +1749,7 @@ def map_to_ring(
 
     # Create visualization if requested
     if plot:
-        from neural_analysis.plotting.grid_config import (
+        from neural_analysis.plotting.grid_config import (  # type: ignore[attr-defined]
             GridLayoutConfig,
             PlotConfig,
             PlotGrid,
@@ -1778,7 +1781,7 @@ def map_to_ring(
             plot_type="scatter",
             subplot_position=1,
             title="Ring Embedding (S¹) - Colored by Time",
-            color_by=time_array,  # type: ignore[arg-type]
+            color_by=cast(Any, time_array),
             cmap="viridis",
             marker_size=10,
             alpha=0.7,
@@ -1798,7 +1801,7 @@ def map_to_ring(
             plot_type="scatter",
             subplot_position=2,
             title="Ring Embedding - Colored by Position",
-            color_by=positions_flat,  # type: ignore[arg-type]
+            color_by=cast(Any, positions_flat),
             cmap="plasma",
             marker_size=10,
             alpha=0.7,
@@ -1874,7 +1877,7 @@ def map_to_torus(
 
     # Create visualization if requested
     if plot:
-        from neural_analysis.plotting.grid_config import (
+        from neural_analysis.plotting.grid_config import (  # type: ignore[attr-defined]
             GridLayoutConfig,
             PlotConfig,
             PlotGrid,
@@ -1890,7 +1893,7 @@ def map_to_torus(
             plot_type="trajectory",
             subplot_position=0,
             title="2D Position Trajectory",
-            color_by=time_array,  # type: ignore[arg-type]
+            color_by=cast(Any, time_array),
             cmap="viridis",
             marker_size=5,
             alpha=0.7,
@@ -1914,7 +1917,7 @@ def map_to_torus(
             plot_type="scatter3d",
             subplot_position=1,
             title="Torus Embedding (T²) - Colored by Time",
-            color_by=time_array,
+            color_by=cast(Any, time_array),
             cmap="viridis",
             marker_size=5,
             alpha=0.7,
@@ -1938,7 +1941,7 @@ def map_to_torus(
             plot_type="scatter3d",
             subplot_position=2,
             title="Torus - Colored by X Position",
-            color_by=positions[:, 0],
+            color_by=cast(Any, positions[:, 0]),
             cmap="plasma",
             marker_size=5,
             alpha=0.7,

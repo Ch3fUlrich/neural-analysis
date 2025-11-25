@@ -38,7 +38,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate grid cell firing data in 1D, 2D, or 3D.
 
-**Location:** `data.synthetic_data.py` (line 1065)
+**Location:** `data.synthetic_data.py` (line 1064)
 
 #### `generate_head_direction(n_samples, turning_rate, seed)`
 
@@ -70,7 +70,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate flexible mixed neural population with custom configuration.
 
-**Location:** `data.synthetic_data.py` (line 1967)
+**Location:** `data.synthetic_data.py` (line 1971)
 
 #### `generate_place_cells(n_cells, n_samples, positions, ...)`
 
@@ -118,7 +118,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Map population activity to ring manifold (1D circular).
 
-**Location:** `data.synthetic_data.py` (line 1710)
+**Location:** `data.synthetic_data.py` (line 1713)
 
 #### `map_to_torus(activity, positions, major_radius, ...)`
 
@@ -126,7 +126,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Map population activity to torus manifold (2D periodic).
 
-**Location:** `data.synthetic_data.py` (line 1828)
+**Location:** `data.synthetic_data.py` (line 1832)
 
 ---
 
@@ -148,7 +148,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute multiple embeddings for comparison.
 
-**Location:** `embeddings.dimensionality_reduction.py` (line 314)
+**Location:** `embeddings.dimensionality_reduction.py` (line 315)
 
 #### `pca_explained_variance(data, n_components, cumulative)`
 
@@ -156,7 +156,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute explained variance for PCA components.
 
-**Location:** `embeddings.dimensionality_reduction.py` (line 407)
+**Location:** `embeddings.dimensionality_reduction.py` (line 408)
 
 ### `embeddings.visualization`
 
@@ -280,7 +280,15 @@ This registry helps developers and AI agents:
 
 **Purpose:** Align mtx2 to mtx1 using Procrustes analysis.
 
-**Location:** `metrics.distributions.py` (line 1012)
+**Location:** `metrics.distributions.py` (line 1479)
+
+#### `batch_comparison(datasets, comparison_fn)`
+
+**Returns:** `pd.DataFrame`
+
+**Purpose:** Generic batch-comparison utility for arbitrary comparison functions.
+
+**Location:** `metrics.distributions.py` (line 1358)
 
 #### `compare_distribution_groups(group_vectors, compare_type, metric)`
 
@@ -288,7 +296,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compare distributions within or between groups (legacy wrapper).
 
-**Location:** `metrics.distributions.py` (line 763)
+**Location:** `metrics.distributions.py` (line 967)
 
 #### `compare_distributions(points1, points2, metric, ...)`
 
@@ -296,7 +304,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compare two point distributions using a specified metric.
 
-**Location:** `metrics.distributions.py` (line 592)
+**Location:** `metrics.distributions.py` (line 796)
 
 #### `decorator(func)`
 
@@ -304,7 +312,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** No description
 
-**Location:** `metrics.distributions.py` (line 56)
+**Location:** `metrics.distributions.py` (line 57)
 
 #### `distribution_distance(points1, points2, mode, ...)`
 
@@ -312,7 +320,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute pairwise distances within or between distributions.
 
-**Location:** `metrics.distributions.py` (line 357)
+**Location:** `metrics.distributions.py` (line 561)
 
 #### `get_logger(name)`
 
@@ -320,7 +328,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** No description
 
-**Location:** `metrics.distributions.py` (line 61)
+**Location:** `metrics.distributions.py` (line 62)
 
 #### `jensen_shannon_divergence(points1, points2, bins)`
 
@@ -328,7 +336,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute Jensen-Shannon divergence between point distributions.
 
-**Location:** `metrics.distributions.py` (line 233)
+**Location:** `metrics.distributions.py` (line 437)
 
 #### `kolmogorov_smirnov_distance(points1, points2)`
 
@@ -336,7 +344,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute maximum Kolmogorov-Smirnov statistic over all features.
 
-**Location:** `metrics.distributions.py` (line 183)
+**Location:** `metrics.distributions.py` (line 375)
 
 #### `log_calls()`
 
@@ -344,7 +352,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** No description
 
-**Location:** `metrics.distributions.py` (line 53)
+**Location:** `metrics.distributions.py` (line 54)
 
 #### `modify_matrix(mtx, whiten, normalize)`
 
@@ -352,7 +360,15 @@ This registry helps developers and AI agents:
 
 **Purpose:** Preprocess matrix for shape comparison.
 
-**Location:** `metrics.distributions.py` (line 965)
+**Location:** `metrics.distributions.py` (line 1432)
+
+#### `pairwise_distribution_comparison_batch(data, metrics)`
+
+**Returns:** `pd.DataFrame`
+
+**Purpose:** Compute all-pairs distribution comparisons with caching and persistence.
+
+**Location:** `metrics.distributions.py` (line 1169)
 
 #### `shape_distance(mtx1, mtx2, method, ...)`
 
@@ -360,15 +376,15 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute shape distance between two matrices.
 
-**Location:** `metrics.distributions.py` (line 1341)
+**Location:** `metrics.distributions.py` (line 1769)
 
 #### `shape_distance_one_to_one(mtx1, mtx2, metric)`
 
 **Returns:** `tuple[float, dict[tuple[int, int], float]]`
 
-**Purpose:** Compute shape distance using optimal one-to-one point matching after
+**Purpose:** Compute shape distance using optimal one-to-one point matching via optimal transport.
 
-**Location:** `metrics.distributions.py` (line 1129)
+**Location:** `metrics.distributions.py` (line 1582)
 
 #### `shape_distance_procrustes(mtx1, mtx2)`
 
@@ -376,7 +392,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute shape distance using Procrustes alignment.
 
-**Location:** `metrics.distributions.py` (line 1063)
+**Location:** `metrics.distributions.py` (line 1530)
 
 #### `shape_distance_soft_matching(mtx1, mtx2, metric, ...)`
 
@@ -384,7 +400,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute shape distance using soft optimal transport matching.
 
-**Location:** `metrics.distributions.py` (line 1231)
+**Location:** `metrics.distributions.py` (line 1667)
 
 #### `wasserstein_distance_multi(points1, points2)`
 
@@ -392,7 +408,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute sum of Wasserstein distances over all features.
 
-**Location:** `metrics.distributions.py` (line 112)
+**Location:** `metrics.distributions.py` (line 304)
 
 ---
 
@@ -448,7 +464,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** No description
 
-**Location:** `utils.io.py` (line 41)
+**Location:** `utils.io.py` (line 43)
 
 #### `get_hdf5_dataset_names(save_path)`
 
@@ -456,7 +472,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Get list of all top-level dataset names in HDF5 file.
 
-**Location:** `utils.io.py` (line 739)
+**Location:** `utils.io.py` (line 825)
 
 #### `get_hdf5_result_summary(save_path, dataset_name)`
 
@@ -464,7 +480,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Get summary DataFrame of all results in HDF5 file.
 
-**Location:** `utils.io.py` (line 772)
+**Location:** `utils.io.py` (line 858)
 
 #### `get_logger(name)`
 
@@ -472,7 +488,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** No description
 
-**Location:** `utils.io.py` (line 45)
+**Location:** `utils.io.py` (line 47)
 
 #### `get_missing_comparisons(item_pairs, metrics_dict, df_results)`
 
@@ -480,7 +496,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Determine which comparisons need to be computed.
 
-**Location:** `utils.io.py` (line 479)
+**Location:** `utils.io.py` (line 512)
 
 #### `h5io(path)`
 
@@ -488,7 +504,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compatibility wrapper replicating legacy `h5io` API.
 
-**Location:** `utils.io.py` (line 530)
+**Location:** `utils.io.py` (line 563)
 
 #### `load_array(path)`
 
@@ -496,7 +512,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Load an array or dict of arrays from .npy/.npz. Returns None if missing.
 
-**Location:** `utils.io.py` (line 209)
+**Location:** `utils.io.py` (line 242)
 
 #### `load_distribution_comparisons(save_path, comparison_name, dataset_i, ...)`
 
@@ -504,7 +520,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Load distribution comparison results from HDF5.
 
-**Location:** `utils.io.py` (line 833)
+**Location:** `utils.io.py` (line 919)
 
 #### `load_hdf5(path)`
 
@@ -512,7 +528,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Load previously saved HDF5 content.
 
-**Location:** `utils.io.py` (line 319)
+**Location:** `utils.io.py` (line 352)
 
 #### `load_results_from_hdf5_dataset(save_path, dataset_name, result_key, ...)`
 
@@ -520,7 +536,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Load analysis results from HDF5 file.
 
-**Location:** `utils.io.py` (line 638)
+**Location:** `utils.io.py` (line 719)
 
 #### `log_calls()`
 
@@ -528,7 +544,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** No description
 
-**Location:** `utils.io.py` (line 38)
+**Location:** `utils.io.py` (line 40)
 
 #### `save_array(path, data)`
 
@@ -536,7 +552,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Save a single array (.npy) or a dict of arrays (.npz).
 
-**Location:** `utils.io.py` (line 172)
+**Location:** `utils.io.py` (line 205)
 
 #### `save_comparison_batch(result_rows, df_results, save_path)`
 
@@ -544,7 +560,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Save batch of comparison results to HDF5.
 
-**Location:** `utils.io.py` (line 431)
+**Location:** `utils.io.py` (line 464)
 
 #### `save_hdf5(path, data)`
 
@@ -552,7 +568,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Save a DataFrame or array with optional labels into an HDF5 file.
 
-**Location:** `utils.io.py` (line 261)
+**Location:** `utils.io.py` (line 294)
 
 #### `save_result_to_hdf5_dataset(save_path, dataset_name, result_key, ...)`
 
@@ -560,7 +576,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Save analysis results to HDF5 file with hierarchical structure.
 
-**Location:** `utils.io.py` (line 561)
+**Location:** `utils.io.py` (line 594)
 
 #### `update_array(path, new_data)`
 
@@ -568,7 +584,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Update or create an .npz file by merging in new arrays.
 
-**Location:** `utils.io.py` (line 232)
+**Location:** `utils.io.py` (line 265)
 
 ---
 
@@ -754,7 +770,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** No description
 
-**Location:** `plotting.grid_config.py` (line 466)
+**Location:** `plotting.grid_config.py` (line 480)
 
 #### `add_plot(data, plot_type)`
 
@@ -762,7 +778,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Add a plot to the grid.
 
-**Location:** `plotting.grid_config.py` (line 598)
+**Location:** `plotting.grid_config.py` (line 612)
 
 #### `add_trace_to_subplot(fig, trace, row, ...)`
 
@@ -770,7 +786,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Add a trace to a specific subplot in a plotly figure.
 
-**Location:** `plotting.grid_config.py` (line 2154)
+**Location:** `plotting.grid_config.py` (line 2408)
 
 #### `auto_size_grid(n_plots)`
 
@@ -778,7 +794,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Automatically determine grid size from number of plots.
 
-**Location:** `plotting.grid_config.py` (line 312)
+**Location:** `plotting.grid_config.py` (line 326)
 
 #### `create_subplot_grid(rows, cols, config, ...)`
 
@@ -786,7 +802,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create a multi-panel subplot grid.
 
-**Location:** `plotting.grid_config.py` (line 1941)
+**Location:** `plotting.grid_config.py` (line 2098)
 
 #### `from_dataframe(df, data_col, plot_type_col, ...)`
 
@@ -794,7 +810,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create PlotGrid from a pandas DataFrame.
 
-**Location:** `plotting.grid_config.py` (line 481)
+**Location:** `plotting.grid_config.py` (line 495)
 
 #### `from_dict(data_dict, plot_type)`
 
@@ -802,7 +818,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create PlotGrid from a dictionary of {label: data}.
 
-**Location:** `plotting.grid_config.py` (line 564)
+**Location:** `plotting.grid_config.py` (line 578)
 
 #### `get_colors(groups)`
 
@@ -810,7 +826,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Get color mapping for a list of groups.
 
-**Location:** `plotting.grid_config.py` (line 364)
+**Location:** `plotting.grid_config.py` (line 378)
 
 #### `plot()`
 
@@ -818,7 +834,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate the plot grid.
 
-**Location:** `plotting.grid_config.py` (line 634)
+**Location:** `plotting.grid_config.py` (line 648)
 
 #### `plot_comparison_grid(data_dict, plot_type, rows, ...)`
 
@@ -826,7 +842,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create a grid comparing multiple datasets with the same plot type.
 
-**Location:** `plotting.grid_config.py` (line 1820)
+**Location:** `plotting.grid_config.py` (line 1977)
 
 #### `plot_grouped_comparison(data, x_col, y_col, ...)`
 
@@ -834,7 +850,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create overlaid plots grouped by a category.
 
-**Location:** `plotting.grid_config.py` (line 1862)
+**Location:** `plotting.grid_config.py` (line 2019)
 
 ---
 
@@ -1274,7 +1290,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Calculate grid dimensions for given number of plots.
 
-**Location:** `plotting.synthetic_plots.py` (line 328)
+**Location:** `plotting.synthetic_plots.py` (line 300)
 
 #### `plot_synthetic_data(activity, metadata, show_raster, ...)`
 
@@ -1282,6 +1298,6 @@ This registry helps developers and AI agents:
 
 **Purpose:** Plot comprehensive visualization of synthetic neural data.
 
-**Location:** `plotting.synthetic_plots.py` (line 247)
+**Location:** `plotting.synthetic_plots.py` (line 773)
 
 ---

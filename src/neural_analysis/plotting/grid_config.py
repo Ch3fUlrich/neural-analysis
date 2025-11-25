@@ -60,6 +60,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 
+plt.rcParams["figure.max_open_warning"] = 0
+
 try:
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
@@ -1226,13 +1228,13 @@ class PlotGrid:
             )
 
         elif spec.plot_type == "heatmap":
-            # Pass should_show_colorbar to renderer via kwargs
             heatmap_kwargs = dict(spec.kwargs)
+            cmap_value = heatmap_kwargs.pop("cmap", spec.cmap or "viridis")
             heatmap_kwargs["colorbar"] = should_show_colorbar if spec.colorbar else False
             im = renderers.render_heatmap_matplotlib(
                 ax=ax,
                 data=spec.data,
-                cmap=spec.kwargs.pop("cmap", spec.cmap or "viridis"),
+                cmap=cmap_value,
                 colorbar_label=spec.colorbar_label,
                 alpha=spec.alpha,
                 **heatmap_kwargs,

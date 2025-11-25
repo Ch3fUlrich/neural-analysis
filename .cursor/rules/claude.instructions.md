@@ -261,6 +261,12 @@ Always add/update todos in todo.md properly; update when tasks added/completed.
 Always update function_registry if new function created or strongly modified.
 Ensure all files updated when function moved/renamed.
 Do not recreate files that are already present; search for the file name in the repository first.
+
+## Storage System Defaults
+- The canonical storage path is **HDF5 ➜ DuckDB ➜ Redis** coordinated by `neural_analysis.utils.storage.manager.StorageManager`. Always acquire it via `with StorageManager() as sm:` (or call `sm.close()`) so Redis sockets and DuckDB connections are released promptly.
+- Redis caching **must** respect the namespace in `StorageConfig.cache_namespace` (defaults to `neural_analysis`). Never handcraft raw Redis keys; use `StorageManager` or the utility functions in `neural_analysis.utils.io`.
+- When persisting new pandas/NumPy results, call `save_result_to_hdf5_dataset`/`load_results_from_hdf5_dataset` from `io.py`. These helpers handle attribute normalization, DuckDB indexing, and cache invalidation for you.
+- The benchmarking notebook `examples/storage_demo.ipynb` determines the recommended default profile (currently HDF5 + Redis). Update that notebook—and rerun it—if you change the storage stack so future agents inherit the validated defaults.
 ## CI/CD Pipeline
 **Workflow:** `.github/workflows/ci.yml` - Lint, type check, test on push/PR.
 **Local:**

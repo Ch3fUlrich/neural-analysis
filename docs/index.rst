@@ -9,6 +9,7 @@ Welcome to Neural Analysis, a comprehensive Python package for neural data analy
 
    installation
    quickstart
+   storage_stack
    api/index
    examples
    contributing

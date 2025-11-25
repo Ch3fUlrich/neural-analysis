@@ -163,6 +163,8 @@ Distance Metrics
 Next Steps
 ----------
 
+- Read :doc:`storage_stack` for details on the Redis + DuckDB + HDF5 persistence pipeline.
+- Reproduce storage benchmarks by launching Jupyter (`uv run jupyter lab`) and running ``examples/storage_demo.ipynb``. The notebook compares pure HDF5 writes vs. the full stack and logs write/reload speedups and disk usage.
 - Explore the :doc:`api/index` for complete API documentation
 - Check out :doc:`examples` for more detailed examples
 - Read :doc:`contributing` to contribute to the project

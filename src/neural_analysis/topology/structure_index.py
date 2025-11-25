@@ -98,9 +98,10 @@ import copy
 import logging
 import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING, cast
 
 import matplotlib
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
@@ -111,6 +112,9 @@ from sklearn.manifold import Isomap
 from sklearn.metrics import pairwise_distances
 from sklearn.neighbors import NearestNeighbors
 from tqdm.auto import tqdm
+
+if TYPE_CHECKING:
+    from neural_analysis.utils.storage.manager import StorageManager
 
 try:
     import faiss
@@ -177,7 +181,45 @@ def _outlier_detection(data: npt.NDArray[np.floating[Any]]) -> npt.NDArray[np.fl
     np.fill_diagonal(D, np.nan)
     nn_dist = np.sum(np.nanpercentile(D, 1) > D, axis=1) - 1
     noiseIdx = np.where(nn_dist < np.percentile(nn_dist, 20))[0]
-    return noiseIdx.astype(np.float64)
+    return noiseIdx.astype(np.int64)
+
+
+def _filter_noisy_outliers(
+    data: npt.NDArray[np.floating[Any]],
+    *,
+    zscore_thresh: float = 3.5,
+) -> npt.NDArray[np.int64]:
+    """Identify noisy samples using simple z-score and density heuristics.
+
+    Parameters
+    ----------
+    data : ndarray
+        Input array of shape (n_samples, n_features).
+    zscore_thresh : float, default=3.5
+        Absolute z-score above which a point is considered an outlier.
+
+    Returns
+    -------
+    ndarray
+        Sorted array of unique indices flagged as noisy.
+    """
+    arr = np.atleast_2d(np.asarray(data, dtype=np.float64))
+    if arr.size == 0:
+        return cast(npt.NDArray[np.int64], np.array([], dtype=np.int64))
+
+    mean = arr.mean(axis=0, keepdims=True)
+    std = arr.std(axis=0, keepdims=True) + 1e-12
+    zscores = np.abs((arr - mean) / std)
+    zscore_outliers = np.where(np.any(zscores > zscore_thresh, axis=1))[0]
+
+    density_outliers = _outlier_detection(arr)
+
+    combined = np.unique(
+        np.concatenate(
+            [zscore_outliers.astype(np.int64), density_outliers.astype(np.int64)]
+        )
+    )
+    return cast(npt.NDArray[np.int64], combined.astype(np.int64))
 
 
 def _meshgrid2(arrs: tuple[Any, ...]) -> tuple[Any, ...]:
@@ -327,6 +369,7 @@ def _cloud_overlap_neighbors(
         - Falls back to sklearn's NearestNeighbors if FAISS not available
         - Handles edge case where k >= total number of points
     """
+    k = int(max(1, round(k)))
     cloud_all = np.vstack((cloud1, cloud2)).astype("float32")
     idx_sep = cloud1.shape[0]
     n_points = cloud_all.shape[0]
@@ -559,11 +602,11 @@ def compute_structure_index(
         raise ValueError("Specify either n_neighbors or radius, not both")
 
     if "radius" in kwargs:
-        neighborhood_size = kwargs["radius"]
+        neighborhood_size = float(kwargs["radius"])
         assert neighborhood_size > 0, "radius must be > 0"
         cloud_overlap = _cloud_overlap_radius
     else:
-        neighborhood_size = float(kwargs.get("n_neighbors", 15))
+        neighborhood_size = int(kwargs.get("n_neighbors", 15))
         assert neighborhood_size > 2, "n_neighbors must be > 2"
         cloud_overlap = _cloud_overlap_neighbors  # type: ignore[assignment]
 
@@ -786,6 +829,11 @@ def draw_overlap_graph(
     >>> draw_overlap_graph(overlap_mat, ax=ax, node_names=[f"Bin {i}" for i in range(10)])
     >>> plt.show()
     """
+    if node_cmap is None:
+        node_cmap = cm.get_cmap("tab10")
+    if edge_cmap is None:
+        edge_cmap = cm.get_cmap("Greys")
+
     if int(nx.__version__[0]) < 3:
         g = nx.from_numpy_matrix(overlap_mat, create_using=nx.DiGraph)
     else:
@@ -841,6 +889,67 @@ def draw_overlap_graph(
     )
 
     return wdg
+
+
+def _array_to_key(arr: npt.NDArray[np.int_]) -> str:
+    """Convert array of indices to compact string key."""
+    if len(arr) > 10:
+        # Use hash for large arrays
+        return f"hash_{hash(arr.tobytes())}"
+
+    # Use actual indices for small arrays
+    return "_".join(map(str, arr))
+
+
+def _structure_index_cache_key(
+    dataset_name: str,
+    n_bins: int,
+    n_neighbors: int,
+    indices_key: str,
+) -> str:
+    """Generate cache key for Structure Index results."""
+    return (
+        f"structure_index::{dataset_name}::n_bins={n_bins}"
+        f"::n_neighbors={n_neighbors}::indices={indices_key}"
+    )
+
+
+def _parse_loaded_results(
+    loaded_data: dict[str, dict[str, Any]],
+    dataset_name: str,
+) -> dict[tuple[int, int], dict[str, Any]]:
+    """Parse loaded HDF5 data into structure index results format."""
+    results: dict[tuple[int, int], dict[str, Any]] = {}
+
+    if dataset_name not in loaded_data:
+        return results
+
+    for _, result_data in loaded_data[dataset_name].items():
+        attrs = result_data["attributes"]
+        arrays = result_data["arrays"]
+
+        # Extract parameter key
+        n_bins = attrs.get("n_bins")
+        n_neighbors = attrs.get("n_neighbors")
+
+        if n_bins is None or n_neighbors is None:
+            continue
+
+        param_key = (int(n_bins), int(n_neighbors))
+
+        # Reconstruct result
+        results[param_key] = {
+            "SI": attrs.get("SI", np.nan),
+            "overlap_mat": arrays.get("overlap_mat", np.array([])),
+            "shuf_SI": arrays.get("shuf_SI", np.array([])),
+            "bin_label": (
+                arrays.get("bin_label_assignments", np.array([])),
+                arrays.get("bin_label_coords", np.array([])),
+            ),
+            "metadata": attrs,
+        }
+
+    return results
 
 
 def compute_structure_index_sweep(
@@ -917,6 +1026,13 @@ def compute_structure_index_sweep(
         load_results_from_hdf5_dataset,
         save_result_to_hdf5_dataset,
     )
+    StorageManagerCls: type[StorageManager] | None
+    try:
+        from neural_analysis.utils.storage.manager import StorageManager as _StorageManager
+    except Exception:  # pragma: no cover - optional dependency
+        StorageManagerCls = None
+    else:
+        StorageManagerCls = _StorageManager
     
     # Set default save path if not provided
     if save_path is None:
@@ -924,6 +1040,13 @@ def compute_structure_index_sweep(
     else:
         save_path = Path(save_path)
     save_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    storage_manager: StorageManager | None = None
+    if StorageManagerCls is not None:
+        try:
+            storage_manager = StorageManagerCls()
+        except Exception:
+            storage_manager = None
     
     # Set defaults
     if n_neighbors_list is None:
@@ -935,7 +1058,7 @@ def compute_structure_index_sweep(
     if data_indices is not None:
         data = data[data_indices]
         labels = labels[data_indices]
-        indices_key = _array_to_key(data_indices)  # type: ignore[name-defined]
+        indices_key = _array_to_key(data_indices)
     else:
         indices_key = "all"
     
@@ -944,9 +1067,17 @@ def compute_structure_index_sweep(
         save_path=save_path,
         dataset_name=dataset_name,
     )
-    existing_results = _parse_loaded_results(existing_data, dataset_name)  # type: ignore[name-defined]
+    existing_results = _parse_loaded_results(existing_data, dataset_name)
+    if storage_manager:
+        for (n_bins, n_neighbors), existing in existing_results.items():
+            metadata = existing.get("metadata", {})
+            if metadata.get("indices_key") == indices_key:
+                cache_key = _structure_index_cache_key(
+                    dataset_name, n_bins, n_neighbors, indices_key
+                )
+                storage_manager.cache_set(cache_key, existing)
     
-    results = {}
+    results: dict[tuple[int, int], dict[str, Any]] = {}
     total_iterations = len(n_bins_list) * len(n_neighbors_list)
     
     with tqdm(
@@ -957,16 +1088,27 @@ def compute_structure_index_sweep(
         for n_bins in n_bins_list:
             for n_neighbors in n_neighbors_list:
                 param_key = (n_bins, n_neighbors)
+                cache_key = _structure_index_cache_key(
+                    dataset_name, n_bins, n_neighbors, indices_key
+                )
                 
-                # Check if already computed
-                if param_key in existing_results and not regenerate:
-                    indices_key_present = existing_results[param_key]["metadata"].get(
-                        "indices_key"
+                if not regenerate:
+                    if storage_manager:
+                        cached_result = storage_manager.cache_get(cache_key)
+                        if cached_result is not None:
+                            results[param_key] = cached_result
+                            pbar.update(1)
+                            continue
+                    if param_key in existing_results:
+                        indices_key_present = existing_results[param_key]["metadata"].get(
+                            "indices_key"
                         )
-                    if indices_key_present == indices_key:
-                        results[param_key] = existing_results[param_key]
-                        pbar.update(1)
-                        continue
+                        if indices_key_present == indices_key:
+                            results[param_key] = existing_results[param_key]
+                            if storage_manager:
+                                storage_manager.cache_set(cache_key, results[param_key])
+                            pbar.update(1)
+                            continue
                 
                 # Compute structure index
                 si, bin_label, overlap_mat, shuf_si = compute_structure_index(
@@ -1019,10 +1161,42 @@ def compute_structure_index_sweep(
                         "bin_label_assignments": bin_label[0],
                         "bin_label_coords": bin_label[1],
                     },
+                    storage_manager=storage_manager,
                 )
+                
+                if storage_manager:
+                    storage_manager.cache_set(cache_key, result)
                 
                 pbar.update(1)
     
+    # Fallback: ensure results persisted to disk even if storage manager handled caching
+    if save_path and not Path(save_path).exists() and results:
+        warn_msg = (
+            f"Expected {save_path} to exist after Structure Index sweep but it was "
+            "not created. Re-writing results to disk."
+        )
+        logger.debug(warn_msg)
+        from neural_analysis.utils.io import save_result_to_hdf5_dataset
+
+        for (n_bins, n_neighbors), result in results.items():
+            metadata = result.get("metadata", {})
+            result_key = f"bins{n_bins}_neighbors{n_neighbors}_{indices_key}"
+            save_result_to_hdf5_dataset(
+                save_path=save_path,
+                dataset_name=dataset_name,
+                result_key=result_key,
+                scalar_data=metadata,
+                array_data={
+                    "overlap_mat": result.get("overlap_mat", np.array([])),
+                    "shuf_SI": result.get("shuf_SI", np.array([])),
+                    "bin_label_assignments": result.get("bin_label", (np.array([]),))[0],
+                    "bin_label_coords": result.get("bin_label", (None, np.array([])))[1],
+                },
+                use_cache=False,
+                use_sql_index=False,
+                storage_manager=None,
+            )
+
     logger.info(
         f"Completed Structure Index sweep for {dataset_name}: "
         f"{len(results)} parameter combinations"
@@ -1084,13 +1258,13 @@ def load_structure_index_results(
         return {}
     
     # Build filter
-    filter_attrs = {}
+    filter_attrs: dict[str, Any] = {}
     if n_bins is not None:
         filter_attrs["n_bins"] = n_bins
     if n_neighbors is not None:
         filter_attrs["n_neighbors"] = n_neighbors
     if indices_key is not None:
-        filter_attrs["indices_key"] = indices_key  # type: ignore[assignment]
+        filter_attrs["indices_key"] = indices_key
     
     # Load data
     loaded_data = load_results_from_hdf5_dataset(
@@ -1100,60 +1274,11 @@ def load_structure_index_results(
     )
     
     # Parse results
-    results = {}
-    for ds_name, _ in loaded_data.items():
-        ds_parsed = _parse_loaded_results(loaded_data, ds_name)  # type: ignore[name-defined]
+    results: dict[tuple[int, int], dict[str, Any]] = {}
+    for ds_name in loaded_data.keys():
+        ds_parsed = _parse_loaded_results(loaded_data, ds_name)
         results.update(ds_parsed)
     
     return results
-
-
-def _parse_loaded_results(
-    loaded_data: dict[str, dict[str, Any]],
-    dataset_name: str,
-) -> dict[tuple[int, int], dict[str, Any]]:
-    """Parse loaded HDF5 data into structure index results format."""
-    results = {}
-    
-    if dataset_name not in loaded_data:
-        return results
-    
-    for _, result_data in loaded_data[dataset_name].items():
-        attrs = result_data["attributes"]
-        arrays = result_data["arrays"]
-        
-        # Extract parameter key
-        n_bins = attrs.get("n_bins")
-        n_neighbors = attrs.get("n_neighbors")
-        
-        if n_bins is None or n_neighbors is None:
-            continue
-        
-        param_key = (int(n_bins), int(n_neighbors))
-        
-        # Reconstruct result
-        results[param_key] = {
-            "SI": attrs.get("SI", np.nan),
-            "overlap_mat": arrays.get("overlap_mat", np.array([])),
-            "shuf_SI": arrays.get("shuf_SI", np.array([])),
-            "bin_label": (
-                arrays.get("bin_label_assignments", np.array([])),
-                arrays.get("bin_label_coords", np.array([])),
-            ),
-            "metadata": attrs,
-        }
-    
-    return results
-
-
-def _array_to_key(arr: npt.NDArray[np.int_]) -> str:
-    """Convert array of indices to compact string key."""
-    if len(arr) > 10:
-        # Use hash for large arrays
-        return f"hash_{hash(arr.tobytes())}"
-    else:
-        # Use actual indices for small arrays
-        return "_".join(map(str, arr))
-
 
 

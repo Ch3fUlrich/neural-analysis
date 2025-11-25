@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -330,3 +332,45 @@ class TestBatchComparison:
 
         assert len(df) == 4  # 2x2 comparisons
         assert "distance" in df.columns
+
+
+class TestPairwiseDistributionBatch:
+    """Tests for pairwise_distribution_comparison_batch."""
+
+    def test_pairwise_batch_basic(self, tmp_path: Any) -> None:
+        """Ensure batch function returns DataFrame and caches to disk."""
+        from neural_analysis.metrics.distributions import (
+            pairwise_distribution_comparison_batch,
+        )
+
+        datasets = {
+            "A": np.random.randn(32, 5),
+            "B": np.random.randn(32, 5) + 0.5,
+        }
+
+        save_path = tmp_path / "comparisons.h5"
+        df = pairwise_distribution_comparison_batch(
+            datasets,
+            metrics=["wasserstein"],
+            comparison_name="unit_test",
+            save_path=save_path,
+            progress=False,
+            use_cache=False,
+            use_sql_index=False,
+        )
+
+        assert len(df) == 4  # 2x2 comparisons
+        assert set(df["metric"]) == {"wasserstein"}
+        assert save_path.exists()
+
+        # Second call should reuse cached values without errors
+        df_cached = pairwise_distribution_comparison_batch(
+            datasets,
+            metrics=["wasserstein"],
+            comparison_name="unit_test",
+            save_path=save_path,
+            progress=False,
+            use_cache=False,
+            use_sql_index=False,
+        )
+        assert len(df_cached) == len(df)

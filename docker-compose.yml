@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # Development container with Python environment
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: neural_analysis_dev
+    volumes:
+      - .:/app
+      - neural_analysis_cache:/root/.cache
+    ports:
+      - "8888:8888"  # Jupyter
+      - "6379:6379"  # Redis
+    environment:
+      - NEURAL_ANALYSIS_USE_REDIS=true
+      - NEURAL_ANALYSIS_REDIS_HOST=redis
+      - NEURAL_ANALYSIS_USE_SQL=true
+      - NEURAL_ANALYSIS_SQL_PATH=/app/.neural_analysis_meta.db
+    depends_on:
+      - redis
+    command: sh -c "redis-server --daemonize yes && tail -f /dev/null"
+    stdin_open: true
+    tty: true
+
+  # Dedicated Redis service (optional, can use Redis in app container)
+  redis:
+    image: redis:7-alpine
+    container_name: neural_analysis_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  neural_analysis_cache:
+  redis_data:
+
+
+

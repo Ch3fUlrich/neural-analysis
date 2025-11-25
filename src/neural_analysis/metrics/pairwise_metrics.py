@@ -1478,11 +1478,6 @@ def compare_datasets(
                         "float | npt.NDArray[np.floating] | dict[str, dict[str, float]]",
                         result,
                     )
-                # For all-pairs, ensure result is a dict[str, dict[str, float]]
-                save_val_all_pairs = cast(
-                    "dict[str, dict[str, float]]",
-                    result,
-                )
                 save_comparison(
                     filepath=save_path,
                     metric=metric,
@@ -1502,6 +1497,10 @@ def compare_datasets(
             elif mode == "all-pairs":
                 # Determine number of datasets for all-pairs
                 n_datasets = len(result) if isinstance(result, dict) else 1
+                save_val_all_pairs = cast(
+                    "dict[str, dict[str, float]]",
+                    result,
+                )
                 save_comparison(
                     filepath=save_path,
                     metric=metric,
