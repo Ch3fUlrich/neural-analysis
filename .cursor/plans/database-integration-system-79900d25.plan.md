@@ -1,4 +1,57 @@
-<!-- 79900d25-d9aa-43fb-8044-0460db2ba40d 2cf1afde-a995-4ffc-98b2-2a8d9b31d7a1 -->
+---
+name: Database Integration System for Fast I/O
+overview: ""
+todos:
+  - id: 32f4b16d-ddc4-495c-b8eb-f1d0382d498a
+    content: Create storage backend abstraction module with abstract base classes and unified interface
+    status: pending
+  - id: 82d5dd8e-fcaa-4d81-895e-38e92c6582ff
+    content: Implement Redis cache module with graceful degradation and pickle serialization
+    status: pending
+  - id: e11cc62d-8551-410e-b579-485be91d5376
+    content: Implement SQL metadata module using DuckDB with tables for datasets, comparisons, chunks
+    status: pending
+  - id: e977477f-736f-4b77-bb1a-de3c42a1c35a
+    content: Create unified storage manager that orchestrates Redis -> SQL -> HDF5 access with fallback
+    status: pending
+  - id: 98b6b482-d8fc-4ec6-9d5c-6a648e879acb
+    content: Add optional dependencies (redis, duckdb) to pyproject.toml
+    status: pending
+  - id: ce3d2f3f-6a40-4ec8-8266-d2a419750058
+    content: Create configuration system for storage settings (env vars, config file)
+    status: pending
+  - id: e8b5cc8f-f0cc-4f01-8015-2a8b259cac76
+    content: Update io.py functions (save_hdf5, load_hdf5, save_result_to_hdf5_dataset) to use storage manager
+    status: pending
+  - id: c537c7d7-6560-4f5f-a474-4fd3b01c049a
+    content: Update comparison_store.py functions to use storage manager with caching
+    status: pending
+  - id: 70a1d2c8-8b62-4e42-815e-15e32009d301
+    content: Update batch comparison functions in distributions.py and pairwise_metrics.py
+    status: pending
+  - id: eb094e59-c7ea-4e0c-8d36-f2677e3acb23
+    content: Update structure_index.py functions to use storage manager
+    status: pending
+  - id: 2169e551-6b0e-43a3-a438-0eadff12dfde
+    content: Write comprehensive tests for Redis cache (with/without Redis available)
+    status: pending
+  - id: 929d749d-40fa-48a9-bbe4-ff19c17ee0bf
+    content: Write comprehensive tests for SQL metadata (with/without DuckDB available)
+    status: pending
+  - id: 1caa84ad-acf1-4794-ba31-ac70f6c1b8d5
+    content: Write integration tests for storage manager and fallback behavior
+    status: pending
+  - id: a4d55f47-067e-42bd-af6a-0a38ef3706f0
+    content: Create example notebook demonstrating storage system usage and performance
+    status: pending
+  - id: e14270ae-6b77-4107-b8bd-3d4ce88f4830
+    content: Update TODO.md with database integration task and reference todo_integrate_databases.md
+    status: pending
+  - id: 1e1630d8-74c5-4469-86bd-f5e74b4b66b5
+    content: Improve todo_integrate_databases.md with codebase-specific implementation details
+    status: pending
+---
+
 # Database Integration System for Fast I/O
 
 ## Overview
@@ -217,22 +270,3 @@ Create a multi-layer storage architecture combining Redis (in-memory cache), SQL
 - Phase 4 (Integration): 6-10 hours
 - Phase 5 (Testing & Docs): 10-15 hours
 - **Total**: 42-62 hours (1-2 weeks full-time, 3-4 weeks part-time)
-
-### To-dos
-
-- [ ] Create storage backend abstraction module with abstract base classes and unified interface
-- [ ] Implement Redis cache module with graceful degradation and pickle serialization
-- [ ] Implement SQL metadata module using DuckDB with tables for datasets, comparisons, chunks
-- [ ] Create unified storage manager that orchestrates Redis -> SQL -> HDF5 access with fallback
-- [ ] Add optional dependencies (redis, duckdb) to pyproject.toml
-- [ ] Create configuration system for storage settings (env vars, config file)
-- [ ] Update io.py functions (save_hdf5, load_hdf5, save_result_to_hdf5_dataset) to use storage manager
-- [ ] Update comparison_store.py functions to use storage manager with caching
-- [ ] Update batch comparison functions in distributions.py and pairwise_metrics.py
-- [ ] Update structure_index.py functions to use storage manager
-- [ ] Write comprehensive tests for Redis cache (with/without Redis available)
-- [ ] Write comprehensive tests for SQL metadata (with/without DuckDB available)
-- [ ] Write integration tests for storage manager and fallback behavior
-- [ ] Create example notebook demonstrating storage system usage and performance
-- [ ] Update TODO.md with database integration task and reference todo_integrate_databases.md
-- [ ] Improve todo_integrate_databases.md with codebase-specific implementation details
