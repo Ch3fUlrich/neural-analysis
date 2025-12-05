@@ -11,14 +11,16 @@ behavior and code reuse.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
+import numpy.typing as npt
 
 from .core import PlotConfig
 from .grid_config import PlotGrid, PlotSpec
 
 if TYPE_CHECKING:
+    import matplotlib.axes
     import matplotlib.pyplot as plt
     import plotly.graph_objects as go
 
@@ -39,17 +41,17 @@ __all__ = [
 
 
 def plot_scatter_2d(
-    x: np.ndarray,
-    y: np.ndarray,
+    x: npt.NDArray[np.floating[Any]],
+    y: npt.NDArray[np.floating[Any]],
     config: PlotConfig | None = None,
-    colors: np.ndarray | str | None = None,
-    sizes: np.ndarray | float = 20,
+    colors: npt.NDArray[np.floating[Any]] | str | None = None,
+    sizes: npt.NDArray[np.floating[Any]] | float = 20,
     alpha: float = 0.7,
     cmap: str = "viridis",
     colorbar: bool = False,
     colorbar_label: str | None = None,
     backend: Literal["matplotlib", "plotly"] | None = None,
-) -> plt.Axes | go.Figure:
+) -> Any:
     """
     Create a 2D scatter plot.
 
@@ -120,8 +122,8 @@ def plot_scatter_2d(
 
 
 def plot_trajectory_2d(
-    x: np.ndarray,
-    y: np.ndarray,
+    x: npt.NDArray[np.floating[Any]],
+    y: npt.NDArray[np.floating[Any]],
     config: PlotConfig | None = None,
     color_by: Literal["time"] | None = "time",
     cmap: str = "viridis",
@@ -130,7 +132,7 @@ def plot_trajectory_2d(
     point_size: float = 10,
     alpha: float = 0.7,
     backend: Literal["matplotlib", "plotly"] | None = None,
-) -> plt.Axes | go.Figure:
+) -> Any:
     """
     Plot a 2D trajectory with line connecting points.
 
@@ -186,7 +188,7 @@ def plot_trajectory_2d(
 
 
 def plot_grouped_scatter_2d(
-    group_data: dict[str, tuple[np.ndarray, np.ndarray]],
+    group_data: dict[str, tuple[npt.NDArray[np.floating[Any]], npt.NDArray[np.floating[Any]]]],
     config: PlotConfig | None = None,
     show_hulls: bool = True,
     hull_alpha: float = 0.2,
@@ -194,7 +196,7 @@ def plot_grouped_scatter_2d(
     point_alpha: float = 0.7,
     colors: list[str] | None = None,
     backend: Literal["matplotlib", "plotly"] | None = None,
-) -> plt.Axes | go.Figure:
+) -> Any:
     """
     Plot grouped scatter data with optional convex hulls.
 
@@ -252,8 +254,8 @@ def plot_grouped_scatter_2d(
 
 
 def plot_kde_2d(
-    x: np.ndarray,
-    y: np.ndarray,
+    x: npt.NDArray[np.floating[Any]],
+    y: npt.NDArray[np.floating[Any]],
     config: PlotConfig | None = None,
     n_levels: int = 10,
     cmap: str = "Blues",
@@ -263,7 +265,7 @@ def plot_kde_2d(
     point_size: float = 5,
     bandwidth: float | None = None,
     backend: Literal["matplotlib", "plotly"] | None = None,
-) -> plt.Axes | go.Figure:
+) -> Any:
     """
     Create a 2D KDE (kernel density estimation) plot.
 

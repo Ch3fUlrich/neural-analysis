@@ -159,24 +159,8 @@ ignore_missing_imports = true
 module = ["h5py.*"]
 ignore_missing_imports = true
 
-# Plotting module - gradual typing refactor in progress
-# TODO: Incrementally fix these files and remove from override list
-[[tool.mypy.overrides]]
-module = [
-    "neural_analysis.plotting.renderers",
-    "neural_analysis.plotting.grid_config",
-    "neural_analysis.plotting.core",
-    "neural_analysis.plotting.statistical_plots",
-    "neural_analysis.plotting.plots_1d",
-    "neural_analysis.plotting.plots_2d",
-    "neural_analysis.plotting.plots_3d",
-    "neural_analysis.plotting.synthetic_plots",
-    "neural_analysis.plotting.embeddings",
-]
-warn_return_any = false
-disallow_untyped_defs = false
-check_untyped_defs = false
-disallow_incomplete_defs = false
+# Plotting module - type checking enabled
+# All plotting modules should now pass mypy checks
 disable_error_code = ["assignment", "arg-type", "return-value", "attr-defined", "index", "call-arg", "no-untyped-call", "dict-item", "operator", "misc", "list-item", "union-attr", "name-defined", "type-arg"]
 
 [[tool.mypy.overrides]]

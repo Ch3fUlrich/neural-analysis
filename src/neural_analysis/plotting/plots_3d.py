@@ -15,15 +15,17 @@ static publication-quality figures and interactive exploratory visualizations.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
+import numpy.typing as npt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 from .core import PlotConfig
 from .grid_config import PlotGrid, PlotSpec
 
 if TYPE_CHECKING:
+    import matplotlib.axes
     import matplotlib.pyplot as plt
     import plotly.graph_objects as go
 
@@ -42,19 +44,19 @@ __all__ = [
 
 
 def plot_scatter_3d(
-    x: np.ndarray,
-    y: np.ndarray,
-    z: np.ndarray,
+    x: npt.NDArray[np.floating[Any]],
+    y: npt.NDArray[np.floating[Any]],
+    z: npt.NDArray[np.floating[Any]],
     config: PlotConfig | None = None,
-    colors: np.ndarray | str | None = None,
-    sizes: np.ndarray | float = 20,
+    colors: npt.NDArray[np.floating[Any]] | str | None = None,
+    sizes: npt.NDArray[np.floating[Any]] | float = 20,
     alpha: float = 0.6,
     cmap: str = "viridis",
     colorbar: bool = False,
     colorbar_label: str | None = None,
     marker: str = "o",
     backend: Literal["matplotlib", "plotly"] | None = None,
-) -> plt.Axes | go.Figure:
+) -> Any:
     """
     Create a 3D scatter plot.
 
@@ -120,9 +122,9 @@ def plot_scatter_3d(
 
 
 def plot_trajectory_3d(
-    x: np.ndarray,
-    y: np.ndarray,
-    z: np.ndarray,
+    x: npt.NDArray[np.floating[Any]],
+    y: npt.NDArray[np.floating[Any]],
+    z: npt.NDArray[np.floating[Any]],
     config: PlotConfig | None = None,
     color_by: Literal["time"] | None = "time",
     cmap: str = "viridis",
@@ -131,7 +133,7 @@ def plot_trajectory_3d(
     point_size: float = 10,
     alpha: float = 0.7,
     backend: Literal["matplotlib", "plotly"] | None = None,
-) -> plt.Axes | go.Figure:
+) -> Any:
     """
     Plot a 3D trajectory with line connecting points.
 

@@ -60,18 +60,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 
-plt.rcParams["figure.max_open_warning"] = 0
-
-try:
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
-
-    PLOTLY_AVAILABLE = True
-except ImportError:
-    PLOTLY_AVAILABLE = False
-    go = None
-    make_subplots = None
-
 from neural_analysis.plotting.renderers import (
     render_convex_hull_matplotlib,
     render_convex_hull_plotly,
@@ -91,10 +79,39 @@ from .backend import get_backend
 from .core import PlotConfig, get_default_categorical_colors
 from .renderers import extract_xy_from_data, extract_xyz_from_data
 
+plt.rcParams["figure.max_open_warning"] = 0
+
+try:
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+    go = None
+    make_subplots = None
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     import pandas as pd
+
+
+def _convert_data_to_array(
+    data: npt.NDArray[np.floating[Any]] | pd.DataFrame | dict[str, Any],
+) -> npt.NDArray[np.floating[Any]]:
+    """Convert data to numpy array format expected by render functions."""
+    if isinstance(data, dict):
+        # Extract x, y from dict
+        if "x" in data and "y" in data:
+            return np.column_stack([data["x"], data["y"]])
+        else:
+            raise ValueError("Dict data must have 'x' and 'y' keys")
+    elif hasattr(data, "values"):  # DataFrame
+        return data.values
+    else:
+        return np.asarray(data)
+
 
 PlotType = Literal[
     "scatter",
@@ -697,9 +714,8 @@ class PlotGrid:
         # Create the grid - determine backend string for later comparison
         backend_enum = get_backend() if self.backend is None else self.backend
         # Convert to string value if it's an enum
-        backend_str: str
         if isinstance(backend_enum, str):
-            backend_str = backend_enum
+            backend_str: Literal["matplotlib", "plotly"] | None = backend_enum
         else:
             backend_str = backend_enum.value
 
@@ -1135,7 +1151,7 @@ class PlotGrid:
 
             renderers.render_line_matplotlib(
                 ax=ax,
-                data=spec.data,
+                data=_convert_data_to_array(spec.data),
                 color=spec.color,
                 line_width=spec.line_width or 1.5,
                 linestyle=spec.linestyle or "-",
@@ -1219,7 +1235,7 @@ class PlotGrid:
         elif spec.plot_type == "histogram":
             renderers.render_histogram_matplotlib(
                 ax=ax,
-                data=spec.data,
+                data=_convert_data_to_array(spec.data),
                 color=spec.color,
                 alpha=spec.alpha,
                 bins=spec.kwargs.pop("bins", 30),
@@ -1233,7 +1249,7 @@ class PlotGrid:
             heatmap_kwargs["colorbar"] = should_show_colorbar if spec.colorbar else False
             im = renderers.render_heatmap_matplotlib(
                 ax=ax,
-                data=spec.data,
+                data=_convert_data_to_array(spec.data),
                 cmap=cmap_value,
                 colorbar_label=spec.colorbar_label,
                 alpha=spec.alpha,
@@ -1246,9 +1262,11 @@ class PlotGrid:
             # Render three orthogonal wall heatmaps on a 3D axes
             # Fail silently to avoid breaking plotting pipeline
             with contextlib.suppress(Exception):
+                # heatmap_walls expects dict, not array
+                data_dict = spec.data if isinstance(spec.data, dict) else {"xy": spec.data, "xz": spec.data, "yz": spec.data}
                 artists = render_heatmap_walls_matplotlib(
                     ax=ax,
-                    data=spec.data,
+                    data=data_dict,
                     cmap=spec.kwargs.pop("cmap", spec.cmap or "viridis"),
                     colorbar=should_show_colorbar if spec.colorbar else False,
                     colorbar_label=spec.colorbar_label,
@@ -1268,7 +1286,7 @@ class PlotGrid:
             spec.kwargs.pop("meanline", None)
             result = renderers.render_violin_matplotlib(
                 ax=ax,
-                data=spec.data,
+                data=_convert_data_to_array(spec.data),
                 position=spec.kwargs.pop("position", 1),
                 color=spec.color,
                 alpha=spec.alpha,
@@ -1281,7 +1299,7 @@ class PlotGrid:
             )
             # Store legend handle for later
             if "legend_handle" in result:
-                spec._legend_handle = result["legend_handle"]
+                setattr(spec, "_legend_handle", result["legend_handle"])
 
         elif spec.plot_type == "bar":
             # Pop custom parameters that shouldn't be passed to matplotlib
@@ -1293,7 +1311,7 @@ class PlotGrid:
 
             renderers.render_bar_matplotlib(
                 ax=ax,
-                data=spec.data,
+                data=_convert_data_to_array(spec.data),
                 x=spec.kwargs.pop("x", None),
                 color=spec.color,
                 colors=spec.kwargs.pop("colors", None),
@@ -1325,7 +1343,7 @@ class PlotGrid:
         elif spec.plot_type == "box":
             result = renderers.render_box_matplotlib(
                 ax=ax,
-                data=spec.data,
+                data=_convert_data_to_array(spec.data),
                 position=spec.kwargs.pop("position", 1),
                 color=spec.color,
                 alpha=spec.alpha,
@@ -1336,7 +1354,7 @@ class PlotGrid:
             )
             # Store legend handle for later
             if "legend_handle" in result:
-                spec._legend_handle = result["legend_handle"]
+                setattr(spec, "_legend_handle", result["legend_handle"])
 
         elif spec.plot_type == "trajectory":
             # 2D trajectory with time-based coloring
@@ -1483,8 +1501,9 @@ class PlotGrid:
             x, y = extract_xy_from_data(spec.data)
 
             if len(x) >= 3:
-                hull_x, hull_y = compute_convex_hull(x, y)
-                if hull_x is not None and hull_y is not None:
+                result = compute_convex_hull(x, y)
+                if result is not None:
+                    hull_x, hull_y = result
                     render_convex_hull_matplotlib(
                         ax=ax,
                         hull_x=hull_x,
@@ -1515,12 +1534,16 @@ class PlotGrid:
 
         elif spec.plot_type == "ellipse":
             # Render ellipses/ellipsoids
+            centers = _convert_data_to_array(spec.data).astype(np.float64)
+            widths_arr = np.asarray(spec.ellipse_widths, dtype=np.float64) if spec.ellipse_widths is not None else np.array([1.0], dtype=np.float64)
+            heights_arr = np.asarray(spec.ellipse_heights, dtype=np.float64) if spec.ellipse_heights is not None else np.array([1.0], dtype=np.float64)
+            angles_arr = np.asarray(spec.ellipse_angles, dtype=np.float64) if spec.ellipse_angles is not None else None
             renderers.render_ellipse_matplotlib(
                 ax=ax,
-                centers=spec.data,
-                widths=spec.ellipse_widths,
-                heights=spec.ellipse_heights,
-                angles=spec.ellipse_angles,
+                centers=centers,
+                widths=widths_arr,
+                heights=heights_arr,
+                angles=angles_arr,
                 color=spec.color or "red",
                 alpha=spec.alpha,
                 edgecolor=spec.kwargs.get("edgecolor", None),
@@ -1562,33 +1585,38 @@ class PlotGrid:
             legend_tracker.add(spec.label)
 
         if spec.plot_type == "scatter":
+            data_array = _convert_data_to_array(spec.data)
+            colors_array = np.asarray(spec.colors) if isinstance(spec.colors, list) else spec.colors
+            sizes_array = np.asarray([spec.sizes], dtype=np.float64) if isinstance(spec.sizes, (int, float)) else spec.sizes
             return renderers.render_scatter_plotly(
-                data=spec.data,
+                data=data_array,
                 color=spec.color,
-                colors=spec.colors,
+                colors=colors_array,
                 cmap=spec.cmap,
                 marker=spec.marker or "circle",
                 marker_size=spec.marker_size,
-                sizes=spec.sizes,
+                sizes=sizes_array,
                 alpha=spec.alpha,
                 label=spec.label,
-                showlegend=show_legend,
+                showlegend=bool(show_legend) if show_legend not in (None, "") else True,
                 colorbar=spec.colorbar,
                 colorbar_label=spec.colorbar_label,
                 **spec.kwargs,
             )
 
         elif spec.plot_type == "scatter3d":
+            data_array = _convert_data_to_array(spec.data)
+            colors_array = np.asarray(spec.colors) if isinstance(spec.colors, list) else spec.colors
             return renderers.render_scatter3d_plotly(
-                data=spec.data,
+                data=data_array,
                 color=spec.color,
-                colors=spec.colors,
+                colors=colors_array,
                 cmap=spec.cmap,
                 marker_size=spec.marker_size,
-                sizes=spec.sizes,
+                sizes=np.asarray([spec.sizes], dtype=np.float64) if isinstance(spec.sizes, (int, float)) else spec.sizes,
                 alpha=spec.alpha,
                 label=spec.label,
-                showlegend=show_legend,
+                showlegend=bool(show_legend) if show_legend not in (None, "") else True,
                 colorbar=spec.colorbar,
                 colorbar_label=spec.colorbar_label,
                 **spec.kwargs,
@@ -1596,14 +1624,14 @@ class PlotGrid:
 
         elif spec.plot_type == "line":
             trace = renderers.render_line_plotly(
-                data=spec.data,
+                data=_convert_data_to_array(spec.data),
                 color=spec.color,
-                line_width=spec.line_width,
+                line_width=spec.line_width or 2.0,
                 linestyle=spec.linestyle,
                 error_y=spec.error_y,
                 alpha=spec.alpha,
                 label=spec.label,
-                showlegend=show_legend,
+                showlegend=bool(show_legend) if show_legend not in (None, "") else True,
                 **spec.kwargs,
             )
 
@@ -1628,18 +1656,18 @@ class PlotGrid:
 
         elif spec.plot_type == "histogram":
             return renderers.render_histogram_plotly(
-                data=spec.data,
+                data=_convert_data_to_array(spec.data),
                 color=spec.color,
                 alpha=spec.alpha,
                 bins=spec.kwargs.pop("bins", 30),
                 label=spec.label,
-                showlegend=show_legend,
+                showlegend=bool(show_legend) if show_legend not in (None, "") else True,
                 **spec.kwargs,
             )
 
         elif spec.plot_type == "heatmap":
             return renderers.render_heatmap_plotly(
-                data=spec.data,
+                data=_convert_data_to_array(spec.data),
                 cmap=spec.kwargs.pop("cmap", None),
                 colorscale=spec.kwargs.pop("colorscale", None),
                 colorbar_label=spec.colorbar_label,
@@ -1656,13 +1684,13 @@ class PlotGrid:
 
         elif spec.plot_type == "bar":
             return renderers.render_bar_plotly(
-                data=spec.data,
+                data=_convert_data_to_array(spec.data),
                 x=spec.kwargs.pop("x", None),
                 color=spec.color,
                 colors=spec.kwargs.pop("colors", None),
                 alpha=spec.alpha,
                 label=spec.label,
-                showlegend=show_legend,
+                showlegend=bool(show_legend) if show_legend not in (None, "") else True,
                 error_y=spec.kwargs.pop("error_y", None),
                 error_x=spec.kwargs.pop("error_x", None),
                 **spec.kwargs,
@@ -1685,14 +1713,14 @@ class PlotGrid:
                 meanline = {"visible": True}
 
             return renderers.render_violin_plotly(
-                data=spec.data,
+                data=_convert_data_to_array(spec.data),
                 color=spec.color,
                 alpha=spec.alpha,
                 meanline=meanline,
                 showbox=plot_kwargs.pop("showbox", True),
                 showpoints=plot_kwargs.pop("showpoints", True),
                 label=spec.label,
-                showlegend=show_legend,
+                showlegend=bool(show_legend) if show_legend not in (None, "") else True,
                 **plot_kwargs,
             )
 
@@ -1702,11 +1730,11 @@ class PlotGrid:
             notched = plot_kwargs.pop("notch", plot_kwargs.pop("notched", False))
 
             return renderers.render_box_plotly(
-                data=spec.data,
+                data=_convert_data_to_array(spec.data),
                 color=spec.color,
                 alpha=spec.alpha,
                 label=spec.label,
-                showlegend=show_legend,
+                showlegend=bool(show_legend) if show_legend not in (None, "") else True,
                 notched=notched,
                 **plot_kwargs,
             )
@@ -1739,7 +1767,7 @@ class PlotGrid:
                 colorbar=spec.colorbar,
                 colorbar_label=cbar_label,
                 label=spec.label,
-                showlegend=show_legend,
+                showlegend=bool(show_legend) if show_legend not in (None, "") else True,
             )
 
             return trace
@@ -1773,7 +1801,7 @@ class PlotGrid:
                 colorbar=spec.colorbar,
                 colorbar_label=cbar_label,
                 label=spec.label,
-                showlegend=show_legend,
+                showlegend=bool(show_legend) if show_legend not in (None, "") else True,
             )
 
             return trace
@@ -1800,7 +1828,7 @@ class PlotGrid:
                 colorbar=spec.colorbar,
                 colorbar_label=spec.colorbar_label,
                 label=spec.label,
-                showlegend=show_legend,
+                showlegend=bool(show_legend) if show_legend not in (None, "") else True,
             )
 
             return trace
@@ -1812,12 +1840,17 @@ class PlotGrid:
                     "grouped_scatter data must be dict mapping group names to (x,y) tuples"
                 )
 
-            colors = spec.colors or get_default_categorical_colors(len(spec.data))
+            colors_list = spec.colors or get_default_categorical_colors(len(spec.data))
+            colors_array_grouped: npt.NDArray[np.floating[Any]] | None = None
+            if isinstance(colors_list, list):
+                # Convert list of colors to array if needed
+                colors_array_grouped = np.array(colors_list) if all(isinstance(c, (int, float)) for c in colors_list) else None
 
             # Return list of traces (one per group)
             traces = []
+            colors_for_groups = colors_list if isinstance(colors_list, list) else get_default_categorical_colors(len(spec.data))
             for idx, (name, (x, y)) in enumerate(spec.data.items()):
-                color = colors[idx % len(colors)]
+                color = colors_for_groups[idx % len(colors_for_groups)]
                 trace = go.Scatter(
                     x=x,
                     y=y,
@@ -1832,8 +1865,9 @@ class PlotGrid:
 
                 # Add convex hull if requested
                 if spec.show_hulls and len(x) >= 3:
-                    hull_x, hull_y = compute_convex_hull(x, y)
-                    if hull_x is not None and hull_y is not None:
+                    result = compute_convex_hull(x, y)
+                    if result is not None:
+                        hull_x, hull_y = result
                         hull_trace = render_convex_hull_plotly(
                             hull_x=hull_x,
                             hull_y=hull_y,
@@ -1854,8 +1888,9 @@ class PlotGrid:
             x, y = extract_xy_from_data(spec.data)
 
             if len(x) >= 3:
-                hull_x, hull_y = compute_convex_hull(x, y)
-                if hull_x is not None and hull_y is not None:
+                result = compute_convex_hull(x, y)
+                if result is not None:
+                    hull_x, hull_y = result
                     trace = render_convex_hull_plotly(
                         hull_x=hull_x,
                         hull_y=hull_y,
@@ -1865,7 +1900,7 @@ class PlotGrid:
                         fill=spec.fill,
                         fill_alpha=0.2,
                         label=spec.label,
-                        showlegend=show_legend,
+                        showlegend=bool(show_legend) if show_legend not in (None, "") else True,
                     )
                     return trace
                 else:
@@ -1933,7 +1968,7 @@ class PlotGrid:
             )
         
         # Adjust title positions to prevent overlap with subplot titles
-        for i, ax in enumerate(axes_flat):
+        for _i, ax in enumerate(axes_flat):
             title = ax.get_title()
             if title:
                 # Get title position
@@ -2061,7 +2096,8 @@ def plot_grouped_comparison(
     # Create one plot spec per group, all in position (1, 1)
     groups = data[group_col].unique()
     color_scheme = ColorScheme()
-    colors = color_scheme.get_colors(groups)
+    groups_list = list(groups) if hasattr(groups, '__iter__') else [str(g) for g in groups]
+    colors = color_scheme.get_colors(groups_list)
 
     plot_specs = []
     for group in groups:
@@ -2243,7 +2279,7 @@ def _create_subplot_grid_matplotlib(
         fig = plt.figure(figsize=config.figsize, dpi=config.dpi)
 
         # Create GridSpec with optional ratios
-        gs_kwargs = {}
+        gs_kwargs: dict[str, Any] = {}
         if width_ratios is not None:
             gs_kwargs["width_ratios"] = width_ratios
         if height_ratios is not None:
@@ -2390,12 +2426,6 @@ def _create_subplot_grid_plotly(
                 x_domain = x_domains[col - 1]
                 y_domain = y_domains[row - 1]
                 # Plotly uses 1-based indexing for subplots
-                subplot_name = f"xaxis{row * cols + col}" if rows > 1 or cols > 1 else "xaxis"
-                if rows > 1:
-                    subplot_name = f"xaxis{col}" if cols == 1 else f"xaxis{(row - 1) * cols + col}"
-                else:
-                    subplot_name = f"xaxis{col}"
-                
                 # Use update_xaxes and update_yaxes for domain updates
                 fig.update_xaxes(domain=x_domain, row=row, col=col)
                 fig.update_yaxes(domain=y_domain, row=row, col=col)

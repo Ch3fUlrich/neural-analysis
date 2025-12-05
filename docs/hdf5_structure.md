@@ -1,8 +1,34 @@
 # HDF5 File Structure Documentation
 
 ## Overview
-
 The `neural_analysis` package uses a hierarchical HDF5 file structure to efficiently store and retrieve analysis results. This document explains the organization of HDF5 files for both **distribution comparisons** and **structure index** results.
+
+### Table of Contents
+- [HDF5 File Structure Documentation](#hdf5-file-structure-documentation)
+  - [Overview](#overview)
+  - [Hierarchical Structure](#hierarchical-structure)
+    - [General Pattern](#general-pattern)
+  - [Distribution Comparisons](#distribution-comparisons)
+    - [File Structure](#file-structure)
+    - [Result Key Format](#result-key-format)
+    - [Attributes vs Datasets](#attributes-vs-datasets)
+  - [Structure Index Results](#structure-index-results)
+    - [File Structure](#file-structure-1)
+    - [Result Key Format](#result-key-format-1)
+    - [Attributes vs Datasets](#attributes-vs-datasets-1)
+  - [Access Examples](#access-examples)
+    - [Python API](#python-api)
+      - [Distribution Comparisons](#distribution-comparisons-1)
+      - [Structure Index](#structure-index)
+    - [Direct HDF5 Access](#direct-hdf5-access)
+  - [Design Principles](#design-principles)
+    - [1. Hierarchical Organization](#1-hierarchical-organization)
+    - [2. Scalars as Attributes](#2-scalars-as-attributes)
+    - [3. Arrays as Datasets](#3-arrays-as-datasets)
+    - [4. Consistent Naming](#4-consistent-naming)
+    - [5. Incremental Updates](#5-incremental-updates)
+  - [Benefits](#benefits)
+  - [See Also](#see-also)
 
 ## Hierarchical Structure
 

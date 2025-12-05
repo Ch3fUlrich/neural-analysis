@@ -32,8 +32,10 @@ from .core import PlotConfig
 from .grid_config import GridLayoutConfig, PlotGrid, PlotSpec
 
 if TYPE_CHECKING:
-    import matplotlib.pyplot as plt
     import plotly.graph_objects as go
+
+    plt = None
+    go = None
 
 
 def plot_embedding(
@@ -46,7 +48,7 @@ def plot_embedding(
     title: str = "Embedding",
     show_hulls: bool = False,
     **kwargs: Any,
-) -> plt.Figure | go.Figure:
+) -> Any:
     """Plot embeddings with automatic 2D/3D detection.
 
     Automatically selects 2D or 3D plotting based on embedding dimensions.
@@ -127,7 +129,7 @@ def plot_embedding_2d(
     show_hulls: bool = False,
     hull_alpha: float = 0.2,
     **kwargs: Any,
-) -> plt.Figure | go.Figure:
+) -> Any:
     """Plot 2D embeddings with optional convex hulls.
 
     Creates a scatter plot of 2D embedding coordinates with optional
@@ -171,12 +173,13 @@ def plot_embedding_2d(
         raise ValueError("show_hulls requires labels to be provided")
 
     # Create plot spec
+    data_dict = {"x": embedding[:, 0], "y": embedding[:, 1]}
+    label_str = None if labels is None else str(labels[0]) if hasattr(labels, '__len__') and len(labels) > 0 else None
     spec = PlotSpec(
-        plot_type="scatter_2d",
+        plot_type="scatter",
         title=title,
-        x_data=embedding[:, 0],
-        y_data=embedding[:, 1],
-        labels=labels,
+        data=data_dict,
+        label=label_str,
         colors=colors,
         show_hulls=show_hulls,
         hull_alpha=hull_alpha if show_hulls else None,
@@ -191,16 +194,16 @@ def plot_embedding_2d(
             title=title,
             xlabel="Dimension 1",
             ylabel="Dimension 2",
-            show_grid=False,
-            show_legend=labels is not None,
+            grid=labels is not None,
         )
 
     # Create and plot grid
+    backend_str = backend.value if hasattr(backend, "value") else str(backend)
     grid = PlotGrid(
-        specs=[spec],
-        layout=GridLayoutConfig(n_rows=1, n_cols=1),
+        plot_specs=[spec],
+        layout=GridLayoutConfig(rows=1, cols=1),
         config=config,
-        backend=backend,
+        backend=backend_str,  # type: ignore[arg-type]
     )
 
     return grid.plot()
@@ -217,7 +220,7 @@ def plot_embedding_3d(
     show_hulls: bool = False,
     hull_alpha: float = 0.2,
     **kwargs: Any,
-) -> plt.Figure | go.Figure:
+) -> Any:
     """Plot 3D embeddings with optional convex hulls.
 
     Creates a 3D scatter plot of embedding coordinates with optional
@@ -264,13 +267,13 @@ def plot_embedding_3d(
         raise ValueError("show_hulls requires labels to be provided")
 
     # Create plot spec
+    data_dict = {"x": embedding[:, 0], "y": embedding[:, 1], "z": embedding[:, 2]}
+    label_str = None if labels is None else str(labels[0]) if hasattr(labels, '__len__') and len(labels) > 0 else None
     spec = PlotSpec(
-        plot_type="scatter_3d",
+        plot_type="scatter3d",
         title=title,
-        x_data=embedding[:, 0],
-        y_data=embedding[:, 1],
-        z_data=embedding[:, 2],
-        labels=labels,
+        data=data_dict,
+        label=label_str,
         colors=colors,
         show_hulls=show_hulls,
         hull_alpha=hull_alpha if show_hulls else None,
@@ -286,16 +289,16 @@ def plot_embedding_3d(
             xlabel="Dimension 1",
             ylabel="Dimension 2",
             zlabel="Dimension 3",
-            show_grid=False,
-            show_legend=labels is not None,
+            grid=labels is not None,
         )
 
     # Create and plot grid
+    backend_str = backend.value if hasattr(backend, "value") else str(backend)
     grid = PlotGrid(
-        specs=[spec],
-        layout=GridLayoutConfig(n_rows=1, n_cols=1),
+        plot_specs=[spec],
+        layout=GridLayoutConfig(rows=1, cols=1),
         config=config,
-        backend=backend,
+        backend=backend_str,  # type: ignore[arg-type]
     )
 
     return grid.plot()

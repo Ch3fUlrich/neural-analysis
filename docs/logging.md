@@ -2,6 +2,17 @@
 
 Robust logging is critical to understand, reproduce, and debug computations later. This project uses Python's standard `logging` module with lightweight helpers in `neural_analysis.utils.logging`.
 
+## Table of Contents
+- [Logging Guidelines](#logging-guidelines)
+  - [Table of Contents](#table-of-contents)
+  - [Quick start](#quick-start)
+  - [Best practices](#best-practices)
+  - [Environment variables](#environment-variables)
+  - [API reference](#api-reference)
+  - [Example: file + console logging](#example-file--console-logging)
+  - [Migration notes](#migration-notes)
+
+
 ## Quick start
 
 ```python

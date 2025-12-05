@@ -89,7 +89,7 @@ def _compute_spatial_bins_2d(
     arena_size: tuple[float, ...],
     n_bins: int = 30,
     cell_idx: int | None = None,
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], Any]:
     """Compute 2D spatial binning of activity.
 
     Args:
@@ -115,7 +115,7 @@ def _compute_spatial_bins_2d(
     y_bins = np.linspace(0, y_max, n_bins + 1)
 
     # Initialize firing map with 0 for unvisited bins (not NaN)
-    firing_map = np.zeros((n_bins, n_bins))
+    firing_map = np.zeros((n_bins, n_bins), dtype=np.float64)
 
     # Compute average activity per spatial bin
     for i in range(n_bins):
@@ -132,7 +132,7 @@ def _compute_spatial_bins_2d(
                 else:
                     firing_map[j, i] = activity[mask, :].mean()
 
-    return x_bins, y_bins, firing_map
+    return x_bins.astype(np.float64), y_bins.astype(np.float64), firing_map
 
 
 def _compute_spatial_bins_3d(
@@ -145,7 +145,7 @@ def _compute_spatial_bins_3d(
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
-    npt.NDArray[np.float64],
+    Any,
 ]:
     """Compute 3D spatial binning of activity with interpolation for sparse data.
 
@@ -204,9 +204,9 @@ def _compute_spatial_bins_3d(
         firing_volume_flat /= n_cells
 
     # Reshape to 3D
-    firing_volume = firing_volume_flat.reshape((n_bins, n_bins, n_bins))
+    firing_volume = firing_volume_flat.reshape((n_bins, n_bins, n_bins)).astype(np.float64)
 
-    return x_bins, y_bins, z_bins, firing_volume
+    return x_bins.astype(np.float64), y_bins.astype(np.float64), z_bins.astype(np.float64), firing_volume
 
 
 def _compute_radial_power_spectrum(
@@ -407,6 +407,7 @@ def _collect_plot_specs(
                 # Add coverage maps for place/grid cells FIRST
                 if cell_type_name in ("place", "grid"):
                     n_dims = metadata.get("n_dims", 2)
+                    coverage_spec: PlotSpec | list[PlotSpec] | None
                     if n_dims == 1:
                         coverage_spec = _create_coverage_histogram_1d(
                             type_activity, type_metadata, 0
@@ -422,7 +423,7 @@ def _collect_plot_specs(
                     else:
                         coverage_spec = None
 
-                    if coverage_spec:
+                    if coverage_spec is not None:
                         if isinstance(coverage_spec, list):
                             coverage_specs.extend(coverage_spec)
                         else:
@@ -456,26 +457,27 @@ def _collect_plot_specs(
             cell_type = metadata.get("cell_type")
             if cell_type in ("place", "grid"):
                 n_dims = metadata.get("n_dims", 2)
+                coverage_spec_local: PlotSpec | list[PlotSpec] | None
                 if n_dims == 1:
-                    coverage_spec = _create_coverage_histogram_1d(
+                    coverage_spec_local = _create_coverage_histogram_1d(
                         activity, metadata, subplot_position=0
                     )
                 elif n_dims == 2:
-                    coverage_spec = _create_coverage_heatmap(
+                    coverage_spec_local = _create_coverage_heatmap(
                         activity, metadata, subplot_position=0
                     )
                 elif n_dims == 3:
-                    coverage_spec = _create_coverage_heatmap_3d(
+                    coverage_spec_local = _create_coverage_heatmap_3d(
                         activity, metadata, subplot_position=0
                     )
                 else:
-                    coverage_spec = None
-
-                if coverage_spec:
-                    if isinstance(coverage_spec, list):
-                        coverage_specs.extend(coverage_spec)
+                    coverage_spec_local = None
+                
+                if coverage_spec_local is not None:
+                    if isinstance(coverage_spec_local, list):
+                        coverage_specs.extend(coverage_spec_local)
                     else:
-                        coverage_specs.append(coverage_spec)
+                        coverage_specs.append(coverage_spec_local)
             elif cell_type == "random":
                 # For random cells: add 4 diagnostic plots to verify
                 # lack of spatial/directional structure
@@ -620,7 +622,7 @@ def _assign_subplot_positions_mixed(
         plot_specs.append(spec)
 
     # Add example cells (fill middle subplots up to best_n_examples)
-    for i, spec in enumerate(example_cell_specs[:best_n_examples]):
+    for _i, spec in enumerate(example_cell_specs[:best_n_examples]):
         spec.subplot_position = len(plot_specs)
         plot_specs.append(spec)
 
@@ -732,11 +734,12 @@ def _create_and_render_grid(
     if len(plot_specs) == 0:
         raise ValueError("No plots to show. Enable at least one plot type.")
 
-    from neural_analysis.plotting.grid_config import GridLayoutConfig, PlotConfig
+    from neural_analysis.plotting.core import PlotConfig
+    from neural_analysis.plotting.grid_config import GridLayoutConfig
 
     grid = PlotGrid(
         plot_specs=plot_specs,
-        config=PlotConfig(figsize=figsize or (ncols * 5, nrows * 4)),
+        config=PlotConfig(figsize=(int((figsize or (ncols * 5, nrows * 4))[0]), int((figsize or (ncols * 5, nrows * 4))[1]))),
         layout=GridLayoutConfig(
             rows=nrows,
             cols=ncols,
@@ -767,7 +770,7 @@ def _create_and_render_grid(
     else:
         fig.update_layout(title_text=title)
 
-    return fig
+    return fig  # type: ignore[no-any-return]
 
 
 def plot_synthetic_data(
@@ -948,6 +951,8 @@ def _create_raster_plot(
         import matplotlib.colors as mcolors
 
         # Convert hex colors to RGB
+        if colors_sub is None:
+            colors_sub = []
         rgb_colors = [mcolors.hex2color(c) for c in colors_sub]
 
         # Create RGB array: (n_cells, n_samples, 3)
@@ -2254,7 +2259,7 @@ def _create_behavior_plot(
     positions: npt.NDArray[np.float64],
     metadata: dict[str, Any],
     subplot_position: int,
-) -> PlotSpec | list[PlotSpec]:
+) -> PlotSpec | list[PlotSpec] | None:
     """Create behavior trajectory/position plot."""
     n_dims = positions.shape[1] if positions.ndim > 1 else 1
 

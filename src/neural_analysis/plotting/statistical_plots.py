@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
+import numpy.typing as npt
 
 from .core import PlotConfig
 from .grid_config import GridLayoutConfig, PlotGrid, PlotSpec
@@ -43,7 +44,7 @@ DEFAULT_COLORS = [
 
 
 def plot_bar(
-    data: dict[str, np.ndarray] | list[np.ndarray],
+    data: dict[str, npt.NDArray[np.floating[Any]]] | list[npt.NDArray[np.floating[Any]]],
     labels: Sequence[str] | None = None,
     colors: Sequence[str] | None = None,
     orientation: Literal["v", "h"] = "v",
@@ -141,8 +142,7 @@ def plot_bar(
     # Override config title if provided in kwargs
     plot_config = config or PlotConfig(title=plot_title or "Bar Plot Comparison")
     layout_config = GridLayoutConfig(rows=1, cols=1)
-    if fig_size is not None:
-        layout_config.figsize = fig_size
+    # Note: figsize is handled via PlotConfig, not GridLayoutConfig
 
     grid = PlotGrid(
         plot_specs=[spec],
@@ -169,9 +169,10 @@ def plot_bar(
                 result.update_yaxes(title_text=y_label)
     else:  # matplotlib
         # Check if result is a Figure or Axes
+        from matplotlib.figure import Figure
         import matplotlib.pyplot as plt
 
-        ax = result.axes[0] if isinstance(result, plt.Figure) else result
+        ax = result.axes[0] if isinstance(result, Figure) else result
 
         if orientation == "v":
             ax.set_xticks(x_positions)
@@ -192,7 +193,7 @@ def plot_bar(
 
 
 def plot_violin(
-    data: dict[str, np.ndarray] | list[np.ndarray],
+    data: dict[str, npt.NDArray[np.floating[Any]]] | list[npt.NDArray[np.floating[Any]]],
     labels: Sequence[str] | None = None,
     colors: Sequence[str] | None = None,
     showmeans: bool = True,
@@ -280,7 +281,7 @@ def plot_violin(
 
 
 def plot_box(
-    data: dict[str, np.ndarray] | list[np.ndarray],
+    data: dict[str, npt.NDArray[np.floating[Any]]] | list[npt.NDArray[np.floating[Any]]],
     labels: Sequence[str] | None = None,
     colors: Sequence[str] | None = None,
     notch: bool = False,
@@ -355,7 +356,7 @@ def plot_box(
 
 
 def plot_grouped_distributions(
-    data: dict[str, dict[str, np.ndarray]],
+    data: dict[str, dict[str, npt.NDArray[np.floating[Any]]]],
     plot_type: Literal["violin", "box"] = "violin",
     colors: Sequence[str] | None = None,
     config: PlotConfig | None = None,
@@ -439,7 +440,7 @@ def plot_grouped_distributions(
 
 
 def plot_comparison_distributions(
-    data: dict[str, np.ndarray],
+    data: dict[str, npt.NDArray[np.floating[Any]]],
     plot_type: Literal["violin", "box", "histogram"] = "violin",
     rows: int | None = None,
     cols: int | None = None,
@@ -496,6 +497,7 @@ def plot_comparison_distributions(
     if is_nested:
         # Nested dict: {group: {condition: data}}
         # Each group gets multiple traces in one subplot
+        assert isinstance(first_value, dict)  # Type narrowing
         conditions = list(first_value.keys())
         if colors is None:
             colors = [

@@ -162,6 +162,8 @@ class PlotConfig:
             Full path where plot should be saved, or None if no save requested.
         """
         if self.save_path is not None:
+            # self.save_path is converted to Path in __post_init__
+            assert isinstance(self.save_path, Path)
             return self.save_path
 
         if self.save_dir is not None:
@@ -177,7 +179,10 @@ class PlotConfig:
                 parts = ["plot"]
 
             filename = "_".join(parts) + f".{self.save_format}"
-            return self.save_dir / filename
+            # self.save_dir is converted to Path in __post_init__
+            assert isinstance(self.save_dir, Path)
+            save_path: Path = self.save_dir / filename
+            return save_path
 
         return None
 
@@ -229,7 +234,8 @@ def resolve_colormap(cmap: str | None, backend: BackendType) -> str:
         for attempt_name in [name, name.capitalize()]:
             try:
                 # Use modern colormaps API (Matplotlib 3.7+)
-                return plt.colormaps[attempt_name]
+                cmap_obj = plt.colormaps[attempt_name]
+                return str(cmap_obj)  # Return name as string
             except (KeyError, AttributeError):
                 continue
 
@@ -238,10 +244,12 @@ def resolve_colormap(cmap: str | None, backend: BackendType) -> str:
             f"Unknown colormap '{cmap}', using 'viridis' instead.", stacklevel=2
         )
         try:
-            return plt.colormaps["viridis"]
+            cmap_obj = plt.colormaps["viridis"]
+            return str(cmap_obj)  # Return name as string
         except AttributeError:
             # Very old matplotlib versions
-            return plt.colormaps.get_cmap("viridis")
+            cmap_obj = plt.colormaps.get_cmap("viridis")
+            return str(cmap_obj)  # Return name as string
     else:
         # Plotly accepts canonical colorscale names (case-sensitive). Normalize
         # common matplotlib names to their Plotly equivalents; if not found, use
@@ -271,7 +279,7 @@ def apply_layout_matplotlib(ax: Any, config: PlotConfig) -> None:
         plt.tight_layout()
 
 
-def apply_layout_plotly(fig, config: PlotConfig) -> None:
+def apply_layout_plotly(fig: Any, config: PlotConfig) -> None:
     """Apply common layout (title, labels, limits, grid) for Plotly."""
     layout_updates: dict[str, Any] = {}
     if config.title:
@@ -280,14 +288,15 @@ def apply_layout_plotly(fig, config: PlotConfig) -> None:
         layout_updates["xaxis_title"] = config.xlabel
     if config.ylabel:
         layout_updates["yaxis_title"] = config.ylabel
-    xaxis = {}
-    yaxis = {}
+    xaxis: dict[str, Any] = {}
+    yaxis: dict[str, Any] = {}
     if config.xlim:
         xaxis["range"] = list(config.xlim)
     if config.ylim:
         yaxis["range"] = list(config.ylim)
-    xaxis["showgrid"] = bool(config.grid)
-    yaxis["showgrid"] = bool(config.grid)
+    grid_val = config.grid if isinstance(config.grid, bool) else bool(config.grid)
+    xaxis["showgrid"] = grid_val
+    yaxis["showgrid"] = grid_val
     if xaxis:
         layout_updates["xaxis"] = xaxis
     if yaxis:
@@ -298,13 +307,13 @@ def apply_layout_plotly(fig, config: PlotConfig) -> None:
     fig.update_layout(**layout_updates)
 
 
-def apply_layout_plotly_3d(fig, config: PlotConfig) -> None:
+def apply_layout_plotly_3d(fig: Any, config: PlotConfig) -> None:
     """Apply common layout for Plotly 3D plots (scene configuration)."""
     layout_updates: dict[str, Any] = {}
     if config.title:
         layout_updates["title"] = config.title
 
-    scene_dict = {}
+    scene_dict: dict[str, Any] = {}
     if config.xlabel:
         scene_dict["xaxis_title"] = config.xlabel
     if config.ylabel:
@@ -312,13 +321,16 @@ def apply_layout_plotly_3d(fig, config: PlotConfig) -> None:
     if config.zlabel:
         scene_dict["zaxis_title"] = config.zlabel
     if config.xlim:
-        scene_dict["xaxis"] = scene_dict.get("xaxis", {})
+        if "xaxis" not in scene_dict:
+            scene_dict["xaxis"] = {}
         scene_dict["xaxis"]["range"] = list(config.xlim)
     if config.ylim:
-        scene_dict["yaxis"] = scene_dict.get("yaxis", {})
+        if "yaxis" not in scene_dict:
+            scene_dict["yaxis"] = {}
         scene_dict["yaxis"]["range"] = list(config.ylim)
     if config.zlim:
-        scene_dict["zaxis"] = scene_dict.get("zaxis", {})
+        if "zaxis" not in scene_dict:
+            scene_dict["zaxis"] = {}
         scene_dict["zaxis"]["range"] = list(config.zlim)
 
     if scene_dict:
@@ -362,7 +374,7 @@ def finalize_plot_matplotlib(config: PlotConfig) -> None:
         plt.show()
 
 
-def finalize_plot_plotly(fig, config: PlotConfig) -> None:
+def finalize_plot_plotly(fig: Any, config: PlotConfig) -> None:
     """Handle save and show for plotly plots.
 
     This consolidates the common pattern of saving and showing plotly
@@ -396,7 +408,7 @@ def finalize_plot_plotly(fig, config: PlotConfig) -> None:
         from IPython.display import HTML, display
 
         try:
-            display(HTML(fig.to_html()))
+            display(HTML(fig.to_html()))  # type: ignore[no-untyped-call]
         except Exception:
             # Fall back to standard show if not in Jupyter
             fig.show()

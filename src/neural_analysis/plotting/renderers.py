@@ -17,10 +17,16 @@ import contextlib
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from numpy.typing import NDArray
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    import matplotlib.axes
+    import matplotlib.collections
     import plotly.graph_objects as go
+    from numpy.typing import NDArray
+
+import matplotlib  # For type annotations
 
 try:
     import plotly.graph_objects as go
@@ -36,15 +42,15 @@ except ImportError:
 
 
 def extract_xy_from_data(
-    data: dict[str, Any] | np.ndarray[Any, Any],
+    data: dict[str, Any] | np.ndarray[Any, Any] | Any,
 ) -> tuple[NDArray[np.floating[Any]], NDArray[np.floating[Any]]]:
     """
     Extract x and y coordinates from various data formats.
 
     Parameters
     ----------
-    data : dict or np.ndarray
-        Either a dict with 'x' and 'y' keys, or a (n, 2) array
+    data : dict, np.ndarray, or pd.DataFrame
+        Either a dict with 'x' and 'y' keys, a (n, 2) array, or a DataFrame
 
     Returns
     -------
@@ -58,22 +64,28 @@ def extract_xy_from_data(
     """
     if isinstance(data, dict) and "x" in data and "y" in data:
         return np.asarray(data["x"]), np.asarray(data["y"])
+    elif hasattr(data, "values"):  # DataFrame
+        arr = np.asarray(data.values)
+        if arr.ndim == 2 and arr.shape[1] >= 2:
+            return arr[:, 0], arr[:, 1]
+        else:
+            raise ValueError("DataFrame must have at least 2 columns")
     elif isinstance(data, np.ndarray) and data.ndim == 2 and data.shape[1] == 2:
         return data[:, 0], data[:, 1]
     else:
-        raise ValueError("data must be dict with 'x','y' keys or (n,2) array")
+        raise ValueError("data must be dict with 'x','y' keys, (n,2) array, or DataFrame")
 
 
 def extract_xyz_from_data(
-    data: dict[str, Any] | np.ndarray[Any, Any],
+    data: dict[str, Any] | np.ndarray[Any, Any] | Any,
 ) -> tuple[NDArray[np.floating[Any]], NDArray[np.floating[Any]], NDArray[np.floating[Any]]]:
     """
     Extract x, y, and z coordinates from various data formats.
 
     Parameters
     ----------
-    data : dict or np.ndarray
-        Either a dict with 'x', 'y', 'z' keys, or a (n, 3) array
+    data : dict, np.ndarray, or pd.DataFrame
+        Either a dict with 'x', 'y', 'z' keys, a (n, 3) array, or a DataFrame
 
     Returns
     -------
@@ -87,10 +99,16 @@ def extract_xyz_from_data(
     """
     if isinstance(data, dict) and "x" in data and "y" in data and "z" in data:
         return np.asarray(data["x"]), np.asarray(data["y"]), np.asarray(data["z"])
+    elif hasattr(data, "values"):  # DataFrame
+        arr = np.asarray(data.values)
+        if arr.ndim == 2 and arr.shape[1] >= 3:
+            return arr[:, 0], arr[:, 1], arr[:, 2]
+        else:
+            raise ValueError("DataFrame must have at least 3 columns")
     elif isinstance(data, np.ndarray) and data.ndim == 2 and data.shape[1] == 3:
         return data[:, 0], data[:, 1], data[:, 2]
     else:
-        raise ValueError("data must be dict with 'x','y','z' keys or (n,3) array")
+        raise ValueError("data must be dict with 'x','y','z' keys, (n,3) array, or DataFrame")
 
 
 # ==============================================================================
@@ -131,7 +149,7 @@ __all__ = [
 
 
 def render_scatter_matplotlib(
-    ax,
+    ax: Any,
     data: NDArray[np.floating[Any]],
     color: str | None = None,
     colors: NDArray[np.floating[Any]] | None = None,
@@ -140,8 +158,8 @@ def render_scatter_matplotlib(
     marker_size: float | None = None,
     alpha: float = 0.7,
     label: str | None = None,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> Any:
     """
     Render a 2D scatter plot using matplotlib.
 
@@ -230,7 +248,7 @@ def render_scatter_plotly(
     showlegend: bool = True,
     colorbar: bool = False,
     colorbar_label: str | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> go.Scatter:
     """
     Render a 2D scatter plot using plotly.
@@ -276,7 +294,7 @@ def render_scatter_plotly(
         raise ValueError("2D scatter requires 2-column data")
 
     # Build marker dict
-    marker_dict = {
+    marker_dict: dict[str, Any] = {
         "symbol": marker,
         "size": sizes if sizes is not None else (marker_size or 8),
         "opacity": alpha,
@@ -316,7 +334,7 @@ def render_scatter3d_plotly(
     showlegend: bool = True,
     colorbar: bool = False,
     colorbar_label: str | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> go.Scatter3d:
     """
     Render a 3D scatter plot using plotly.
@@ -360,7 +378,7 @@ def render_scatter3d_plotly(
         raise ValueError("3D scatter requires 3-column data")
 
     # Build marker dict
-    marker_dict = {
+    marker_dict: dict[str, Any] = {
         "size": sizes if sizes is not None else (marker_size or 4),
         "opacity": alpha,
     }
@@ -394,7 +412,7 @@ def render_scatter3d_plotly(
 
 
 def render_line_matplotlib(
-    ax,
+    ax: Any,
     data: NDArray[np.floating[Any]],
     color: str | None = None,
     line_width: float = 1.5,
@@ -406,9 +424,9 @@ def render_line_matplotlib(
     label: str | None = None,
     show_values: bool = False,
     value_format: str = ".3f",
-    x_labels: list | None = None,
-    **kwargs,
-):
+    x_labels: list[str] | None = None,
+    **kwargs: Any,
+) -> Any:
     """
     Render a line plot using matplotlib with optional error bands.
 
@@ -465,12 +483,12 @@ def render_line_matplotlib(
         y = data[:, 1]
     elif data.ndim == 1:
         # 1D data - use indices as x
-        x = np.arange(len(data))
+        x = np.arange(len(data), dtype=np.float64)
         y = data
     else:
         # Multiple lines (old behavior for compatibility)
         # Build kwargs for matplotlib
-        plot_kwargs = {}
+        plot_kwargs: dict[str, Any] = {}
         if marker is not None:
             plot_kwargs["marker"] = marker
             if marker_size is not None:
@@ -491,12 +509,12 @@ def render_line_matplotlib(
             lines.extend(line)
         return lines
 
-    # Build kwargs for matplotlib
-    plot_kwargs = {}
+    # Build kwargs for matplotlib (for single line case)
+    plot_kwargs_single: dict[str, Any] = {}
     if marker is not None:
-        plot_kwargs["marker"] = marker
+        plot_kwargs_single["marker"] = marker
         if marker_size is not None:
-            plot_kwargs["markersize"] = marker_size
+            plot_kwargs_single["markersize"] = marker_size
 
     # Plot the main line
     lines = ax.plot(
@@ -507,7 +525,7 @@ def render_line_matplotlib(
         linestyle=linestyle,
         alpha=alpha,
         label=label,
-        **plot_kwargs,
+        **plot_kwargs_single,
     )
 
     # Add value labels if requested
@@ -554,7 +572,7 @@ def render_line_plotly(
     alpha: float = 1.0,
     label: str | None = None,
     showlegend: bool = True,
-    **kwargs,
+    **kwargs: Any,
 ) -> go.Scatter:
     """
     Render a line plot using plotly with optional error bands.
@@ -680,14 +698,14 @@ def render_line_plotly(
 
 
 def render_histogram_matplotlib(
-    ax,
+    ax: Any,
     data: NDArray[np.floating[Any]],
     color: str | None = None,
     alpha: float = 0.7,
     bins: int = 30,
     label: str | None = None,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> Any:
     """
     Render a histogram using matplotlib.
 
@@ -723,7 +741,7 @@ def render_histogram_plotly(
     bins: int = 30,
     label: str | None = None,
     showlegend: bool = True,
-    **kwargs,
+    **kwargs: Any,
 ) -> go.Histogram:
     """
     Render a histogram using plotly.
@@ -770,12 +788,12 @@ def render_histogram_plotly(
 
 
 def render_heatmap_matplotlib(
-    ax,
+    ax: Any,
     data: NDArray[np.floating[Any]],
     cmap: str = "viridis",
     alpha: float = 1.0,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> Any:
     """
     Render a heatmap using matplotlib.
 
@@ -869,14 +887,14 @@ def render_heatmap_matplotlib(
 
 
 def render_heatmap_walls_matplotlib(
-    ax,
-    data: dict,
+    ax: Any,
+    data: dict[str, Any],
     cmap: str = "viridis",
     alpha: float = 0.95,
     colorbar: bool = True,
     colorbar_label: str | None = None,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> Any:
     """
     Render three orthogonal heatmap projections on the walls of a 3D axes.
 
@@ -923,7 +941,9 @@ def render_heatmap_walls_matplotlib(
     vmin = min(vals) if vals else 0.0
     vmax = max(vals) if vals else 1.0
 
-    norm = plt.Normalize(vmin=vmin, vmax=vmax)
+    from matplotlib.colors import Normalize
+    norm = Normalize(vmin=vmin, vmax=vmax)
+    from matplotlib import cm
     mapper = cm.ScalarMappable(norm=norm, cmap=cmap)
 
     # Get wall positions (default to min values if not specified)
@@ -985,6 +1005,7 @@ def render_heatmap_walls_matplotlib(
     # Set equal aspect ratio and viewing angle
     try:
         # Get arena size from data ranges
+        assert x_centers is not None and y_centers is not None and z_centers is not None  # Type narrowing
         x_range = x_centers[-1] - x_centers[0] if len(x_centers) > 1 else 1.0
         y_range = y_centers[-1] - y_centers[0] if len(y_centers) > 1 else 1.0
         z_range = z_centers[-1] - z_centers[0] if len(z_centers) > 1 else 1.0
@@ -1019,7 +1040,7 @@ def render_heatmap_plotly(
     data: NDArray[np.floating[Any]],
     cmap: str | None = None,
     colorscale: str | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> go.Heatmap:
     """
     Render a heatmap using plotly.
@@ -1071,11 +1092,11 @@ def render_heatmap_plotly(
 
 
 def render_bar_matplotlib(
-    ax,
+    ax: Any,
     data: NDArray[np.floating[Any]],
     x: NDArray[np.floating[Any]] | None = None,
     color: str | None = None,
-    colors: list | None = None,
+    colors: list[str] | None = None,
     alpha: float = 0.7,
     label: str | None = None,
     orientation: str = "v",
@@ -1083,8 +1104,8 @@ def render_bar_matplotlib(
     error_x: NDArray[np.floating[Any]] | None = None,
     show_values: bool = False,
     value_format: str = ".3f",
-    x_labels: list | None = None,
-    **kwargs,
+    x_labels: list[str] | None = None,
+    **kwargs: Any,
 ) -> Any:
     """
     Render a bar plot using matplotlib.
@@ -1130,7 +1151,9 @@ def render_bar_matplotlib(
     kwargs.pop("y_label", None)  # Will be handled by PlotConfig
 
     if x is None:
-        x = np.arange(len(data))
+        x = np.arange(len(data), dtype=np.float64)
+    else:
+        x = np.asarray(x, dtype=np.float64)
 
     # Use colors array if provided, otherwise single color
     bar_color = colors if colors is not None else color
@@ -1197,13 +1220,13 @@ def render_bar_plotly(
     data: NDArray[np.floating[Any]],
     x: NDArray[np.floating[Any]] | None = None,
     color: str | None = None,
-    colors: list | None = None,
+    colors: list[str] | None = None,
     alpha: float = 0.7,
     label: str | None = None,
     showlegend: bool = True,
     error_y: NDArray[np.floating[Any]] | None = None,
     error_x: NDArray[np.floating[Any]] | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> go.Bar:
     """
     Render a bar plot using plotly.
@@ -1271,7 +1294,7 @@ def render_bar_plotly(
 
 
 def render_violin_matplotlib(
-    ax,
+    ax: Any,
     data: NDArray[np.floating[Any]],
     position: int = 1,
     color: str | None = None,
@@ -1281,8 +1304,8 @@ def render_violin_matplotlib(
     showbox: bool = True,
     showpoints: bool = True,
     label: str | None = None,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> Any:
     """
     Render a half violin plot (right side) with points on the left using matplotlib.
 
@@ -1441,12 +1464,12 @@ def render_violin_plotly(
     data: NDArray[np.floating[Any]],
     color: str | None = None,
     alpha: float = 0.7,
-    meanline: dict | None = None,
+    meanline: dict[str, Any] | None = None,
     showbox: bool = True,
     showpoints: bool = True,
     label: str | None = None,
     showlegend: bool = True,
-    **kwargs,
+    **kwargs: Any,
 ) -> go.Violin:
     """
     Render a half violin plot (right side) with points on the left using plotly.
@@ -1495,6 +1518,7 @@ def render_violin_plotly(
             meanline["color"] = color or "black"
 
     # Configure points display on the LEFT side
+    points: str | bool
     if showpoints:
         points = "all"
         pointpos = -0.8  # Position points to the left (negative = left side)
@@ -1534,7 +1558,7 @@ def render_violin_plotly(
 
 
 def render_box_matplotlib(
-    ax,
+    ax: Any,
     data: NDArray[np.floating[Any]],
     position: int = 1,
     color: str | None = None,
@@ -1542,8 +1566,8 @@ def render_box_matplotlib(
     label: str | None = None,
     notch: bool = False,
     showpoints: bool = True,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> Any:
     """
     Render a box plot with sample points using matplotlib.
 
@@ -1624,7 +1648,7 @@ def render_box_plotly(
     showlegend: bool = True,
     notched: bool = False,
     showpoints: bool = True,
-    **kwargs,
+    **kwargs: Any,
 ) -> go.Box:
     """
     Render a box plot with sample points using plotly.
@@ -1657,6 +1681,7 @@ def render_box_plotly(
         raise ImportError("Plotly is required for this function")
 
     # Configure points display
+    boxpoints: str | bool
     if showpoints:
         boxpoints = "all"  # Show all points
         jitter = 0.3
@@ -1686,7 +1711,7 @@ def render_box_plotly(
 
 
 def render_trajectory_matplotlib(
-    ax,
+    ax: Any,
     x: NDArray[np.floating[Any]],
     y: NDArray[np.floating[Any]],
     colors: NDArray[np.floating[Any]] | None = None,
@@ -1699,7 +1724,7 @@ def render_trajectory_matplotlib(
     colorbar: bool = True,
     colorbar_label: str | None = None,
     label: str | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> Any:
     """
     Render a 2D trajectory using matplotlib LineCollection.
@@ -1801,7 +1826,7 @@ def render_trajectory_plotly(
     colorbar_label: str | None = None,
     label: str | None = None,
     showlegend: bool = True,
-    **kwargs,
+    **kwargs: Any,
 ) -> Any:
     """
     Render a 2D trajectory using plotly.
@@ -1897,7 +1922,7 @@ def render_trajectory3d_plotly(
     colorbar_label: str | None = None,
     label: str | None = None,
     showlegend: bool = True,
-    **kwargs,
+    **kwargs: Any,
 ) -> Any:
     """
     Render a 3D trajectory using plotly.
@@ -1945,14 +1970,16 @@ def render_trajectory3d_plotly(
     mode = "lines+markers" if show_points else "lines"
 
     if colors is not None:
-        marker_config.update(
-            {
-                "color": colors,
-                "colorscale": cmap,
-                "showscale": colorbar,
-                "colorbar": dict(title=colorbar_label) if colorbar_label else {},
-            }
-        )
+        colorbar_dict: dict[str, Any] = {}
+        if colorbar_label:
+            colorbar_dict["title"] = colorbar_label
+        marker_config_dict: dict[str, Any] = {
+            "color": colors,
+            "colorscale": cmap,
+            "showscale": colorbar,
+            "colorbar": colorbar_dict,
+        }
+        marker_config.update(marker_config_dict)
 
     return go.Scatter3d(
         x=x,
@@ -1969,7 +1996,7 @@ def render_trajectory3d_plotly(
 
 
 def render_trajectory3d_matplotlib(
-    ax,
+    ax: Any,
     x: NDArray[np.floating[Any]],
     y: NDArray[np.floating[Any]],
     z: NDArray[np.floating[Any]],
@@ -1982,7 +2009,7 @@ def render_trajectory3d_matplotlib(
     colorbar: bool = True,
     colorbar_label: str | None = None,
     label: str | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> Any:
     """
     Render a 3D trajectory using matplotlib Line3DCollection.
@@ -2073,7 +2100,7 @@ def render_trajectory3d_matplotlib(
 
 
 def render_kde_matplotlib(
-    ax,
+    ax: Any,
     xi: NDArray[np.floating[Any]],
     yi: NDArray[np.floating[Any]],
     zi: NDArray[np.floating[Any]],
@@ -2084,7 +2111,7 @@ def render_kde_matplotlib(
     colorbar: bool = True,
     colorbar_label: str | None = None,
     label: str | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> Any:
     """
     Render a 2D KDE plot using matplotlib contour/contourf.
@@ -2152,7 +2179,7 @@ def render_kde_plotly(
     colorbar_label: str | None = None,
     label: str | None = None,
     showlegend: bool = True,
-    **kwargs,
+    **kwargs: Any,
 ) -> Any:
     """
     Render a 2D KDE plot using plotly contour.
@@ -2219,7 +2246,7 @@ def render_kde_plotly(
 
 
 def render_convex_hull_matplotlib(
-    ax,
+    ax: Any,
     hull_x: NDArray[np.floating[Any]],
     hull_y: NDArray[np.floating[Any]],
     color: str = "black",
@@ -2229,7 +2256,7 @@ def render_convex_hull_matplotlib(
     fill: bool = False,
     fill_alpha: float = 0.2,
     label: str | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> Any:
     """
     Render a convex hull boundary using matplotlib.
@@ -2293,7 +2320,7 @@ def render_convex_hull_plotly(
     fill_alpha: float = 0.2,
     label: str | None = None,
     showlegend: bool = True,
-    **kwargs,
+    **kwargs: Any,
 ) -> Any:
     """
     Render a convex hull boundary using plotly.
@@ -2347,7 +2374,7 @@ def render_convex_hull_plotly(
 
 
 def render_boolean_states_matplotlib(
-    ax,
+    ax: Any,
     x: NDArray[np.floating[Any]],
     states: NDArray[np.floating[Any]],
     true_color: str = "#2ca02c",
@@ -2355,8 +2382,8 @@ def render_boolean_states_matplotlib(
     true_label: str = "True",
     false_label: str = "False",
     alpha: float = 0.3,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> Any:
     """
     Render boolean states as filled regions using matplotlib.
 
@@ -2447,8 +2474,8 @@ def render_boolean_states_plotly(
     true_label: str = "True",
     false_label: str = "False",
     alpha: float = 0.3,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> Any:
     """
     Render boolean states as filled regions using plotly.
 
@@ -2541,7 +2568,7 @@ def render_boolean_states_plotly(
 
 
 def render_ellipse_matplotlib(
-    ax,
+    ax: Any,
     centers: NDArray[np.float64],
     widths: NDArray[np.float64],
     heights: NDArray[np.float64],
@@ -2550,8 +2577,8 @@ def render_ellipse_matplotlib(
     alpha: float = 0.3,
     edgecolor: str | None = None,
     linewidth: float = 0,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> Any:
     """
     Render ellipses using matplotlib patches.
 
@@ -2586,7 +2613,7 @@ def render_ellipse_matplotlib(
     """
     from matplotlib.patches import Ellipse, Rectangle
 
-    patches = []
+    patches: list[Any] = []
     n_dims = centers.shape[1] if centers.ndim > 1 else 1
 
     if n_dims == 1:
@@ -2667,8 +2694,8 @@ def render_ellipse_plotly(
     color: str = "red",
     alpha: float = 0.3,
     name: str | None = None,
-    **kwargs,
-) -> list:
+    **kwargs: Any,
+) -> list[Any]:
     """
     Render ellipses using plotly shapes.
 

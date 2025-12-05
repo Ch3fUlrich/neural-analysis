@@ -61,9 +61,9 @@ def plot_line(
         raise ValueError(f"Data must be 1D, got shape {data.shape}")
 
     if x is None:
-        x = np.arange(len(data))
+        x = np.arange(len(data), dtype=np.float64)
     else:
-        x = np.atleast_1d(x)
+        x = np.atleast_1d(x).astype(np.float64)
         if len(x) != len(data):
             raise ValueError("x and data must have same length")
 
@@ -128,7 +128,9 @@ def plot_multiple_lines(
 
     first_data = next(iter(data_dict.values()))
     if x is None:
-        x = np.arange(len(first_data))
+        x = np.arange(len(first_data), dtype=np.float64)
+    else:
+        x = np.asarray(x, dtype=np.float64)
 
     # Prepare colors
     if colors is None:
@@ -213,7 +215,9 @@ def plot_boolean_states(
     states = np.atleast_1d(states).astype(bool)
 
     if x is None:
-        x = np.arange(len(states))
+        x = np.arange(len(states), dtype=np.float64)
+    else:
+        x = np.asarray(x, dtype=np.float64)
 
     # Prepare 2D data [x, states_numeric] for PlotSpec
     states_numeric = states.astype(float)
