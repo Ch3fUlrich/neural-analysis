@@ -1582,7 +1582,7 @@ def shape_distance_procrustes(
 def shape_distance_one_to_one(
     mtx1: npt.NDArray[np.float64],
     mtx2: npt.NDArray[np.float64],
-    metric: str = "euclidean",
+    metric: str = "sqeuclidean",
 ) -> tuple[float, dict[tuple[int, int], float]]:
     """Compute shape distance using optimal one-to-one point matching via optimal transport.
 
@@ -1661,13 +1661,11 @@ def shape_distance_one_to_one(
     }
     return float(distance), pairs
 
-    return float(distance), pairs
-
 
 def shape_distance_soft_matching(
     mtx1: npt.NDArray[np.float64],
     mtx2: npt.NDArray[np.float64],
-    metric: str = "euclidean",
+    metric: str = "sqeuclidean",
     approx: bool = False,
     reg: float = 0.1,
 ) -> tuple[float, dict[tuple[int, int], float]]:
@@ -1689,9 +1687,13 @@ def shape_distance_soft_matching(
     metric : str, default='sqeuclidean'
         Distance metric for computing transport costs. Passed to cdist.
         Common options: 'sqeuclidean', 'euclidean', 'cosine', 'correlation'.
+        Use 'sqeuclidean' for comparability with one-to-one and Procrustes.
     approx : bool, default=False
         If True, use Sinkhorn algorithm (faster, approximate).
         If False, use exact EMD algorithm (slower, exact).
+        Note: With exact EMD and equal-sized distributions, soft-matching may equal
+        one-to-one (both give optimal hard assignment). Sinkhorn approximation may
+        violate the theoretical ordering property soft-matching ≤ one-to-one ≤ procrustes.
     reg : float, default=0.1
         Entropic regularization parameter for Sinkhorn algorithm.
         Higher values lead to more uniform (diffuse) transport plans.
@@ -1752,10 +1754,20 @@ def shape_distance_soft_matching(
     # Compute optimal transport plan
     if approx:
         transport_plan = ot.sinkhorn(a, b, cost_matrix, reg)
-        distance = np.sqrt(np.sum(transport_plan * cost_matrix))
     else:
         transport_plan = ot.emd(a, b, cost_matrix)
-        distance = np.sqrt(np.sum(transport_plan * cost_matrix))
+    
+    # Compute distance: sum of transport plan * cost matrix
+    # For sqeuclidean metric: cost_matrix contains squared distances
+    #   - Do NOT take sqrt to maintain consistency with one-to-one and Procrustes
+    #   - All three methods should use squared distances for comparability
+    #   - This ensures: soft-matching ≤ one-to-one ≤ procrustes
+    # For euclidean metric: cost_matrix contains regular distances
+    #   - No sqrt needed (Wasserstein-1 distance)
+    # Note: The theoretical property soft-matching ≤ one-to-one ≤ procrustes
+    # holds because soft assignment is more flexible than hard assignment,
+    # which is more flexible than fixed correspondence (Procrustes).
+    distance = np.sum(transport_plan * cost_matrix)
 
     threshold = 1e-9
     i_idx, j_idx = np.where(transport_plan > threshold)
@@ -1796,6 +1808,7 @@ def shape_distance(
     metric : str, default='sqeuclidean'
         Distance metric for 'one-to-one' and 'soft-matching' methods.
         Ignored for 'procrustes' method.
+        Use 'sqeuclidean' for comparability with Procrustes (which uses squared distances).
     **method_kwargs
         Additional keyword arguments passed to the specific method:
         - For 'soft-matching': approx (bool), reg (float)
