@@ -1358,47 +1358,18 @@ def compare_datasets(
 
     # Auto-save/load logic
     if save_path is not None:
-        save_path_obj = Path(save_path)
-        
-        # Try to load cached result if regenerate=False
-        if not regenerate and save_path_obj.exists():
-            logger.info(f"Attempting to load cached result from {save_path}")
-            try:
-                from neural_analysis.utils.comparison_store import load_comparison
-                
-                # Determine dataset names for loading
-                if mode == "between":
-                    if dataset_names is None:
-                        raise ValueError(
-                            "dataset_names required for save_path with mode='between'. "
-                            "Provide tuple like ('control', 'treatment')"
-                        )
-                    dataset_i, dataset_j = dataset_names
-                    cached_result = load_comparison(
-                        save_path_obj, metric, dataset_i, dataset_j
-                    )
-                    logger.info(
-                        f"Successfully loaded cached result from {save_path}:"
-                        f"{metric}/{dataset_i}___{dataset_j}"
-                    )
-                    return cached_result
-                elif mode == "all-pairs":
-                    # For all-pairs, we use a special dataset pair naming
-                    cached_result = load_comparison(
-                        save_path_obj, metric, "all_pairs", "all_pairs"
-                    )
-                    logger.info(
-                        f"Successfully loaded cached all-pairs result from {save_path}"
-                    )
-                    return cached_result
-                # Within mode doesn't support save_path (single dataset)
-                    
-            except (FileNotFoundError, KeyError) as e:
-                logger.info(
-                    f"Cache miss ({type(e).__name__}), computing result: {e}"
-                )
-                # Fall through to computation
-        elif regenerate:
+        if not regenerate:
+            from neural_analysis.utils.comparison_store import try_load_cached_comparison
+            
+            cached_result = try_load_cached_comparison(
+                save_path=save_path,
+                mode=mode,
+                metric=metric,
+                dataset_names=dataset_names,
+            )
+            if cached_result is not None:
+                return cached_result
+        else:
             logger.info(
                 "regenerate=True, forcing recomputation (will overwrite cache)"
             )
@@ -1465,66 +1436,21 @@ def compare_datasets(
     
     # Auto-save result if save_path provided
     if save_path is not None:
-        # Validate dataset_names before saving (for between mode)
-        if mode == "between" and dataset_names is None:
-            raise ValueError(
-                "dataset_names required for save_path with mode='between'. "
-                "Provide tuple like ('control', 'treatment')"
-            )
-        
-        logger.info(f"Saving result to {save_path}")
-        from neural_analysis.utils.comparison_store import save_comparison
+        from neural_analysis.utils.comparison_store import save_comparison_result
         
         try:
-            if mode == "between":
-                if dataset_names is None:
-                    raise ValueError("dataset_names required for between mode")
-                dataset_i, dataset_j = dataset_names
-                
-                # Handle dict return from compute_between_distances
-                save_val_typed: float | npt.NDArray[np.floating] | dict[str, dict[str, float]]
-                if isinstance(result, dict) and "value" in result:
-                    save_val_typed = float(cast("float", result["value"]))
-                else:
-                    save_val_typed = cast(
-                        "float | npt.NDArray[np.floating] | dict[str, dict[str, float]]",
-                        result,
-                    )
-                save_comparison(
-                    filepath=save_path,
-                    metric=metric,
-                    dataset_i=dataset_i,
-                    dataset_j=dataset_j,
-                    mode=mode,
-                    value=save_val_typed,
-                    metadata={
-                        "return_matrix": return_matrix,
-                        **metric_kwargs,
-                    },
-                    overwrite=regenerate,
-                )
-                logger.info(
-                    f"Saved between-mode result: {metric}/{dataset_i}___{dataset_j}"
-                )
-            elif mode == "all-pairs":
-                # Determine number of datasets for all-pairs
-                n_datasets = len(result) if isinstance(result, dict) else 1
-                save_val_all_pairs = cast(
-                    "dict[str, dict[str, float]]",
-                    result,
-                )
-                save_comparison(
-                    filepath=save_path,
-                    metric=metric,
-                    dataset_i="all_pairs",
-                    dataset_j="all_pairs",
-                    mode=mode,
-                    value=save_val_all_pairs,
-                    metadata={"n_datasets": n_datasets, **metric_kwargs},
-                    overwrite=regenerate,
-                )
-                logger.info(f"Saved all-pairs result: {metric}/all_pairs")
-            # Within mode: no save (single dataset, less useful to cache)
+            save_comparison_result(
+                save_path=save_path,
+                mode=mode,
+                metric=metric,
+                result=result,
+                dataset_names=dataset_names,
+                metadata={
+                    "return_matrix": return_matrix,
+                    **metric_kwargs,
+                },
+                overwrite=regenerate,
+            )
         except Exception as e:
             logger.warning(f"Failed to save result: {e}")
             # Continue anyway, return computed result

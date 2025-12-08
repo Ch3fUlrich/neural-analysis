@@ -20,7 +20,21 @@ import logging
 from collections.abc import Callable, Mapping, Sequence, Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, TypedDict, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    TypedDict,
+    TypeVar,
+    cast,
+    Callable,
+    Dict,
+    List,
+    Sequence,
+    Tuple,
+    Union,
+)
+
 
 import numpy as np
 import numpy.typing as npt
@@ -28,6 +42,7 @@ from scipy.linalg import orthogonal_procrustes
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial import procrustes
 from scipy.spatial.distance import cdist
+from scipy.spatial import procrustes
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -44,6 +59,8 @@ try:
     OT_AVAILABLE = True
 except ImportError:
     OT_AVAILABLE = False
+
+from neural_analysis.utils.subsampling import run_with_subsampling
 
 try:
     from neural_analysis.utils.logging import get_logger, log_calls
@@ -140,7 +157,9 @@ def _serialize_pairs(
     }
 
 
-def _deserialize_pairs(arrays: Mapping[str, Any] | None) -> dict[tuple[int, int], float] | None:
+def _deserialize_pairs(
+    arrays: Mapping[str, Any] | None,
+) -> dict[tuple[int, int], float] | None:
     """Deserialize stored pair arrays back into dictionary."""
     if not arrays:
         return None
@@ -194,10 +213,7 @@ def _compute_metric_result(
                 f"Expected tuple return value for shape metric '{metric}', got {type(result)!r}"
             )
         value = float(result[0])
-        pairs = {
-            (int(i), int(j)): float(val)
-            for (i, j), val in result[1].items()
-        }
+        pairs = {(int(i), int(j)): float(val) for (i, j), val in result[1].items()}
         return value, pairs, "shape"
 
     if isinstance(result, np.ndarray):
@@ -247,9 +263,22 @@ def _row_from_saved_entry(
 def _split_result_value(
     result: Any,
 ) -> tuple[float, Any]:
-    """Normalize result from arbitrary comparison function."""
+    """Normalize result from arbitrary comparison function.
+
+    Handles both 2-element tuples (value, metadata) and 3-element tuples
+    (value, pairs, metadata) from shape_distance functions.
+    """
     if isinstance(result, tuple):
-        return float(result[0]), result[1]
+        if len(result) == 3:
+            # shape_distance returns (distance, pairs, metadata)
+            # Return distance as value, and (pairs, metadata) as metadata
+            return float(result[0]), {"pairs": result[1], "metadata": result[2]}
+        elif len(result) == 2:
+            # Standard (value, metadata) tuple
+            return float(result[0]), result[1]
+        else:
+            # Single element tuple or other
+            return float(result[0]), result[1:] if len(result) > 1 else None
     return float(result), None
 
 
@@ -357,9 +386,9 @@ def wasserstein_distance_multi(
             )
             dist = np.nan
         distances.append(dist)
-    
+
     total_distance = float(np.sum(distances))
-    
+
     # Final check to ensure result is finite
     if not np.isfinite(total_distance):
         logger.warning(
@@ -367,7 +396,7 @@ def wasserstein_distance_multi(
             "Replacing with np.nan."
         )
         total_distance = np.nan
-    
+
     return total_distance
 
 
@@ -419,7 +448,7 @@ def kolmogorov_smirnov_distance(
 
     ks_stats = [ks_2samp(p1[:, i], p2[:, i]).statistic for i in range(p1.shape[1])]
     max_ks = float(np.max(ks_stats))
-    
+
     # KS statistic ranges from 0 to 1, where:
     # - 0: identical distributions
     # - 1: perfect separation (no overlap) in at least one dimension
@@ -429,7 +458,7 @@ def kolmogorov_smirnov_distance(
             f"KS distance = 1.0 indicates perfect separation in at least one feature. "
             f"Individual feature KS stats: {[f'{s:.4f}' for s in ks_stats]}"
         )
-    
+
     return max_ks
 
 
@@ -1161,11 +1190,6 @@ def compare_distribution_groups(
             )
 
 
-# ============================================================================
-# Batch Comparison Utilities
-# ============================================================================
-
-
 def pairwise_distribution_comparison_batch(
     data: Mapping[str, npt.ArrayLike],
     metrics: Sequence[str] | Mapping[str, Mapping[str, Any]],
@@ -1293,7 +1317,10 @@ def pairwise_distribution_comparison_batch(
                 continue
 
         value, pairs, value_type = _compute_metric_result(
-            datasets[dataset_i], datasets[dataset_j], metric_name, metric_kwargs=metric_kwargs
+            datasets[dataset_i],
+            datasets[dataset_j],
+            metric_name,
+            metric_kwargs=metric_kwargs,
         )
 
         timestamp = datetime.now(UTC).isoformat()
@@ -1424,6 +1451,8 @@ def batch_comparison(
 
     df = pd.DataFrame(rows)
     return df.reset_index(drop=True)
+
+
 # ============================================================================
 # Shape Distance Functions
 # ============================================================================
@@ -1433,19 +1462,36 @@ def modify_matrix(
     mtx: npt.NDArray[np.floating[Any]],
     whiten: bool = True,
     normalize: bool = True,
+    scale_variance: bool = True,
+    unit_length_per_column: bool = False,
 ) -> npt.NDArray[np.floating[Any]]:
     """Preprocess matrix for shape comparison.
 
     Optionally whitens and/or normalizes to unit Frobenius norm.
+    Supports both standard whitening (center + scale to unit variance) and
+    Procrustes-style normalization (center only, then normalize to unit Frobenius norm).
+    Also supports unit-length normalization per column for shape distance metrics.
 
     Parameters
     ----------
     mtx : ndarray of shape (n_samples, n_features)
         The matrix to preprocess.
     whiten : bool, default=True
-        If True, center and scale each feature (column) to unit variance.
+        If True, center the matrix (remove mean per column).
+        If scale_variance=True, also scale each column to unit variance.
+        If unit_length_per_column=True, normalize each column to unit length instead.
     normalize : bool, default=True
         If True, scale the entire matrix to have Frobenius norm = 1.
+    scale_variance : bool, default=True
+        If True and whiten=True and unit_length_per_column=False, scale each column
+        to unit variance (standard whitening).
+        If False and whiten=True and unit_length_per_column=False, only center
+        (Procrustes-style normalization).
+        Ignored if unit_length_per_column=True.
+    unit_length_per_column : bool, default=False
+        If True and whiten=True, normalize each column to unit length (L2 norm = 1)
+        instead of unit variance. This is used for shape distance metrics where
+        ||x_i - y_j||^2 = 2(1 - ρ(x_i, y_j)) for mean-zero unit vectors.
 
     Returns
     -------
@@ -1454,18 +1500,55 @@ def modify_matrix(
 
     Notes
     -----
-    - Whitening standardizes features to zero mean and unit variance
-    - Normalization scales the overall matrix magnitude
-    - Both operations preserve shape structure while removing scale effects
+    Automatic subsampling:
+    - When matrices have different numbers of neurons (rows) and the method requires
+      equal sizes (procrustes, one-to-one), subsampling is automatically applied.
+    - The subsample size is set to the minimum number of neurons across both matrices.
+    - Soft-matching can handle different neuron counts natively, so no automatic
+      subsampling is applied.
+    - Explicit subsampling parameters override automatic subsampling.
+
+    Biological interpretation:
+    - This function measures how similar the neural "code" or representation is
+      between two populations. A low distance means the populations encode information
+      in similar ways (e.g., similar tuning curves, similar response patterns).
+    - Useful for comparing: different brain regions, before/after learning, different
+      experimental conditions, or different animals.
+    - The three methods differ in how they handle neuron identity:
+      * Procrustes: Assumes neurons are in the same order (best for same recording session)
+      * One-to-one: Finds best matching between neurons (best for shuffled or unknown identities)
+      * Soft-matching: Allows partial matches (best for different-sized populations)
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> mtx = np.random.randn(50, 10)
+    >>> # Standard whitening (center + unit variance per column)
+    >>> mtx_white = modify_matrix(mtx, whiten=True, scale_variance=True)
+    >>> # Procrustes-style (center only, then normalize)
+    >>> mtx_proc = modify_matrix(mtx, whiten=True, scale_variance=False, normalize=True)
+    >>> # Shape distance preprocessing (center + unit-length per column)
+    >>> mtx_shape = modify_matrix(mtx, whiten=True, unit_length_per_column=True, normalize=False)
     """
     out = mtx.copy().astype(np.float64)
 
     if whiten:
-        # Center and scale each column
+        # Center around origin (remove mean per column)
         means = out.mean(axis=0, keepdims=True)
-        stds = out.std(axis=0, keepdims=True, ddof=1)
-        stds[stds == 0] = 1.0  # Avoid division by zero
-        out = (out - means) / stds
+        out = out - means
+
+        if unit_length_per_column:
+            # Normalize each column to unit length (L2 norm = 1)
+            # For mean-zero unit vectors: ||x_i - y_j||^2 = 2(1 - ρ(x_i, y_j))
+            column_norms = np.linalg.norm(out, axis=0, keepdims=True)
+            column_norms[column_norms == 0] = 1.0  # Avoid division by zero
+            out = out / column_norms
+        elif scale_variance:
+            # Scale each column to unit variance (standard whitening)
+            stds = out.std(axis=0, keepdims=True, ddof=1)
+            stds[stds == 0] = 1.0  # Avoid division by zero
+            out = out / stds
+        # If scale_variance=False and unit_length_per_column=False, only centering is done
 
     if normalize:
         # Scale to unit Frobenius norm
@@ -1483,6 +1566,7 @@ def align_mtx(
     scale: bool = True,
     whiten: bool = True,
     norm: bool = True,
+    scale_variance: bool = True,
 ) -> npt.NDArray[np.floating]:
     """Align mtx2 to mtx1 using Procrustes analysis.
 
@@ -1497,6 +1581,9 @@ def align_mtx(
             differences are meaningful.
         whiten: If True, center columns to zero mean before alignment.
         norm: If True, normalize by Frobenius norm before alignment.
+        scale_variance: If True and whiten=True, scale each column to unit variance.
+            If False and whiten=True, only center (Procrustes-style). Default True
+            for backward compatibility.
 
     Returns:
         Aligned mtx2.
@@ -1509,8 +1596,12 @@ def align_mtx(
     if mtx1.ndim != 2:
         raise ValueError("Input matrices must be two-dimensional")
 
-    mtx1 = modify_matrix(mtx1, whiten=whiten, normalize=norm)
-    mtx2 = modify_matrix(mtx2, whiten=whiten, normalize=norm)
+    mtx1 = modify_matrix(
+        mtx1, whiten=whiten, normalize=norm, scale_variance=scale_variance
+    )
+    mtx2 = modify_matrix(
+        mtx2, whiten=whiten, normalize=norm, scale_variance=scale_variance
+    )
 
     # Find optimal orthogonal transformation (rotation/reflection)
     # R transforms mtx1 to mtx2: mtx1 @ R ≈ mtx2
@@ -1528,55 +1619,93 @@ def align_mtx(
 
 
 def shape_distance_procrustes(
-    mtx1: npt.NDArray[np.float64],
-    mtx2: npt.NDArray[np.float64],
-) -> tuple[float, dict[tuple[int, int], float]]:
-    """Compute shape distance using Procrustes alignment.
+    mtx1: npt.NDArray[np.floating[Any]],
+    mtx2: npt.NDArray[np.floating[Any]],
+    return_pairs: bool = True,
+) -> tuple[float, dict[tuple[int, int], float] | None]:
+    """
+    Orthogonal Procrustes shape distance: d_O(X, Y) = min_{Q in O_N} ||X - Q Y||_F.
 
-    This method aligns the two matrices using Procrustes analysis and returns
-    the residual disparity after optimal rotation/reflection, along with
-    point-to-point correspondence information.
+    Computes the minimal Frobenius norm after optimal rotation/reflection Q in neuron
+    space (rows=neurons N, columns=conditions M). Assumes FIXED point correspondence
+    (row i in X ↔ row i in Y), optimizing only global orthogonal transform. Theoretically
+    d_O ≤ d_P (one-to-one) since permutations Π_N ⊂ orthogonals O_N; smallest distance
+    when fixed corr good (same neuron order + rotation drift, e.g., sessions).
+
+    Preprocessing (modify_matrix): column-center (translations), unit Frobenius (scale),
+    no whitening/var scaling (matches scipy procrustes). Raw ||diff||_F ~ sqrt(N M); divide
+    by sqrt(N) for RMS per-neuron to compare with one-to-one/soft.
+
+    When to use:
+    - Best: Known neuron IDs/order (identity perm optimal), manifolds rotated (e.g., HD rings).
+    - Avoid: Shuffled neurons (d_O > d_P; use one-to-one/soft).
 
     Parameters
     ----------
-    mtx1 : ndarray of shape (n_samples, n_features)
-        First matrix representing neural population activity.
-    mtx2 : ndarray of shape (n_samples, n_features)
-        Second matrix to compare with mtx1. Must have same shape as mtx1.
+    mtx1, mtx2 : ndarray of shape (N, M)
+        Neural activity: rows=neurons, columns=conditions/stimuli. Same shape required.
+    return_pairs : bool, default=True
+        If True, return per-neuron distances under aligned Q (always (i,i) pairs).
 
     Returns
     -------
     distance : float
-        Procrustes disparity (sum of squared Euclidean distances after
-        optimal alignment). Lower values indicate more similar shapes.
-    pairs : dict[tuple[int, int], float]
-        Dictionary mapping point index pairs (i, i) to their post-alignment
-        distances. Since Procrustes preserves point correspondence, each
-        point i in mtx1 is aligned to point i in mtx2.
+        Raw Frobenius disparity ||X_aligned - Y||_F (unnormalized total; norm / sqrt(N) for per-neuron RMS).
+        Normalized by sqrt(N) for per-neuron RMS to make it comparable with one-to-one/soft matching.
+    pairs : dict[tuple[int,int], float] or None
+        {(i,i): row_dist_i} for aligned neurons.
+
+    Raises
+    ------
+    ValueError : Different shapes.
 
     Notes
     -----
-    The Procrustes method finds the optimal orthogonal transformation
-    (rotation + reflection) that minimizes the distance between matrices.
-    The scipy.spatial.procrustes function automatically standardizes both
-    matrices (zero mean, unit variance per column, unit Frobenius norm).
+    SVD solution: Q = U V^T from svd(X @ Y^T). Exact, O(N^3).
+    Theoretical: d_O ≤ d_P ≤ d_T (nested sets O ⊃ Π ⊃ T).
 
     Examples
     --------
     >>> mtx1 = np.random.randn(50, 10)
-    >>> mtx2 = np.random.randn(50, 10)
-    >>> dist, pairs = shape_distance_procrustes(mtx1, mtx2)
-    >>> print(f"Procrustes distance: {dist:.3f}")
-    >>> print(f"Number of aligned pairs: {len(pairs)}")
+    >>> mtx2_rot = Q @ mtx1  # Simulated rotation (Q ortho)
+    >>> dist, pairs = shape_distance_procrustes(mtx1, mtx2_rot)
+    >>> print(f"d_O={dist:.3f} ≈0; RMS={dist/np.sqrt(50):.3f}")  # Tiny
     """
-    m1, m2, disparity = procrustes(mtx1, mtx2)
+    if mtx1.shape != mtx2.shape:
+        raise ValueError("Procrustes distance requires matrices with the same shape.")
 
-    # Compute distance between pairs
-    distances = np.linalg.norm(m1 - m2, axis=1)
-    # Create pairs dictionary with point indices and their post-alignment squared distances
-    pairs = {(i, i): float(distance) for i, distance in enumerate(distances)}
+    X = modify_matrix(
+        mtx1,
+        whiten=True,
+        normalize=True,
+        scale_variance=False,
+    )
+    Y = modify_matrix(
+        mtx2,
+        whiten=True,
+        normalize=True,
+        scale_variance=False,
+    )
 
-    return float(disparity), pairs
+    # Orthogonal Procrustes in neuron space (rows are neurons, columns conditions)
+    C = X @ Y.T
+    from scipy.linalg import svd
+
+    U, _, Vt = svd(C, full_matrices=False)
+    R = U @ Vt  # (N, N)
+
+    Y_aligned = R @ Y
+    diff = X - Y_aligned
+
+    distance = float(np.linalg.norm(diff, ord="fro"))
+
+    if not return_pairs:
+        return distance, None
+
+    row_dists = np.linalg.norm(diff, axis=1)
+    pairs = {(int(i), int(i)): float(d) for i, d in enumerate(row_dists)}
+
+    return distance, pairs
 
 
 def shape_distance_one_to_one(
@@ -1584,11 +1713,18 @@ def shape_distance_one_to_one(
     mtx2: npt.NDArray[np.float64],
     metric: str = "sqeuclidean",
 ) -> tuple[float, dict[tuple[int, int], float]]:
-    """Compute shape distance using optimal one-to-one point matching via optimal transport.
+    """
+    One-to-one (permutation) shape distance: d_P(X, Y) = min_{Π in Π_N} ||X - Π Y||_F.
 
-    Uses optimal transport with hard assignment constraint (one-to-one matching) to find
-    the optimal bijective matching between points. Similar to soft-matching but enforces
-    that each point is matched to exactly one other point (hard assignment).
+    Optimal hard bijective matching via Hungarian assignment on neuron tuning costs.
+    Permutation-invariant (finds best row remapping); d_P ≥ d_O (Π_N ⊂ O_N), ≤ d_T (hard).
+
+    Normalization: RMS per-neuron sqrt( (1/N) sum_matched ||x_i - y_πi||^2 ) for scale match with others.
+    Preprocessing: Same as Procrustes (center + unit Frobenius).
+
+    When to use:
+    - Unknown/shuffled neuron IDs, same N (e.g., random sorting).
+    - Beats Procrustes if shuffle > rotation; loses to soft if unequal N needed.
 
     Parameters
     ----------
@@ -1605,7 +1741,8 @@ def shape_distance_one_to_one(
     distance : float
         Optimal transport cost with hard assignment (sum of transport plan * cost matrix).
         Uses squared distances when metric='sqeuclidean' for comparability with Procrustes.
-        Lower values indicate more similar shapes.
+        Lower values indicate more similar shapes. Normalized by sqrt(N) for per-neuron RMS
+        to make it comparable with Procrustes and soft-matching.
     pairs : dict[tuple[int, int], float]
         Dictionary mapping optimal point assignments (i, j) -> distance,
         where point i from mtx1 is matched to point j from mtx2.
@@ -1618,8 +1755,8 @@ def shape_distance_one_to_one(
     and equal sizes, which naturally enforces one-to-one matching (hard assignment).
     Unlike soft-matching, each point can only be matched to one other point.
 
-    Matrices are normalized to unit Frobenius norm before comparison (consistent with
-    procrustes and soft-matching methods).
+    Matrices are centered (zero mean per column) and normalized to unit Frobenius norm
+    before comparison, matching the normalization used by scipy.spatial.procrustes.
 
     Requires the `pot` package: pip install pot
 
@@ -1631,35 +1768,53 @@ def shape_distance_one_to_one(
     >>> print(f"One-to-one distance: {dist:.3f}")
     >>> print(f"Number of matched pairs: {len(pairs)}")
     """
-    if not OT_AVAILABLE:
-        msg = "one-to-one requires the 'pot' library. Install with: pip install pot"
-        raise ImportError(msg)
+    # Preprocess matrices: center + unit Frobenius norm (matching Procrustes normalization)
+    # This ensures distances are on the same scale as Procrustes
+    X = modify_matrix(
+        mtx1,
+        whiten=True,
+        normalize=True,
+        scale_variance=False,
+    )
+    Y = modify_matrix(
+        mtx2,
+        whiten=True,
+        normalize=True,
+        scale_variance=False,
+    )
 
-    # Normalize matrices to unit Frobenius norm (consistent with procrustes and soft-matching)
-    m1 = modify_matrix(mtx1, whiten=False, normalize=True)
-    m2 = modify_matrix(mtx2, whiten=False, normalize=True)
+    if X.shape != Y.shape:
+        raise ValueError("One-to-one distance requires matrices with the same shape.")
+    N, _ = X.shape
 
-    # Compute cost matrix
-    cost_matrix = cdist(m1, m2, metric=metric)
+    # Cost between neurons (rows)
+    cost = cdist(X, Y, metric=metric)  # (N, N)
+    row_ind, col_ind = linear_sum_assignment(cost)
 
-    # Uniform distributions (equal mass at each point)
-    a = np.ones(m1.shape[0]) / m1.shape[0]
-    b = np.ones(m2.shape[0]) / m2.shape[0]
+    if metric == "sqeuclidean":
+        # cost_ij = ||x_i - y_j||^2
+        # linear_sum_assignment gives sum of costs for matched pairs
+        # For comparability with optimal transport (which uses uniform distributions),
+        # we need to normalize by N to get the average, then take sqrt to match soft-matching scale
+        total_sq = float(cost[row_ind, col_ind].sum())
+        # Normalize by N (like optimal transport with uniform distributions)
+        avg_sq = total_sq / N
+        distance = float(np.sqrt(max(avg_sq, 0.0)))
+        per_pair_dist = np.sqrt(cost[row_ind, col_ind])
+    else:
+        # cost_ij is a distance; square each and sum for squared distance
+        per_pair_dist = cost[row_ind, col_ind]
+        total_sq = float(np.sum(per_pair_dist**2))
+        # Normalize by N (like optimal transport with uniform distributions)
+        avg_sq = total_sq / N
+        distance = float(np.sqrt(max(avg_sq, 0.0)))
 
-    # Compute optimal transport plan with hard assignment (EMD gives one-to-one matching)
-    transport_plan = ot.emd(a, b, cost_matrix)
-
-    # Compute distance: sum of transport plan * cost matrix
-    # For sqeuclidean metric, this gives sum of squared distances (comparable to Procrustes)
-    distance = np.sum(transport_plan * cost_matrix)
-
-    # Extract pairs with non-zero transport (hard assignment: exactly one match per point)
-    i_indices, j_indices = np.where(transport_plan > 0)
-    pairs = {
-        (int(i), int(j)): float(cost_matrix[i, j])
-        for i, j in zip(i_indices, j_indices, strict=False)
+    pairs: dict[tuple[int, int], float] = {
+        (int(i), int(j)): float(d)
+        for i, j, d in zip(row_ind, col_ind, per_pair_dist, strict=False)
     }
-    return float(distance), pairs
+
+    return distance, pairs
 
 
 def shape_distance_soft_matching(
@@ -1668,12 +1823,21 @@ def shape_distance_soft_matching(
     metric: str = "sqeuclidean",
     approx: bool = False,
     reg: float = 0.1,
+    threshold: float = 1e-9,
 ) -> tuple[float, dict[tuple[int, int], float]]:
-    """Compute shape distance using soft optimal transport matching.
+    """
+    Soft-matching (OT/Wasserstein) distance: d_T(X,Y) = min_T sum T_ij C_ij, T in transport polytope.
 
-    Uses optimal transport to compute a soft matching between point distributions,
-    allowing fractional assignment of mass. Can use exact (Earth Mover's Distance)
-    or approximate (Sinkhorn) algorithms.
+    Fractional neuron assignment (uniform Dirac masses); handles unequal N! Relaxed perms:
+    d_T ≤ d_P (T ⊃ Π_N/N), smoothest/lowest. Exact EMD (approx=False) ≈ d_P equal N; Sinkhorn
+    < due to reg (violates strict ≤ d_P).
+
+    Normalization: sqrt(<T,C>) (RMS-like under uniform). Preprocess: Procrustes-match.
+
+    When to use:
+    - Unequal N, unknown IDs, smooth/differentiable metric (e.g., cross-region/animals).
+    - Loosest: Always ≤ others; fractional good for pop codes.
+
 
     Reference:
     https://proceedings.mlr.press/v243/khosla24a/khosla24a.pdf
@@ -1702,7 +1866,7 @@ def shape_distance_soft_matching(
     Returns
     -------
     distance : float
-        Square root of the optimal transport cost (Wasserstein-like distance).
+        Square root of the optimal transport cost sqrt(W2^2 - Wasserstein-like distance).
         Lower values indicate more similar point distributions.
     pairs : dict[tuple[int, int], float]
         Dictionary mapping point pairs (i, j) to transport probabilities.
@@ -1722,7 +1886,8 @@ def shape_distance_soft_matching(
     This is particularly useful when point clouds have different sizes or when
     you want a continuous, differentiable distance measure.
 
-    Matrices are normalized to unit Frobenius norm before comparison.
+    Matrices are centered (zero mean per column) and normalized to unit Frobenius norm
+    before comparison, matching the normalization used by scipy.spatial.procrustes.
     Points are treated as uniform distributions (equal mass at each point).
 
     Requires the `pot` package: pip install pot
@@ -1741,137 +1906,306 @@ def shape_distance_soft_matching(
         msg = "soft-matching requires the 'pot' library. Install with: pip install pot"
         raise ImportError(msg)
 
-    m1 = modify_matrix(mtx1, whiten=False, normalize=True)
-    m2 = modify_matrix(mtx2, whiten=False, normalize=True)
+    X = modify_matrix(
+        mtx1,
+        whiten=True,
+        normalize=True,
+        scale_variance=False,
+    )
+    Y = modify_matrix(
+        mtx2,
+        whiten=True,
+        normalize=True,
+        scale_variance=False,
+    )
 
-    # Compute cost matrix
-    cost_matrix = cdist(m1, m2, metric=metric)
+    # Cost between neurons (rows)
+    C = cdist(X, Y, metric=metric)  # (n1, n2)
 
-    # Uniform distributions
-    a = np.ones(m1.shape[0]) / m1.shape[0]
-    b = np.ones(m2.shape[0]) / m2.shape[0]
+    n1, n2 = X.shape[0], Y.shape[0]
+    a = np.full(n1, 1.0 / n1, dtype=np.float64)
+    b = np.full(n2, 1.0 / n2, dtype=np.float64)
 
-    # Compute optimal transport plan
     if approx:
-        transport_plan = ot.sinkhorn(a, b, cost_matrix, reg)
+        T = ot.sinkhorn(a, b, C, reg)
     else:
-        transport_plan = ot.emd(a, b, cost_matrix)
-    
-    # Compute distance: sum of transport plan * cost matrix
-    # For sqeuclidean metric: cost_matrix contains squared distances
-    #   - Do NOT take sqrt to maintain consistency with one-to-one and Procrustes
-    #   - All three methods should use squared distances for comparability
-    #   - This ensures: soft-matching ≤ one-to-one ≤ procrustes
-    # For euclidean metric: cost_matrix contains regular distances
-    #   - No sqrt needed (Wasserstein-1 distance)
-    # Note: The theoretical property soft-matching ≤ one-to-one ≤ procrustes
-    # holds because soft assignment is more flexible than hard assignment,
-    # which is more flexible than fixed correspondence (Procrustes).
-    distance = np.sum(transport_plan * cost_matrix)
+        T = ot.emd(a, b, C)
 
-    threshold = 1e-9
-    i_idx, j_idx = np.where(transport_plan > threshold)
-    pairs = {
-        (int(i), int(j)): float(transport_plan[i, j])
-        for i, j in zip(i_idx, j_idx, strict=False)
+    ot_cost = float(np.sum(T * C))
+    distance = float(np.sqrt(max(ot_cost, 0.0)))
+
+    i_idx, j_idx = np.where(T > threshold)
+    pairs: dict[tuple[int, int], float] = {
+        (int(i), int(j)): float(T[i, j]) for i, j in zip(i_idx, j_idx, strict=False)
     }
-    return float(distance), pairs
+
+    return distance, pairs
 
 
 def shape_distance(
     mtx1: npt.NDArray[np.float64],
     mtx2: npt.NDArray[np.float64],
     method: Literal["procrustes", "one-to-one", "soft-matching"] = "procrustes",
-    metric: str = "euclidean",
-    return_pairs: bool = False,
-    **method_kwargs: Any,  # Accept Any for now, validated at runtime
-) -> float | tuple[float, dict[tuple[int, int], float]]:
-    """Compute shape distance between two matrices.
+    metric: str = "sqeuclidean",
+    subsamples: Sequence[int] | None = None,
+    subsample_axes: Sequence[int] | None = None,
+    repeats: int = 10,
+    seed: int | None = None,
+    plot: bool = False,
+    **method_kwargs: Any,
+) -> tuple[
+    Union[float, npt.NDArray[np.float64]],
+    Union[Dict[Tuple[int, int], float], List[Dict[Tuple[int, int], float]]],
+    Dict[str, Any],
+]:
+    """
+    Compute a shape distance between two neural population activity matrices,
+    optionally using repeated random subsampling.
 
-    Unified interface for multiple shape comparison methods. Delegates to
-    specific method functions.
+    This function measures how similar the "shape" or structure of neural activity
+    patterns are between two populations. In biology, this helps answer questions like:
+    "Do these two brain regions encode information in the same way?" or "Has the neural
+    representation changed after learning or between different conditions?"
+
+    The function automatically handles cases where the two populations have different
+    numbers of neurons by using subsampling when needed. For methods that require
+    equal-sized populations (procrustes, one-to-one), subsampling is automatically
+    applied if the matrices have different numbers of neurons.
+
+    Matrix format:
+    - Rows (axis 0) = neurons: Each row represents one neuron's activity pattern
+    - Columns (axis 1) = features/conditions: Each column represents a feature dimension
+      (e.g., different stimuli, time points, or task conditions)
+
+    This function provides a unified interface for multiple shape comparison
+    methods and an optional subsampling scheme for robustness and fair
+    comparison when matrices differ in size. When no subsampling is requested,
+    the selected method is applied once to the full matrices. When subsampling
+    is enabled (either automatically or manually), the function repeatedly draws
+    random subsets along specified axes, evaluates the distance on each subset,
+    and returns all per-run distances together with detailed indexing metadata.
 
     Parameters
     ----------
-    mtx1 : ndarray of shape (n_samples, n_features)
+    mtx1 : ndarray of shape (n_neurons1, n_features)
         First matrix representing neural population activity.
-    mtx2 : ndarray of shape (n_samples, n_features)
-        Second matrix to compare with mtx1.
+        Rows = neurons, Columns = features/conditions (e.g., stimuli, time points).
+    mtx2 : ndarray of shape (n_neurons2, n_features)
+        Second matrix to compare with `mtx1`.
+        Rows = neurons, Columns = features/conditions (must match mtx1).
+        Can have a different number of neurons (rows) than mtx1.
     method : {'procrustes', 'one-to-one', 'soft-matching'}, default='procrustes'
         Shape comparison method:
         - 'procrustes': Optimal orthogonal alignment (rotation/reflection).
-            Preserves point correspondence, best for aligned data.
-        - 'one-to-one': Optimal hard assignment (Hungarian algorithm).
-            Permutation-invariant, finds best bijective matching.
+            Preserves point correspondence, best suited for aligned data with
+            fixed neuron identity.
+        - 'one-to-one': Optimal hard assignment (Hungarian/OT-like).
+            Permutation-invariant, finds a bijective matching between points.
         - 'soft-matching': Optimal transport with soft assignment.
-            Allows fractional matching, handles different point cloud sizes.
+            Allows fractional mass between points, handles different point
+            cloud sizes and yields a smoother distance.
     metric : str, default='sqeuclidean'
-        Distance metric for 'one-to-one' and 'soft-matching' methods.
-        Ignored for 'procrustes' method.
-        Use 'sqeuclidean' for comparability with Procrustes (which uses squared distances).
+        Distance metric used for 'one-to-one' and 'soft-matching'. Ignored
+        for 'procrustes'. Use 'sqeuclidean' to obtain squared distances that
+        are comparable to the Procrustes disparity.
+    subsamples : sequence of int or None, default=None
+        Subsample sizes along each axis listed in `subsample_axes`. If None,
+        subsampling is automatically applied when matrices have different numbers
+        of neurons (for methods that require equal sizes). If explicitly provided,
+        overrides automatic subsampling. For typical neuron subsampling, use `[0]` (rows).
+    subsample_axes : sequence of int or None, default=None
+        Axes along which to perform random subsampling. Must have the same
+        length as `subsamples` when explicitly provided. For automatic subsampling
+        (when matrices differ in neuron count), defaults to `[0]` (rows/neurons).
+    repeats : int, default=10
+        Number of independent subsampling runs when subsampling is enabled
+        (either automatically or manually). Ignored when no subsampling is needed
+        (in which case a single run is performed).
+    seed : int or None, default=None
+        Seed for the NumPy random number generator used for subsampling.
+        Set for reproducible subsampling; leave as None for non-deterministic
+        behavior.
     **method_kwargs
-        Additional keyword arguments passed to the specific method:
+        Additional keyword arguments passed to the method-specific
+        implementation. For example:
         - For 'soft-matching': approx (bool), reg (float)
-
-    return_pairs : bool, default=False
-        If True, return both distance and pair information.
-        If False, return only the distance value.
 
     Returns
     -------
-    distance : float
-        Shape distance between the two matrices. Lower values indicate
-        more similar shapes. Scale depends on the method used.
-        Only returned if return_pairs=False.
-    (distance, pairs) : tuple[float, dict]
-        If return_pairs=True, returns both distance and point correspondence:
-        - For 'procrustes': {(i, i): distance} - aligned point distances
-        - For 'one-to-one': {(i, j): distance} - optimal matching pairs
-        - For 'soft-matching': {(i, j): probability} - transport probabilities
+    distance : float or ndarray of shape (repeats,)
+        If subsampling is disabled (`subsamples` or `subsample_axes` is None),
+        returns a single scalar distance. If subsampling is enabled, returns a
+        1D array containing the distance from each subsampling run.
+        Lower values indicate more similar shapes.
+    pairs : dict or list of dict
+        Point correspondence information. For single-run mode (no subsampling),
+        this is a single dictionary:
+        - 'procrustes': {(i, i): distance_i} aligned point distances.
+        - 'one-to-one': {(i, j): distance_ij} optimal bijective matches.
+        - 'soft-matching': {(i, j): probability_ij} transport probabilities.
+        For subsampling mode, returns a list of such dictionaries, one per run.
+    metadata : dict
+        Dictionary with bookkeeping information about the computation, e.g.:
+        - 'method': selected method name.
+        - 'metric': distance metric used.
+        - 'mtx1_shape', 'mtx2_shape': original input shapes.
+        - 'runs': number of runs performed.
+        - 'indices' (only when subsampling is enabled): list of per-run
+          index mappings describing which rows were selected from each
+          matrix in each subsampling iteration.
 
     Raises
     ------
     ValueError
-        If an unknown method is specified.
+        If an unknown method is specified, if inputs are not two-dimensional,
+        if matrices have different numbers of features (columns), or if
+        subsampling parameters are inconsistent (e.g. mismatched length
+        of `subsamples` and `subsample_axes`).
+
+    Notes
+    -----
+    Automatic subsampling:
+    - When matrices have different numbers of neurons (rows) and the method requires
+      equal sizes (procrustes, one-to-one), subsampling is automatically applied.
+    - The subsample size is set to the minimum number of neurons across both matrices.
+    - Soft-matching can handle different neuron counts natively, so no automatic
+      subsampling is applied.
+    - Explicit subsampling parameters override automatic subsampling.
+
+    Biological interpretation:
+    - This function measures how similar the neural "code" or representation is
+      between two populations. A low distance means the populations encode information
+      in similar ways (e.g., similar tuning curves, similar response patterns).
+    - Useful for comparing: different brain regions, before/after learning, different
+      experimental conditions, or different animals.
+    - The three methods differ in how they handle neuron identity:
+      * Procrustes: Assumes neurons are in the same order (best for same recording session)
+      * One-to-one: Finds best matching between neurons (best for shuffled or unknown identities)
+      * Soft-matching: Allows partial matches (best for different-sized populations)
 
     Examples
     --------
-    >>> import numpy as np
-    >>> rng = np.random.RandomState(42)
-    >>> mtx1 = rng.randn(50, 10)
-    >>> mtx2 = rng.randn(50, 10)
-
-    >>> # Procrustes alignment
-    >>> dist, pairs = shape_distance(mtx1, mtx2, method='procrustes')
-    >>> print(f"Procrustes distance: {dist:.3f}")
-
-    >>> # Optimal matching
-    >>> dist, pairs = shape_distance(mtx1, mtx2, method='one-to-one',
-    ...                               metric='euclidean')
-
-    >>> # Soft optimal transport (can handle different sizes)
-    >>> mtx3 = rng.randn(60, 10)
-    >>> dist, pairs = shape_distance(mtx1, mtx3, method='soft-matching',
-    ...                               approx=True, reg=0.05)
+    >>> rng = np.random.default_rng(42)
+    >>> mtx1 = rng.standard_normal((50, 10))
+    >>> mtx2 = rng.standard_normal((50, 10))
+    >>>
+    >>> # Procrustes alignment on full matrices (single run)
+    >>> dist, pairs, meta = shape_distance(mtx1, mtx2, method="procrustes")
+    >>>
+    >>> # One-to-one matching with neuron subsampling
+    >>> dist_runs, pairs_runs, meta = shape_distance(
+    ...     mtx1, mtx2,
+    ...     method="one-to-one",
+    ...     metric="sqeuclidean",
+    ...     subsamples=[30],
+    ...     subsample_axes=[0],
+    ...     repeats=5,
+    ...     seed=0,
+    ... )
+    >>>
+    >>> # Soft optimal transport between unequal-size matrices, no subsampling
+    >>> mtx3 = rng.standard_normal((60, 10))
+    >>> dist, pairs, meta = shape_distance(
+    ...     mtx1, mtx3,
+    ...     method="soft-matching",
+    ...     approx=True,
+    ...     reg=0.05,
+    ... )
     """
-    match method:
-        case "procrustes":
-            dist, pairs = shape_distance_procrustes(mtx1, mtx2)
-        case "one-to-one":
-            dist, pairs = shape_distance_one_to_one(mtx1, mtx2, metric=metric)
-        case "soft-matching":
-            dist, pairs = shape_distance_soft_matching(
-                mtx1, mtx2, metric=metric, **method_kwargs
-            )
-        case _:
-            raise ValueError(
-                f"Unknown method '{method}'. "
-                "Choose 'procrustes', 'one-to-one', or 'soft-matching'."
-            )
+    if mtx1.ndim != 2 or mtx2.ndim != 2:
+        raise ValueError("Input matrices must be two-dimensional")
 
-    if return_pairs:
-        return dist, pairs
-    return dist
+    def core_compute(
+        a: npt.NDArray[np.float64],
+        b: npt.NDArray[np.float64],
+    ) -> tuple[float, Dict[Tuple[int, int], float]]:
+        match method:
+            case "procrustes":
+                return shape_distance_procrustes(a, b)
+            case "one-to-one":
+                return shape_distance_one_to_one(a, b, metric=metric)
+            case "soft-matching":
+                return shape_distance_soft_matching(
+                    a, b, metric=metric, **method_kwargs
+                )
+            case _:
+                raise ValueError(
+                    f"Unknown method '{method}'. "
+                    "Choose 'procrustes', 'one-to-one', or 'soft-matching'."
+                )
+
+    meta: Dict[str, Any] = {
+        "method": method,
+        "metric": metric,
+        "mtx1_shape": mtx1.shape,
+        "mtx2_shape": mtx2.shape,
+    }
+
+    # Check if matrices have different numbers of neurons (rows)
+    n_neurons1, n_features1 = mtx1.shape
+    n_neurons2, n_features2 = mtx2.shape
+
+    if n_features1 != n_features2:
+        raise ValueError(
+            f"Matrices must have the same number of features (columns). "
+            f"Got {n_features1} and {n_features2}."
+        )
+
+    # Determine if automatic subsampling is needed
+    # Procrustes and one-to-one require equal neuron counts
+    # Soft-matching can handle different neuron counts natively
+    needs_subsampling = False
+    if method in ("procrustes", "one-to-one") and n_neurons1 != n_neurons2:
+        needs_subsampling = True
+        if subsamples is None or subsample_axes is None:
+            # Automatically set up subsampling to the smaller neuron count
+            min_neurons = min(n_neurons1, n_neurons2)
+            subsamples = [min_neurons]
+            subsample_axes = [0]  # Subsample along rows (neurons)
+            meta["auto_subsampling"] = True
+            meta["subsample_size"] = min_neurons
+        else:
+            meta["auto_subsampling"] = False
+    else:
+        meta["auto_subsampling"] = False
+
+    # No subsampling → single run, scalar distance
+    if (subsamples is None or subsample_axes is None) and not needs_subsampling:
+        dist, pairs = core_compute(mtx1, mtx2)
+        meta["runs"] = 1
+        return dist, pairs, meta
+
+    # With subsampling → run_with_subsampling on the distance-only wrapper
+    if len(subsamples) != len(subsample_axes):
+        raise ValueError("subsamples and subsample_axes must have the same length")
+
+    def distance_only(a: npt.NDArray[np.float64], b: npt.NDArray[np.float64]) -> float:
+        d, _p = core_compute(a, b)
+        return d
+
+    values, meta_sub = run_with_subsampling(
+        func=distance_only,
+        arrays=(mtx1, mtx2),
+        subsamples=subsamples,
+        subsample_axes=subsample_axes,
+        repeats=repeats,
+        seed=seed,
+    )
+
+    # If you want pairs for subsampled runs as well, you can recompute on each
+    pairs_list: List[Dict[Tuple[int, int], float]] = []
+    for per_array_indexers in meta_sub["indices"]:
+        idx1 = [per_array_indexers[0].get(ax, slice(None)) for ax in range(mtx1.ndim)]
+        idx2 = [per_array_indexers[1].get(ax, slice(None)) for ax in range(mtx2.ndim)]
+        sub_mtx1 = mtx1[tuple(idx1)]
+        sub_mtx2 = mtx2[tuple(idx2)]
+        _d, p = core_compute(sub_mtx1, sub_mtx2)
+        pairs_list.append(p)
+
+    meta["runs"] = values.shape[0]
+    meta["indices"] = meta_sub["indices"]
+
+    return values, pairs_list, meta
 
 
 def _comparison_results_to_dataframe(

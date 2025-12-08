@@ -20,6 +20,7 @@ Features
 - **Metadata tracking**: mode, metric, timestamps, sample counts
 - **Query support**: Filter by metric, mode, dataset via pandas
 - **Type safety**: Explicit value_type tracking
+- **Auto-save/load**: General caching wrapper for any computation
 
 Examples
 --------
@@ -58,7 +59,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 import h5py
 import numpy as np
@@ -71,6 +72,8 @@ __all__ = [
     "save_comparison",
     "load_comparison",
     "query_comparisons",
+    "try_load_cached_comparison",
+    "save_comparison_result",
 ]
 
 logger = get_logger(__name__)
@@ -80,6 +83,9 @@ COMPRESSION = "gzip"
 COMPRESSION_LEVEL = 6
 SHUFFLE_FILTER = True
 CHUNK_SIZE_THRESHOLD = 10_000  # Elements threshold for chunking
+
+# Type variable for return type
+T = TypeVar("T")
 
 
 def _infer_value_type(value: Any) -> str:
@@ -101,6 +107,9 @@ def _infer_value_type(value: Any) -> str:
         return "matrix"
     elif isinstance(value, (int, float, np.number)):
         return "scalar"
+    elif isinstance(value, tuple):
+        # For shape metrics: (distance, pairs_dict)
+        return "scalar"  # Store distance as scalar, pairs separately if needed
     else:
         raise TypeError(
             f"Unsupported value type: {type(value)}. Expected float, ndarray, or dict"
@@ -108,26 +117,25 @@ def _infer_value_type(value: Any) -> str:
 
 
 def _encode_dict_for_hdf5(d: dict[str, dict[str, float]]) -> npt.NDArray[np.void]:
-    """Encode nested dict as structured array for HDF5 storage.
+    """Encode nested dict to structured array for HDF5 storage.
 
     Parameters
     ----------
     d : dict[str, dict[str, float]]
-        Nested dictionary with structure {dataset_i: {dataset_j: value}}
+        Nested dictionary (e.g., {dataset_i: {dataset_j: distance}})
 
     Returns
     -------
     ndarray
-        Structured array with dtype [("key_i", "S100"), ("key_j", "S100"),
-        ("value", "f8")]
+        Structured array with fields: (key_i, key_j, value)
     """
-    rows = [
-        (key_i.encode("utf-8"), key_j.encode("utf-8"), value)
-        for key_i, inner in d.items()
-        for key_j, value in inner.items()
-    ]
-    dtype = np.dtype([("key_i", "S100"), ("key_j", "S100"), ("value", "f8")])
-    return np.array(rows, dtype=dtype)
+    records = []
+    for key_i, inner_dict in d.items():
+        for key_j, value in inner_dict.items():
+            records.append((str(key_i), str(key_j), float(value)))
+
+    dtype = [("key_i", "U100"), ("key_j", "U100"), ("value", "f8")]
+    return np.array(records, dtype=dtype)
 
 
 def _decode_dict_from_hdf5(arr: npt.NDArray[np.void]) -> dict[str, dict[str, float]]:
@@ -136,18 +144,18 @@ def _decode_dict_from_hdf5(arr: npt.NDArray[np.void]) -> dict[str, dict[str, flo
     Parameters
     ----------
     arr : ndarray
-        Structured array from HDF5 with dtype containing key_i, key_j, value
+        Structured array from HDF5
 
     Returns
     -------
     dict[str, dict[str, float]]
-        Nested dictionary {dataset_i: {dataset_j: value}}
+        Nested dictionary
     """
     result: dict[str, dict[str, float]] = {}
-    for row in arr:
-        key_i = row["key_i"].decode("utf-8")
-        key_j = row["key_j"].decode("utf-8")
-        value = float(row["value"])
+    for record in arr:
+        key_i = str(record["key_i"])
+        key_j = str(record["key_j"])
+        value = float(record["value"])
 
         if key_i not in result:
             result[key_i] = {}
@@ -363,49 +371,31 @@ def load_comparison(
         or result_key not in results[dataset_name]
     ):
         raise KeyError(
-            f"Comparison not found: {dataset_name}/{result_key}. "
-            f"Check file contents with query_comparisons()."
+            f"Comparison not found: {filepath}:{dataset_name}/{result_key}"
         )
 
-    # Extract the single result
-    result_data = results[dataset_name][result_key]
-    attrs = result_data.get("attributes", result_data.get("attrs", {}))
-    arrays = result_data.get("arrays", {})
-    value_type = attrs.get("value_type", "unknown")
+    entry = results[dataset_name][result_key]
 
-    # Decode based on value_type
-    result: float | npt.NDArray[np.floating] | dict[str, dict[str, float]]
+    # Reconstruct value based on value_type
+    value_type = entry.get("scalars", {}).get("value_type", "scalar")
     if value_type == "scalar":
-        result = float(attrs["value"])
+        return float(entry["scalars"]["value"])
     elif value_type == "matrix":
-        result = arrays["value"]
+        return np.asarray(entry["arrays"]["value"], dtype=np.float64)
     elif value_type == "dict":
-        result = _decode_dict_from_hdf5(arrays["value"])
+        return _decode_dict_from_hdf5(entry["arrays"]["value"])
     else:
-        logger.warning(f"Unknown value_type '{value_type}', returning raw array")
-        result = arrays.get("value", np.array([]))
-
-    logger.info(f"Successfully loaded comparison (type={value_type})")
-    return result
+        raise TypeError(f"Unknown value_type: {value_type}")
 
 
 def query_comparisons(
     filepath: str | Path,
     metric: str | None = None,
+    mode: str | None = None,
     dataset_i: str | None = None,
     dataset_j: str | None = None,
-    mode: str | None = None,
-    load_values: bool = False,
-    use_sql: bool = True,
 ) -> pd.DataFrame:
-    """Query comparisons with optional filters (delegates to io.py backend).
-
-    **RECOMMENDED**: Use io.load_results_from_hdf5_dataset() with filter_attrs
-    for new code.
-
-    This function provides comparison-specific query interface, then delegates to
-    io.load_results_from_hdf5_dataset() for actual HDF5 operations.
-    Optionally uses SQL metadata for fast queries.
+    """Query stored comparisons with filters.
 
     Parameters
     ----------
@@ -413,127 +403,220 @@ def query_comparisons(
         Path to HDF5 file
     metric : str, optional
         Filter by metric name
-    dataset_i : str, optional
-        Filter by first dataset identifier
-    dataset_j : str, optional
-        Filter by second dataset identifier
     mode : str, optional
         Filter by mode ("within", "between", "all-pairs")
-    load_values : bool, default=False
-        If True, load comparison values into "value" column (memory intensive)
-    use_sql : bool, default=True
-        Whether to use SQL metadata for fast queries (if available)
+    dataset_i : str, optional
+        Filter by first dataset name
+    dataset_j : str, optional
+        Filter by second dataset name
 
     Returns
     -------
-    DataFrame
-        Table with columns: metric, dataset_i, dataset_j, mode
-        If load_values=True, also includes "value" column
+    pandas.DataFrame
+        DataFrame with columns: comparison_name, metric, mode, dataset_i,
+        dataset_j, value_type, timestamp, etc.
 
     Examples
     --------
-    >>> # Query all euclidean distance comparisons
-    >>> df = query_comparisons(filepath="results.h5", metric="euclidean")
+    >>> # Find all Wasserstein comparisons
+    >>> df = query_comparisons("results.h5", metric="wasserstein")
     >>>
-    >>> # Query between-dataset comparisons
-    >>> df = query_comparisons(filepath="results.h5", mode="between")
-    >>>
-    >>> # Query with loaded values
-    >>> df = query_comparisons(
-    ...     filepath="results.h5",
-    ...     metric="wasserstein",
-    ...     load_values=True
-    ... )
-    >>> df["value"].mean()  # Compute mean distance
+    >>> # Find comparisons involving "control" dataset
+    >>> df = query_comparisons("results.h5", dataset_i="control")
     """
     from neural_analysis.utils.io import load_results_from_hdf5_dataset
 
     filepath_obj = Path(filepath)
     if not filepath_obj.exists():
-        raise FileNotFoundError(f"HDF5 file not found: {filepath}")
+        return pd.DataFrame()
 
-    logger.info(f"Querying comparisons from {filepath}")
+    # Load all results
+    all_results = load_results_from_hdf5_dataset(save_path=filepath)
 
-    # Try SQL metadata query first (faster)
-    if use_sql:
-        try:
-            from neural_analysis.utils.storage.manager import StorageManager
-
-            storage_manager = StorageManager()
-            if storage_manager.metadata.is_available():
-                # Build filters
-                filters: dict[str, Any] = {"file_path": str(filepath_obj.resolve())}
-                if metric is not None:
-                    filters["metric"] = metric
-                if mode is not None:
-                    filters["mode"] = mode
-                if dataset_i is not None:
-                    filters["dataset_i"] = dataset_i
-                if dataset_j is not None:
-                    filters["dataset_j"] = dataset_j
-
-                sql_results = storage_manager.query_data(filters=filters)
-                if not sql_results.empty:
-                    logger.info(f"SQL query returned {len(sql_results)} comparisons")
-                    # If load_values, we still need to load from HDF5
-                    if load_values:
-                        # Fall through to HDF5 loading
-                        pass
-                    else:
-                        # Return metadata-only results
-                        return sql_results[["metric", "dataset_i", "dataset_j", "mode"]]
-        except Exception:
-            # SQL unavailable, continue with HDF5
-            pass
-
-    # Build filter for io.py backend
-    filter_attrs: dict[str, Any] = {}
-    if mode is not None:
-        filter_attrs["mode"] = mode
-    if dataset_i is not None:
-        filter_attrs["dataset_i"] = dataset_i
-    if dataset_j is not None:
-        filter_attrs["dataset_j"] = dataset_j
-    if metric is not None:
-        filter_attrs["metric"] = metric
-
-    # Load all results from specified metric (or all metrics if None)
-    results = load_results_from_hdf5_dataset(
-        save_path=filepath,
-        dataset_name=metric,  # None = load all metrics
-        result_key=None,  # Load all comparisons
-        filter_attrs=filter_attrs if filter_attrs else None,
-        use_sql_query=use_sql,
-    )
-
-    # Convert to DataFrame
-    rows: list[dict[str, Any]] = []
-    for dataset_name, result_dict in results.items():
-        for _result_key, result_data in result_dict.items():
-            attrs = result_data.get("attrs", {})
-            arrays = result_data.get("arrays", {})
-
+    rows = []
+    for dataset_name, result_dict in all_results.items():
+        for result_key, entry in result_dict.items():
+            scalars = entry.get("scalars", {})
             row = {
-                "metric": attrs.get("metric", dataset_name),
-                "dataset_i": attrs.get("dataset_i", ""),
-                "dataset_j": attrs.get("dataset_j", ""),
-                "mode": attrs.get("mode", ""),
+                "comparison_name": dataset_name,
+                "result_key": result_key,
+                "metric": scalars.get("metric"),
+                "mode": scalars.get("mode"),
+                "dataset_i": scalars.get("dataset_i"),
+                "dataset_j": scalars.get("dataset_j"),
+                "value_type": scalars.get("value_type"),
+                "timestamp": scalars.get("timestamp"),
             }
-
-            if load_values:
-                value_type = attrs.get("value_type", "unknown")
-                if value_type == "scalar":
-                    row["value"] = attrs.get("value")
-                elif value_type == "matrix":
-                    row["value"] = arrays.get("value")
-                elif value_type == "dict":
-                    row["value"] = _decode_dict_from_hdf5(arrays["value"])
-                else:
-                    row["value"] = arrays.get("value")
-
             rows.append(row)
 
+    if not rows:
+        return pd.DataFrame()
+
     df = pd.DataFrame(rows)
-    logger.info(f"Query returned {len(df)} comparisons")
+
+    # Apply filters
+    if metric is not None:
+        df = df[df["metric"] == metric]
+    if mode is not None:
+        df = df[df["mode"] == mode]
+    if dataset_i is not None:
+        df = df[df["dataset_i"] == dataset_i]
+    if dataset_j is not None:
+        df = df[df["dataset_j"] == dataset_j]
 
     return df
+
+
+def try_load_cached_comparison(
+    save_path: str | Path,
+    mode: str,
+    metric: str,
+    dataset_names: tuple[str, str] | None = None,
+) -> Any | None:
+    """Try to load a cached comparison result.
+
+    This is a helper function for auto-save/load logic that attempts to load
+    cached results based on mode and metric.
+
+    Parameters
+    ----------
+    save_path : str or Path
+        Path to HDF5 file
+    mode : {"between", "all-pairs"}
+        Comparison mode (within mode not supported)
+    metric : str
+        Metric name
+    dataset_names : tuple[str, str], optional
+        Dataset names for between mode. Required for mode="between".
+
+    Returns
+    -------
+    Any or None
+        Cached result if found, None otherwise
+
+    Raises
+    ------
+    ValueError
+        If mode="between" and dataset_names is None
+    """
+    save_path_obj = Path(save_path)
+    if not save_path_obj.exists():
+        return None
+
+    try:
+        if mode == "between":
+            if dataset_names is None:
+                raise ValueError(
+                    "dataset_names required for save_path with mode='between'. "
+                    "Provide tuple like ('control', 'treatment')"
+                )
+            dataset_i, dataset_j = dataset_names
+            cached_result = load_comparison(
+                save_path_obj, metric, dataset_i, dataset_j
+            )
+            logger.info(
+                f"Successfully loaded cached result from {save_path}: "
+                f"{metric}/{dataset_i}___{dataset_j}"
+            )
+            return cached_result
+        elif mode == "all-pairs":
+            # For all-pairs, we use a special dataset pair naming
+            cached_result = load_comparison(
+                save_path_obj, metric, "all_pairs", "all_pairs"
+            )
+            logger.info(
+                f"Successfully loaded cached all-pairs result from {save_path}"
+            )
+            return cached_result
+        # Within mode doesn't support save_path (single dataset)
+        return None
+    except (FileNotFoundError, KeyError) as e:
+        logger.info(
+            f"Cache miss ({type(e).__name__}), will compute result: {e}"
+        )
+        return None
+
+
+def save_comparison_result(
+    save_path: str | Path,
+    mode: str,
+    metric: str,
+    result: Any,
+    dataset_names: tuple[str, str] | None = None,
+    metadata: dict[str, Any] | None = None,
+    overwrite: bool = False,
+) -> None:
+    """Save a comparison result to HDF5.
+
+    This is a helper function for auto-save/load logic that saves results
+    based on mode and metric.
+
+    Parameters
+    ----------
+    save_path : str or Path
+        Path to HDF5 file
+    mode : {"between", "all-pairs"}
+        Comparison mode (within mode not supported)
+    metric : str
+        Metric name
+    result : Any
+        Result to save (float, ndarray, or dict)
+    dataset_names : tuple[str, str], optional
+        Dataset names for between mode. Required for mode="between".
+    metadata : dict, optional
+        Additional metadata to store
+    overwrite : bool, default=False
+        If True, overwrite existing comparison
+
+    Raises
+    ------
+    ValueError
+        If mode="between" and dataset_names is None
+    """
+    if mode == "between":
+        if dataset_names is None:
+            raise ValueError(
+                "dataset_names required for save_path with mode='between'. "
+                "Provide tuple like ('control', 'treatment')"
+            )
+        dataset_i, dataset_j = dataset_names
+
+        # Handle dict return from compute_between_distances
+        save_value: float | npt.NDArray[np.floating] | dict[str, dict[str, float]]
+        if isinstance(result, dict) and "value" in result:
+            save_value = float(result["value"])  # type: ignore[assignment]
+        elif isinstance(result, tuple):
+            # For shape metrics: (distance, pairs_dict)
+            save_value = float(result[0])  # type: ignore[assignment]
+        else:
+            save_value = result  # type: ignore[assignment]
+
+        save_comparison(
+            filepath=save_path,
+            metric=metric,
+            dataset_i=dataset_i,
+            dataset_j=dataset_j,
+            mode=mode,
+            value=save_value,
+            metadata=metadata,
+            overwrite=overwrite,
+        )
+        logger.info(
+            f"Saved between-mode result: {metric}/{dataset_i}___{dataset_j}"
+        )
+    elif mode == "all-pairs":
+        # Determine number of datasets for all-pairs
+        n_datasets = len(result) if isinstance(result, dict) else 1
+        save_val_all_pairs = result  # type: ignore[assignment]
+        save_comparison(
+            filepath=save_path,
+            metric=metric,
+            dataset_i="all_pairs",
+            dataset_j="all_pairs",
+            mode=mode,
+            value=save_val_all_pairs,
+            metadata={"n_datasets": n_datasets, **(metadata or {})},
+            overwrite=overwrite,
+        )
+        logger.info(f"Saved all-pairs result: {metric}/all_pairs")
+    # Within mode: no save (single dataset, less useful to cache)

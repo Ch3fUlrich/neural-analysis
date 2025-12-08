@@ -68,6 +68,7 @@ DatasetType = Literal[
     "mixed_cells",
     "position_trajectory",
     "head_direction",
+    "shape_distance_clusters",  # For shape distance validation
 ]
 
 
@@ -199,13 +200,18 @@ def generate_data(
         case "head_direction":
             return _generate_head_direction(n_samples, seed, **kwargs)
 
+        case "shape_distance_clusters":
+            return _generate_shape_distance_clusters(
+                n_samples, n_features, seed, **kwargs
+            )
+
         case _:
             raise ValueError(
                 f"Unknown dataset type: {dataset_type}. "
                 f"Available types: swiss_roll, s_curve, blobs, moons, circles, "
                 f"classification, regression, place_cells, grid_cells, random_cells, "
                 f"head_direction_cells, mixed_cells, position_trajectory, "
-                f"head_direction"
+                f"head_direction, shape_distance_clusters"
             )
 
 
@@ -2158,3 +2164,315 @@ def generate_mixed_population_flexible(
         )
 
     return combined_activity, metadata
+
+
+# ============================================================================
+# Shape Distance Validation Data Generators
+# ============================================================================
+
+
+def generate_cluster_templates(
+    n_clusters: int,
+    n_features: int,
+    cluster_separation: float = 15.0,
+    seed: int | None = None,
+) -> npt.NDArray[np.float64]:
+    """Generate cluster templates with fundamentally different structures.
+
+    Creates distinct cluster templates where each cluster has completely
+    different patterns (frequency structures, sparsity patterns, block structures)
+    that create shape differences surviving rotation/reflection/translation/scale
+    normalization. This is essential for validating shape distance metrics.
+
+    Parameters
+    ----------
+    n_clusters : int
+        Number of distinct clusters to generate.
+    n_features : int
+        Number of features (dimensions) in the feature space.
+    cluster_separation : float, default=15.0
+        Separation factor controlling how distinct clusters are.
+        Higher values create more separated clusters.
+    seed : int or None, default=None
+        Random seed for reproducibility.
+
+    Returns
+    -------
+    templates : ndarray of shape (n_clusters, n_features)
+        Cluster templates, each row is a distinct template pattern.
+
+    Examples
+    --------
+    >>> templates = generate_cluster_templates(n_clusters=5, n_features=100)
+    >>> # Each template has fundamentally different structure
+    >>> # templates.shape = (5, 100)
+    """
+    rng = np.random.default_rng(seed if seed is not None else 0)
+    templates = []
+
+    for k in range(n_clusters):
+        cluster_rng = np.random.default_rng((seed or 0) + k * 1000)
+
+        # Create completely independent patterns (no shared base)
+        # Each cluster is fundamentally different
+        pattern = np.zeros(n_features)
+
+        # Method 1: Different frequency structures
+        # Each cluster uses different frequency combinations
+        for freq_mult in range(1, 6):  # Multiple frequencies
+            freq = freq_mult * (k + 1)  # Cluster-specific frequencies
+            if freq < n_features / 2:
+                x = np.linspace(0, 4 * np.pi, n_features)
+                phase = cluster_rng.uniform(0, 2 * np.pi)
+                amplitude = cluster_separation / freq_mult
+                pattern += amplitude * np.sin(freq * x + phase)
+
+        # Method 2: Different sparsity patterns
+        # Each cluster has different important features
+        n_active = n_features // (2 + k)  # Different sparsity per cluster
+        active_indices = cluster_rng.choice(n_features, size=n_active, replace=False)
+        active_values = cluster_rng.normal(0, cluster_separation, size=n_active)
+        pattern[active_indices] += active_values
+
+        # Method 3: Different block structures
+        # Each cluster has different feature groupings
+        n_blocks = 3 + k
+        block_size = n_features // n_blocks
+        for b in range(n_blocks):
+            start = b * block_size
+            end = min((b + 1) * block_size, n_features)
+            # Different block values per cluster
+            block_val = cluster_rng.normal(0, cluster_separation * 0.7)
+            pattern[start:end] += block_val
+
+        templates.append(pattern)
+
+    return np.stack(templates, axis=0).astype(np.float64)
+
+
+def generate_dataset_from_cluster_template(
+    template: npt.NDArray[np.float64],
+    n_neurons: int,
+    noise_scale: float = 0.1,
+    cluster_id: int = 0,
+    seed: int | None = None,
+) -> npt.NDArray[np.float64]:
+    """Generate a neural dataset from a cluster template.
+
+    Creates datasets with cluster-specific point arrangements that create
+    shape differences surviving rotation/reflection/translation/scale normalization.
+    Different clusters have different point cloud geometries (linear, curved, spread).
+
+    Parameters
+    ----------
+    template : ndarray of shape (n_features,)
+        Cluster template pattern to use as base.
+    n_neurons : int
+        Number of neurons (rows) in the generated dataset.
+    noise_scale : float, default=0.1
+        Standard deviation of noise to add.
+    cluster_id : int, default=0
+        Cluster identifier determining the geometric structure type.
+        Different cluster_ids create different intrinsic dimensionalities and
+        point arrangements.
+    seed : int or None, default=None
+        Random seed for reproducibility.
+
+    Returns
+    -------
+    dataset : ndarray of shape (n_neurons, n_features)
+        Generated neural dataset with cluster-specific geometry.
+
+    Notes
+    -----
+    The function creates different geometric structures per cluster:
+    - cluster_id % 3 == 0: Points along a curve (1D manifold)
+    - cluster_id % 3 == 1: Points in a plane (2D manifold)
+    - cluster_id % 3 == 2: Spread distribution (higher intrinsic dim)
+
+    Examples
+    --------
+    >>> template = generate_cluster_templates(n_clusters=1, n_features=100)[0]
+    >>> dataset = generate_dataset_from_cluster_template(
+    ...     template, n_neurons=50, cluster_id=0
+    ... )
+    >>> # dataset.shape = (50, 100)
+    """
+    rng = np.random.default_rng(seed)
+    n_features = template.shape[0]
+    cluster_rng = np.random.default_rng((seed or 0) + cluster_id * 1000)
+
+    X = np.zeros((n_neurons, n_features))
+
+    # Create different point arrangements per cluster
+    # This creates geometric shape differences
+
+    # Different intrinsic dimensionality per cluster
+    n_intrinsic = max(3, min(12, n_features // (2 + cluster_id)))
+
+    # Generate points with cluster-specific geometry
+    if cluster_id % 3 == 0:
+        # Type 0: Points along a curve (1D manifold embedded in high-D)
+        t = np.linspace(0, 2 * np.pi, n_neurons)
+        intrinsic = np.zeros((n_neurons, n_intrinsic))
+        for dim in range(n_intrinsic):
+            intrinsic[:, dim] = np.sin((dim + 1) * t)
+    elif cluster_id % 3 == 1:
+        # Type 1: Points in a plane (2D manifold)
+        t1 = np.linspace(0, 2 * np.pi, int(np.sqrt(n_neurons)))
+        t2 = np.linspace(0, 2 * np.pi, int(np.sqrt(n_neurons)))
+        T1, T2 = np.meshgrid(t1, t2)
+        intrinsic = np.zeros((n_neurons, n_intrinsic))
+        if n_intrinsic >= 2:
+            intrinsic[: len(T1.ravel()), 0] = T1.ravel()[:n_neurons]
+            intrinsic[: len(T2.ravel()), 1] = T2.ravel()[:n_neurons]
+        # Fill remaining with small values
+        intrinsic[:, 2:] = cluster_rng.normal(0, 0.1, size=(n_neurons, n_intrinsic - 2))
+    else:
+        # Type 2: More spread distribution (higher intrinsic dim)
+        intrinsic = cluster_rng.normal(0, 1, size=(n_neurons, n_intrinsic))
+
+    # Create cluster-specific embedding
+    from scipy.linalg import svd
+
+    embedding = cluster_rng.normal(0, 1, size=(n_intrinsic, n_features))
+    U, s, Vt = svd(embedding, full_matrices=False)
+    embedding_ortho = U @ Vt
+
+    # Embed to feature space
+    X_embedded = intrinsic @ embedding_ortho
+
+    # Add template with appropriate scaling
+    template_norm = np.linalg.norm(template)
+    embedded_norm = (
+        np.linalg.norm(X_embedded) / np.sqrt(n_neurons) if n_neurons > 0 else 1
+    )
+    if template_norm > 0 and embedded_norm > 0:
+        scale = embedded_norm / template_norm
+        X = X_embedded + template[None, :] * scale
+    else:
+        X = X_embedded + template[None, :]
+
+    # Add small noise
+    noise = rng.normal(0, noise_scale, size=(n_neurons, n_features))
+    X = X + noise
+
+    return X.astype(np.float64)
+
+
+def generate_shape_distance_datasets(
+    n_datasets: int = 100,
+    n_clusters: int = 5,
+    min_neurons: int = 50,
+    max_neurons: int = 200,
+    n_features: int = 300,
+    cluster_separation: float = 15.0,
+    noise_scale: float = 0.1,
+    seed: int | None = None,
+) -> tuple[list[npt.NDArray[np.float64]], npt.NDArray[np.int_]]:
+    """Generate multiple neural datasets with distinct cluster structure.
+
+    Generates K neural datasets, each with different numbers of neurons but
+    belonging to one of n_clusters. Each cluster has fundamentally different
+    structure that survives rotation/reflection/translation/scale normalization,
+    making it suitable for validating shape distance metrics.
+
+    Parameters
+    ----------
+    n_datasets : int, default=100
+        Total number of datasets to generate.
+    n_clusters : int, default=5
+        Number of distinct clusters (each dataset belongs to one cluster).
+    min_neurons : int, default=50
+        Minimum number of neurons per dataset.
+    max_neurons : int, default=200
+        Maximum number of neurons per dataset.
+    n_features : int, default=300
+        Number of features (dimensions) per dataset.
+    cluster_separation : float, default=15.0
+        Separation factor for cluster templates (higher = more distinct).
+    noise_scale : float, default=0.1
+        Noise level added to each dataset.
+    seed : int or None, default=None
+        Random seed for reproducibility.
+
+    Returns
+    -------
+    datasets : list of ndarray
+        List of K datasets, each of shape (n_neurons_i, n_features).
+        Each dataset has a different number of neurons.
+    labels : ndarray of shape (n_datasets,)
+        Cluster labels for each dataset (0 to n_clusters-1).
+
+    Examples
+    --------
+    >>> datasets, labels = generate_shape_distance_datasets(
+    ...     n_datasets=50,
+    ...     n_clusters=5,
+    ...     min_neurons=30,
+    ...     max_neurons=80,
+    ...     n_features=100
+    ... )
+    >>> # datasets[0].shape might be (45, 100)
+    >>> # datasets[1].shape might be (67, 100)
+    >>> # labels indicates which cluster each dataset belongs to
+    """
+    rng = np.random.default_rng(seed if seed is not None else 1)
+    templates = generate_cluster_templates(
+        n_clusters, n_features, cluster_separation=cluster_separation, seed=seed
+    )
+    datasets: list[npt.NDArray[np.float64]] = []
+    labels = np.zeros(n_datasets, dtype=int)
+
+    for i in range(n_datasets):
+        cluster_id = i % n_clusters
+        labels[i] = cluster_id
+        template = templates[cluster_id]
+        n_neurons = rng.integers(min_neurons, max_neurons + 1)
+        X = generate_dataset_from_cluster_template(
+            template,
+            n_neurons,
+            noise_scale=noise_scale,
+            cluster_id=cluster_id,
+            seed=seed,
+        )
+        datasets.append(X)
+
+    return datasets, labels
+
+
+def _generate_shape_distance_clusters(
+    n_samples: int,
+    n_features: int | None,
+    seed: int | None,
+    **kwargs: Any,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.int_]]:
+    """Internal function for generate_data() to create shape distance clusters."""
+    n_features = n_features or 100
+    n_datasets = n_samples
+    n_clusters = kwargs.get("n_clusters", 5)
+    min_neurons = kwargs.get("min_neurons", 50)
+    max_neurons = kwargs.get("max_neurons", 200)
+    cluster_separation = kwargs.get("cluster_separation", 15.0)
+    noise_scale = kwargs.get("noise", 0.1)
+
+    datasets, labels = generate_shape_distance_datasets(
+        n_datasets=n_datasets,
+        n_clusters=n_clusters,
+        min_neurons=min_neurons,
+        max_neurons=max_neurons,
+        n_features=n_features,
+        cluster_separation=cluster_separation,
+        noise_scale=noise_scale,
+        seed=seed,
+    )
+
+    # For compatibility with generate_data interface, we need to return
+    # a single array. However, datasets have different sizes, so we can't
+    # stack them. Instead, return the first dataset and labels.
+    # Note: This is a limitation - users should call generate_shape_distance_datasets
+    # directly for proper usage.
+    if len(datasets) > 0:
+        return datasets[0], labels
+    else:
+        return np.zeros((0, n_features), dtype=np.float64), np.zeros(0, dtype=int)

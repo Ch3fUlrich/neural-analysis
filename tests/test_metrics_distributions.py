@@ -204,7 +204,7 @@ class TestShapeDistance:
         points1 = np.random.randn(50, 3)
         points2 = points1.copy()
 
-        dist = shape_distance(points1, points2, method="procrustes")
+        dist, pairs, meta = shape_distance(points1, points2, method="procrustes")
         assert dist == pytest.approx(0.0, abs=1e-6)
 
     def test_procrustes_rotated(self) -> None:
@@ -223,7 +223,7 @@ class TestShapeDistance:
         )
         points2 = points1 @ rotation_matrix.T
 
-        dist = shape_distance(points1, points2, method="procrustes")
+        dist, pairs, meta = shape_distance(points1, points2, method="procrustes")
         # Should be near zero after alignment
         assert dist < 0.1
 
@@ -234,7 +234,7 @@ class TestShapeDistance:
         points1 = np.random.randn(30, 2)
         points2 = np.random.randn(30, 2) + 1.0
 
-        dist = shape_distance(points1, points2, method="one-to-one")
+        dist, pairs, meta = shape_distance(points1, points2, method="one-to-one")
         assert dist > 0
 
     def test_soft_matching_method(self) -> None:
@@ -244,7 +244,7 @@ class TestShapeDistance:
         points1 = np.random.randn(40, 2)
         points2 = np.random.randn(40, 2) + 0.5
 
-        dist = shape_distance(points1, points2, method="soft-matching")
+        dist, pairs, meta = shape_distance(points1, points2, method="soft-matching")
         assert dist > 0
 
     def test_mismatched_dimensions_raises(self) -> None:
@@ -271,8 +271,8 @@ class TestShapeDistance:
             points1 = np.random.randn(20, 5)
             points2 = np.random.randn(20, 5)
 
-            dist_procrustes = shape_distance(points1, points2, method="procrustes")
-            dist_one_to_one = shape_distance(points1, points2, method="one-to-one")
+            dist_procrustes, _, _ = shape_distance(points1, points2, method="procrustes")
+            dist_one_to_one, _, _ = shape_distance(points1, points2, method="one-to-one")
 
             # Allow small numerical tolerance
             assert dist_one_to_one <= dist_procrustes * 1.0001, (
