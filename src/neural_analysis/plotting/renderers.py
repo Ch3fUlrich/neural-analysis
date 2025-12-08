@@ -1974,11 +1974,11 @@ def render_trajectory3d_plotly(
         if colorbar_label:
             colorbar_dict["title"] = colorbar_label
         marker_config_dict: dict[str, Any] = {
-            "color": colors,
-            "colorscale": cmap,
-            "showscale": colorbar,
+                "color": colors,
+                "colorscale": cmap,
+                "showscale": colorbar,
             "colorbar": colorbar_dict,
-        }
+            }
         marker_config.update(marker_config_dict)
 
     return go.Scatter3d(

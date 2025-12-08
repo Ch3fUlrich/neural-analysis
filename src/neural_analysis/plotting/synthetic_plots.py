@@ -472,7 +472,7 @@ def _collect_plot_specs(
                     )
                 else:
                     coverage_spec_local = None
-                
+
                 if coverage_spec_local is not None:
                     if isinstance(coverage_spec_local, list):
                         coverage_specs.extend(coverage_spec_local)
