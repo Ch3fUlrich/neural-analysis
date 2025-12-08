@@ -1076,36 +1076,48 @@ def compute_all_pairs(
         data_i = datasets[name_i]
         data_j = datasets[name_j]
 
-        # For shape metrics, require same sample count for within-dataset
-        if name_i == name_j and metric_normalized in SHAPE_METRICS:
-            # Within-dataset comparison with shape metric
-            # Shape metrics need two separate point clouds, so we split dataset
-            n_samples = data_i.shape[0]
-            if n_samples < 4:
-                # Too few samples to split meaningfully
-                logger.debug(
-                    f"Dataset '{name_i}' has <4 samples, setting self-distance to 0"
-                )
+        # Handle diagonal (self-comparison) cases
+        if name_i == name_j:
+            # For distribution metrics, self-distance should be 0
+            if metric_normalized in DISTRIBUTION_METRICS:
                 results[name_i][name_j] = 0.0
                 continue
+            
+            # For shape metrics, require same sample count for within-dataset
+            if metric_normalized in SHAPE_METRICS:
+                # Within-dataset comparison with shape metric
+                # Shape metrics need two separate point clouds, so we split dataset
+                n_samples = data_i.shape[0]
+                if n_samples < 4:
+                    # Too few samples to split meaningfully
+                    logger.debug(
+                        f"Dataset '{name_i}' has <4 samples, setting self-distance to 0"
+                    )
+                    results[name_i][name_j] = 0.0
+                    continue
 
-            # Split into two equal-sized halves for self-comparison
-            # Procrustes requires identical shapes, so both halves must have same count
-            mid = n_samples // 2
-            data_i_half1 = data_i[:mid]
-            data_i_half2 = data_i[mid : 2 * mid]  # Take mid:2*mid to ensure equal size
+                # Split into two equal-sized halves for self-comparison
+                # Procrustes requires identical shapes, so both halves must have same count
+                mid = n_samples // 2
+                data_i_half1 = data_i[:mid]
+                data_i_half2 = data_i[mid : 2 * mid]  # Take mid:2*mid to ensure equal size
 
-            result = compute_pairwise_matrix(
-                data_i_half1,
-                data_i_half2,
-                metric=metric_normalized,
-                parallel=parallel,
-                **metric_kwargs,
-            )
-            # Shape metrics return tuple
-            dist = result[0] if isinstance(result, tuple) else float(result)
+                result = compute_pairwise_matrix(
+                    data_i_half1,
+                    data_i_half2,
+                    metric=metric_normalized,
+                    parallel=parallel,
+                    **metric_kwargs,
+                )
+                # Shape metrics return tuple
+                dist = result[0] if isinstance(result, tuple) else float(result)
+            else:
+                # Should not happen (point-to-point metrics not allowed in all-pairs)
+                raise ValueError(
+                    f"Unexpected metric '{metric_normalized}' for all-pairs mode"
+                )
         else:
-            # Between-dataset or within-dataset with distribution metric
+            # Between-dataset comparison
             result = compute_pairwise_matrix(
                 data_i,
                 data_j,

@@ -554,11 +554,11 @@ This plan outlines the systematic migration of ~16,134 lines of legacy code from
 - Use `structure_index.py` for topology analysis
 - Use shape similarity from `distributions.py`
 - Include all analysis types:
- - Dimensionality reduction benchmarking
- - Decoding validation
- - Cell type classification
- - Noise impact analysis
- - Embedding quality assessment
+- Dimensionality reduction benchmarking
+- Decoding validation
+- Cell type classification
+- Noise impact analysis
+- Embedding quality assessment
 
 **Available Functions** (from summary):
 
