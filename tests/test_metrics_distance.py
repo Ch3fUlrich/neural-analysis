@@ -195,8 +195,8 @@ class TestCompareDatasetsAutoSave:
             dataset_names=("control", "treatment"),
         )
 
-        # Results should match
-        assert result2 == pytest.approx(result1["value"])
+        # Results should match (both are BetweenResult dicts)
+        assert result2["value"] == pytest.approx(result1["value"])
 
     def test_regenerate_forces_recomputation(self, tmp_path) -> None:
         """Test that regenerate=True forces recomputation."""
@@ -242,8 +242,8 @@ class TestCompareDatasetsAutoSave:
             regenerate=True,
         )
 
-        # Cached result should equal first result
-        assert result2 == pytest.approx(result1["value"])
+        # Cached result should equal first result (both are BetweenResult dicts)
+        assert result2["value"] == pytest.approx(result1["value"])
         # Regenerated result should differ (different data)
         assert result3["value"] != pytest.approx(result1["value"])
 

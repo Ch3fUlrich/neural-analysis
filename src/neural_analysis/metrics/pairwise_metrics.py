@@ -600,7 +600,13 @@ def compute_pairwise_matrix(
             "jensen-shannon": jensen_shannon_divergence,
         }
         func = metric_func_map[metric_normalized]
-        return func(x_arr, y_arr, **metric_kwargs)  # type: ignore[no-any-return]
+        # Filter out storage-related kwargs that metric functions don't accept
+        # These are used by higher-level functions but not by the metric functions themselves
+        storage_kwargs = {"dataset_i", "dataset_j", "comparison_name", "save_path"}
+        filtered_kwargs = {
+            k: v for k, v in metric_kwargs.items() if k not in storage_kwargs
+        }
+        return func(x_arr, y_arr, **filtered_kwargs)  # type: ignore[no-any-return]
 
     # Shape metrics (return tuple)
     elif metric_normalized in ["procrustes", "one-to-one", "soft-matching"]:
@@ -614,15 +620,23 @@ def compute_pairwise_matrix(
             metric_normalized,
         )
 
+        # shape_distance returns (distance, pairs, metadata) - extract first two
+        dist, pairs, _meta = shape_distance(
+            x_arr.astype(np.float64),
+            y_arr.astype(np.float64),
+            method=method_typed,
+            **metric_kwargs,
+        )
+
+        # Handle subsampling case (returns array)
+        if isinstance(dist, np.ndarray):
+            dist = float(np.mean(dist))
+        else:
+            dist = float(dist)
+
         return cast(
             "tuple[float, dict[tuple[int, int], float]]",
-            shape_distance(
-                x_arr.astype(np.float64),
-                y_arr.astype(np.float64),
-                method=method_typed,
-                return_pairs=True,
-                **metric_kwargs,
-            ),
+            (dist, pairs),
         )
 
     else:
@@ -943,7 +957,15 @@ def compute_between_distances(
     elif metric_normalized in SHAPE_METRICS:
         # Shape metrics return tuple (distance, pairs)
         assert isinstance(result, tuple), f"Expected tuple for {metric_normalized}"
-        dist, _pairs = result
+        # Handle tuple of 2 or 3 elements (some functions may return metadata)
+        if len(result) == 2:
+            dist, _pairs = result
+        elif len(result) == 3:
+            dist, _pairs, _meta = result
+        else:
+            raise ValueError(
+                f"Unexpected tuple length {len(result)} for shape metric {metric_normalized}"
+            )
         logger.info(f"Shape distance: {dist:.6f}")
         return float(dist)
 

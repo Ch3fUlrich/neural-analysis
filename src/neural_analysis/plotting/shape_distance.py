@@ -2,6 +2,9 @@
 
 This module provides functions to visualize shape distance matrices using
 MDS (Multidimensional Scaling) and related embedding techniques.
+
+All distance computation should be done using `compare_datasets` from
+`neural_analysis.metrics.pairwise_metrics`. This module only handles visualization.
 """
 
 from __future__ import annotations
@@ -19,107 +22,6 @@ from neural_analysis.plotting.grid_config import (
     PlotGrid,
     PlotSpec,
 )
-
-
-def compute_pairwise_distance_matrix(
-    datasets: list[npt.NDArray[np.float64]],
-    method: Literal["procrustes", "one-to-one", "soft-matching"] = "procrustes",
-    metric: str = "sqeuclidean",
-    max_neurons: int | None = None,
-    show_progress: bool = True,
-    **method_kwargs: Any,
-) -> npt.NDArray[np.float64]:
-    """Compute pairwise distance matrix between multiple datasets.
-
-    Uses `compute_all_pairs` from `pairwise_metrics` and converts the result
-    to a symmetric distance matrix.
-
-    Parameters
-    ----------
-    datasets : list of ndarray
-        List of datasets, each of shape (n_neurons_i, n_features).
-    method : {'procrustes', 'one-to-one', 'soft-matching'}, default='procrustes'
-        Shape distance method to use.
-    metric : str, default='sqeuclidean'
-        Distance metric for one-to-one and soft-matching.
-        Passed to shape_distance via metric_kwargs.
-    max_neurons : int or None, default=None
-        Maximum number of neurons to use per dataset (for speed).
-        If None, uses all neurons.
-    show_progress : bool, default=True
-        Show progress bar during computation.
-    **method_kwargs
-        Additional keyword arguments for shape_distance (e.g., approx, reg).
-
-    Returns
-    -------
-    distance_matrix : ndarray of shape (n_datasets, n_datasets)
-        Symmetric pairwise distance matrix.
-
-    Notes
-    -----
-    This function uses `compute_all_pairs` internally, which handles the
-    parameter name conflict between the shape method name (passed as `metric`
-    to `compute_all_pairs`) and the distance metric (passed as `metric` in
-    `metric_kwargs` to `shape_distance`).
-    """
-    n_datasets = len(datasets)
-
-    # Subsample if needed for speed
-    if max_neurons is not None:
-        rng = np.random.default_rng(42)
-        subsampled_datasets = []
-        for d in datasets:
-            N, F = d.shape
-            if N > max_neurons:
-                idx = rng.choice(N, size=max_neurons, replace=False)
-                subsampled_datasets.append(d[idx])
-            else:
-                subsampled_datasets.append(d)
-        datasets = subsampled_datasets
-
-    # Compute pairwise distances using shape_distance directly
-    # Note: We can't use compute_all_pairs here due to parameter name conflict:
-    # - compute_all_pairs uses 'metric' for the shape method name
-    # - shape_distance also uses 'metric' for the distance metric (sqeuclidean, etc.)
-    # So we call shape_distance directly in a loop, which is cleaner and avoids the conflict
-    from neural_analysis.metrics.distributions import shape_distance
-    from tqdm.auto import tqdm
-
-    D = np.zeros((n_datasets, n_datasets), dtype=np.float64)
-
-    # Compute pairwise distances (only upper triangle + diagonal for efficiency)
-    pairs = [
-        (i, j)
-        for i in range(n_datasets)
-        for j in range(i, n_datasets)  # Include diagonal for within-dataset distances
-    ]
-
-    iterator = (
-        tqdm(pairs, desc=f"Computing {method} distances", disable=not show_progress)
-        if show_progress
-        else pairs
-    )
-
-    for i, j in iterator:
-        dist, _, _ = shape_distance(
-            datasets[i],
-            datasets[j],
-            method=method,
-            metric=metric,  # Distance metric (sqeuclidean, etc.)
-            **method_kwargs,
-        )
-        # Handle subsampling case (returns array)
-        if isinstance(dist, np.ndarray):
-            dist = float(np.mean(dist))
-        dist = float(dist)
-
-        # Fill symmetric matrix
-        D[i, j] = dist
-        if i != j:
-            D[j, i] = dist
-
-    return D
 
 
 def embed_mds(
@@ -184,12 +86,13 @@ def embed_mds_pca(
     actual_mds_dim = min(mds_dim, n_samples - 1)  # MDS needs at least n_samples-1
     if actual_mds_dim < mds_dim:
         import warnings
+
         warnings.warn(
             f"Reducing mds_dim from {mds_dim} to {actual_mds_dim} "
             f"because n_samples={n_samples}",
             UserWarning,
         )
-    
+
     Z = embed_mds(distance_matrix, n_components=actual_mds_dim, seed=seed)
     # Ensure pca_dim doesn't exceed the MDS embedding dimension
     actual_pca_dim = min(pca_dim, Z.shape[1])
@@ -198,27 +101,61 @@ def embed_mds_pca(
 
 
 def plot_shape_distance_mds(
-    distance_matrices: dict[str, npt.NDArray[np.float64]],
+    distance_matrices: dict[str, npt.NDArray[np.float64]] | None = None,
+    datasets: list[npt.NDArray[np.float64]] | None = None,
+    methods: list[Literal["procrustes", "one-to-one", "soft-matching"]] | None = None,
     labels: npt.NDArray[np.int_] | None = None,
     backend: Literal["matplotlib", "plotly"] = "matplotlib",
     figsize: tuple[float, float] = (12, 12),
+    save_path: str | None = None,
+    regenerate: bool = False,
+    show_progress: bool = True,
+    **metric_kwargs: Any,
 ) -> Any:
     """Plot MDS embeddings for multiple distance matrices using PlotGrid.
 
     Creates a grid of MDS and MDS+PCA visualizations for each distance matrix,
     with optional cluster-based coloring.
 
+    This function can either:
+    1. Accept pre-computed distance matrices (via `distance_matrices`)
+    2. Compute distance matrices from datasets using `compare_datasets`
+       (via `datasets` and `methods`)
+
     Parameters
     ----------
-    distance_matrices : dict
+    distance_matrices : dict, optional
         Dictionary mapping method names to distance matrices.
         Each matrix should be of shape (n_datasets, n_datasets).
+        If provided, `datasets` and `methods` are ignored.
+    datasets : list of ndarray, optional
+        List of datasets, each of shape (n_neurons_i, n_features).
+        Required if `distance_matrices` is not provided.
+        Used with `methods` to compute distances via `compare_datasets`.
+    methods : list of str, optional
+        List of shape distance methods to compute.
+        Valid values: "procrustes", "one-to-one", "soft-matching".
+        Required if `distance_matrices` is not provided.
+        Used with `datasets` to compute distances via `compare_datasets`.
     labels : ndarray of shape (n_datasets,) or None, default=None
         Cluster labels for coloring points. If None, all points are same color.
     backend : {'matplotlib', 'plotly'}, default='matplotlib'
         Plotting backend to use.
     figsize : tuple of float, default=(12, 12)
         Figure size (width, height) in inches.
+    save_path : str or None, optional
+        Path to HDF5 file for automatic result caching when computing distances.
+        Only used when `datasets` and `methods` are provided.
+    regenerate : bool, default=False
+        Force recomputation even if cached result exists.
+        Only used when `datasets` and `methods` are provided.
+    show_progress : bool, default=True
+        Show progress bar during distance computation.
+        Only used when `datasets` and `methods` are provided.
+    **metric_kwargs
+        Additional keyword arguments passed to `compare_datasets` when computing
+        distances (e.g., metric="sqeuclidean", max_neurons=30).
+        Only used when `datasets` and `methods` are provided.
 
     Returns
     -------
@@ -227,22 +164,80 @@ def plot_shape_distance_mds(
 
     Examples
     --------
-    >>> from neural_analysis.plotting.shape_distance import (
-    ...     compute_pairwise_distance_matrix,
-    ...     plot_shape_distance_mds,
-    ... )
+    **Using pre-computed distance matrices**:
+
+    >>> from neural_analysis.plotting.shape_distance import plot_shape_distance_mds
+    >>> from neural_analysis.metrics.pairwise_metrics import compare_datasets
     >>> datasets = [np.random.randn(50, 10) for _ in range(20)]
     >>> labels = np.random.randint(0, 3, 20)
-    >>> 
-    >>> # Compute distance matrices for multiple methods
+    >>>
+    >>> # Compute distance matrices using compare_datasets
     >>> distance_matrices = {}
+    >>> datasets_dict = {str(i): d for i, d in enumerate(datasets)}
     >>> for method in ["procrustes", "one-to-one", "soft-matching"]:
-    ...     D = compute_pairwise_distance_matrix(datasets, method=method)
+    ...     result = compare_datasets(
+    ...         datasets_dict, mode="all-pairs", metric=method, **metric_kwargs
+    ...     )
+    ...     # Convert dict result to symmetric matrix
+    ...     n = len(datasets)
+    ...     D = np.zeros((n, n))
+    ...     for i in range(n):
+    ...         for j in range(n):
+    ...             D[i, j] = result[str(i)][str(j)]
     ...     distance_matrices[method] = D
-    >>> 
+    >>>
     >>> # Plot MDS visualizations
     >>> fig = plot_shape_distance_mds(distance_matrices, labels=labels)
+
+    **Computing distances automatically**:
+
+    >>> from neural_analysis.plotting.shape_distance import plot_shape_distance_mds
+    >>> datasets = [np.random.randn(50, 10) for _ in range(20)]
+    >>> labels = np.random.randint(0, 3, 20)
+    >>>
+    >>> # Plot with automatic distance computation
+    >>> fig = plot_shape_distance_mds(
+    ...     datasets=datasets,
+    ...     methods=["procrustes", "one-to-one", "soft-matching"],
+    ...     labels=labels,
+    ...     save_path="results.h5",
+    ...     metric="sqeuclidean",
+    ...     max_neurons=30,
+    ... )
     """
+    from neural_analysis.metrics.pairwise_metrics import compare_datasets
+
+    # Determine if we need to compute distances or use provided matrices
+    if distance_matrices is None:
+        if datasets is None or methods is None:
+            raise ValueError(
+                "Either `distance_matrices` must be provided, or both "
+                "`datasets` and `methods` must be provided."
+            )
+
+        # Compute distance matrices using compare_datasets
+        n_datasets = len(datasets)
+        datasets_dict = {str(i): d for i, d in enumerate(datasets)}
+        distance_matrices = {}
+
+        for method in methods:
+            # Compute all-pairs distances
+            result = compare_datasets(
+                datasets_dict,
+                mode="all-pairs",
+                metric=method,
+                save_path=save_path,
+                regenerate=regenerate,
+                show_progress=show_progress,
+                **metric_kwargs,
+            )
+
+            # Convert dict result to symmetric matrix
+            D = np.zeros((n_datasets, n_datasets), dtype=np.float64)
+            for i in range(n_datasets):
+                for j in range(n_datasets):
+                    D[i, j] = result[str(i)][str(j)]
+            distance_matrices[method] = D
     methods = list(distance_matrices.keys())
     n_methods = len(methods)
     unique_labels = np.unique(labels) if labels is not None else None
@@ -343,4 +338,3 @@ def plot_shape_distance_mds(
     )
 
     return grid.plot()
-

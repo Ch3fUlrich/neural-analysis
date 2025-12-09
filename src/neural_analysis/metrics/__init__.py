@@ -25,8 +25,6 @@ __all__ = [
     "SCALAR_METRICS",
     "ALL_METRICS",
     # Distribution comparison
-    "compare_distributions",
-    "compare_distribution_groups",
     "pairwise_distribution_comparison_batch",
     "batch_comparison",
     # Similarity measures
@@ -69,11 +67,7 @@ def __getattr__(name: str) -> Any:
     ):
         mod = importlib.import_module("neural_analysis.metrics.pairwise_metrics")
         return getattr(mod, name)
-    if name in (
-        "compare_distributions",
-        "compare_distribution_groups",
-        "batch_comparison",
-    ):
+    if name == "batch_comparison":
         mod = importlib.import_module("neural_analysis.metrics.distributions")
         return getattr(mod, name)
     if name in (

@@ -389,7 +389,7 @@ print("- Cosine: Relatively stable (direction-based)")
 #
 # This ordering holds because:
 # - **Soft-matching**: Allows fractional assignment (most flexible)
-# - **One-to-one**: Enforces hard assignment (less flexible)  
+# - **One-to-one**: Enforces hard assignment (less flexible)
 # - **Procrustes**: Preserves point correspondence (least flexible)
 #
 # All methods normalize matrices to unit Frobenius norm and use squared distances for comparability.
@@ -475,10 +475,7 @@ if "summary" in results:
 # --- Cell 16 (code) ---
 # Generate datasets with distinct clusters and visualize using MDS
 from neural_analysis.data.synthetic_data import generate_shape_distance_datasets
-from neural_analysis.plotting.shape_distance import (
-    compute_pairwise_distance_matrix,
-    plot_shape_distance_mds,
-)
+from neural_analysis.plotting.shape_distance import plot_shape_distance_mds
 
 # Generate datasets with distinct cluster structure
 print("Generating datasets with distinct clusters for MDS visualization...")
@@ -494,26 +491,16 @@ datasets, labels = generate_shape_distance_datasets(
 print(f"Generated {len(datasets)} datasets with {len(np.unique(labels))} clusters")
 print(f"Cluster distribution: {dict(zip(*np.unique(labels, return_counts=True)))}")
 
-# Compute distance matrices for each method
-print("\nComputing distance matrices...")
-distance_matrices = {}
-
-for method_name in ["procrustes", "one-to-one", "soft-matching"]:
-    print(f"  Computing {method_name} distances...")
-    D = compute_pairwise_distance_matrix(
-        datasets,
-        method=method_name,
-        max_neurons=30,  # Limit for speed
-    )
-    distance_matrices[method_name] = D
-
-# Visualize using MDS
-print("\nCreating MDS visualizations...")
+# Visualize using MDS (distances computed automatically using compare_datasets)
+print("\nComputing distance matrices and creating MDS visualizations...")
 fig = plot_shape_distance_mds(
-    distance_matrices,
+    datasets=datasets,
+    methods=["procrustes", "one-to-one", "soft-matching"],
     labels=labels,
     backend="matplotlib",
     figsize=(12, 12),
+    max_neurons=30,  # Limit for speed
+    show_progress=True,
 )
 
 print("\n✓ MDS plots show how well each method separates clusters")
@@ -833,7 +820,7 @@ print(pd.DataFrame(matrix_vals, index=angle_names, columns=angle_names).round(2)
 # **Decision Tree:**
 # - **Need geometric interpretation?** → Use Wasserstein
 # - **One-dimensional data with hypothesis testing?** → Use K-S
-# - **Comparing probability distributions symmetrically?** → Use Jensen-Shannon  
+# - **Comparing probability distributions symmetrically?** → Use Jensen-Shannon
 # - **Quick centroid check for correlated data?** → Use Mahalanobis (means)
 # - **Just checking if distributions differ?** → Use K-S or Wasserstein
 #

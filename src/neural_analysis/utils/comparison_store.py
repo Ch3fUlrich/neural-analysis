@@ -131,7 +131,7 @@ def _encode_dict_for_hdf5(d: dict[str, dict[str, float]]) -> npt.NDArray[np.void
         String fields are stored as bytes (S100) for HDF5 compatibility
     """
     from neural_analysis.utils.io import _to_bytes_array
-    
+
     records = []
     for key_i, inner_dict in d.items():
         for key_j, value in inner_dict.items():
@@ -156,23 +156,23 @@ def _decode_dict_from_hdf5(arr: npt.NDArray[np.void]) -> dict[str, dict[str, flo
         Nested dictionary
     """
     from neural_analysis.utils.io import _from_bytes_array
-    
+
     result: dict[str, dict[str, float]] = {}
     for record in arr:
         # Handle both bytes (S) and Unicode (U) string types
         key_i_bytes = record["key_i"]
         key_j_bytes = record["key_j"]
-        
+
         if isinstance(key_i_bytes, bytes):
             key_i = key_i_bytes.decode("utf-8").rstrip("\x00")
         else:
             key_i = str(key_i_bytes)
-            
+
         if isinstance(key_j_bytes, bytes):
             key_j = key_j_bytes.decode("utf-8").rstrip("\x00")
         else:
             key_j = str(key_j_bytes)
-            
+
         value = float(record["value"])
 
         if key_i not in result:
@@ -401,7 +401,7 @@ def load_comparison(
     # load_results_from_hdf5_dataset returns {"attributes": {...}, "arrays": {...}}
     attrs = entry.get("attributes", {})
     arrays = entry.get("arrays", {})
-    
+
     value_type = attrs.get("value_type", "scalar")
     if value_type == "scalar":
         return float(attrs["value"])

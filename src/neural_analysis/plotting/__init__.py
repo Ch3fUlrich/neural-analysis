@@ -54,7 +54,6 @@ from .plots_3d import (
     plot_trajectory_3d,
 )
 from .shape_distance import (
-    compute_pairwise_distance_matrix,
     embed_mds,
     embed_mds_pca,
     plot_shape_distance_mds,
@@ -96,7 +95,6 @@ __all__ = [
     "plot_box",
     "plot_grouped_distributions",
     "plot_comparison_distributions",
-    "compute_pairwise_distance_matrix",
     "embed_mds",
     "embed_mds_pca",
     "plot_shape_distance_mds",
