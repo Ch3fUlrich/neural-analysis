@@ -13,8 +13,6 @@ import numpy.typing as npt
 from sklearn.decomposition import PCA
 
 from neural_analysis.embeddings.dimensionality_reduction import compute_embedding
-from neural_analysis.metrics.pairwise_metrics import compute_all_pairs
-from neural_analysis.plotting.embeddings import plot_embedding_2d
 from neural_analysis.plotting.grid_config import (
     GridLayoutConfig,
     PlotConfig,
@@ -80,27 +78,46 @@ def compute_pairwise_distance_matrix(
                 subsampled_datasets.append(d)
         datasets = subsampled_datasets
 
-    # Convert list to dict for compute_all_pairs
-    datasets_dict = {str(i): d for i, d in enumerate(datasets)}
+    # Compute pairwise distances using shape_distance directly
+    # Note: We can't use compute_all_pairs here due to parameter name conflict:
+    # - compute_all_pairs uses 'metric' for the shape method name
+    # - shape_distance also uses 'metric' for the distance metric (sqeuclidean, etc.)
+    # So we call shape_distance directly in a loop, which is cleaner and avoids the conflict
+    from neural_analysis.metrics.distributions import shape_distance
+    from tqdm.auto import tqdm
 
-    # Use compute_all_pairs with shape metric
-    # Note: compute_all_pairs uses 'metric' for the shape method name,
-    # and we pass the distance metric (sqeuclidean, etc.) via metric_kwargs
-    # The distance metric parameter name for shape_distance is also 'metric',
-    # so we pass it via metric_kwargs
-    metric_kwargs = {"metric": metric, **method_kwargs}
-    results = compute_all_pairs(
-        datasets_dict,
-        metric=method,  # Shape method name (procrustes, one-to-one, soft-matching)
-        show_progress=show_progress,
-        **metric_kwargs,  # Contains metric='sqeuclidean' and other shape_distance kwargs
+    D = np.zeros((n_datasets, n_datasets), dtype=np.float64)
+
+    # Compute pairwise distances (only upper triangle + diagonal for efficiency)
+    pairs = [
+        (i, j)
+        for i in range(n_datasets)
+        for j in range(i, n_datasets)  # Include diagonal for within-dataset distances
+    ]
+
+    iterator = (
+        tqdm(pairs, desc=f"Computing {method} distances", disable=not show_progress)
+        if show_progress
+        else pairs
     )
 
-    # Convert nested dict to symmetric matrix
-    D = np.zeros((n_datasets, n_datasets), dtype=np.float64)
-    for i in range(n_datasets):
-        for j in range(n_datasets):
-            D[i, j] = results[str(i)][str(j)]
+    for i, j in iterator:
+        dist, _, _ = shape_distance(
+            datasets[i],
+            datasets[j],
+            method=method,
+            metric=metric,  # Distance metric (sqeuclidean, etc.)
+            **method_kwargs,
+        )
+        # Handle subsampling case (returns array)
+        if isinstance(dist, np.ndarray):
+            dist = float(np.mean(dist))
+        dist = float(dist)
+
+        # Fill symmetric matrix
+        D[i, j] = dist
+        if i != j:
+            D[j, i] = dist
 
     return D
 
@@ -188,7 +205,8 @@ def plot_shape_distance_mds(
 ) -> Any:
     """Plot MDS embeddings for multiple distance matrices using PlotGrid.
 
-    Uses `plot_embedding_2d` from `plotting.embeddings` for each embedding.
+    Creates a grid of MDS and MDS+PCA visualizations for each distance matrix,
+    with optional cluster-based coloring.
 
     Parameters
     ----------
@@ -206,6 +224,24 @@ def plot_shape_distance_mds(
     -------
     fig
         Figure object from the plotting backend.
+
+    Examples
+    --------
+    >>> from neural_analysis.plotting.shape_distance import (
+    ...     compute_pairwise_distance_matrix,
+    ...     plot_shape_distance_mds,
+    ... )
+    >>> datasets = [np.random.randn(50, 10) for _ in range(20)]
+    >>> labels = np.random.randint(0, 3, 20)
+    >>> 
+    >>> # Compute distance matrices for multiple methods
+    >>> distance_matrices = {}
+    >>> for method in ["procrustes", "one-to-one", "soft-matching"]:
+    ...     D = compute_pairwise_distance_matrix(datasets, method=method)
+    ...     distance_matrices[method] = D
+    >>> 
+    >>> # Plot MDS visualizations
+    >>> fig = plot_shape_distance_mds(distance_matrices, labels=labels)
     """
     methods = list(distance_matrices.keys())
     n_methods = len(methods)

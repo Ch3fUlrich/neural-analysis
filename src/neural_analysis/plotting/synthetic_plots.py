@@ -1676,22 +1676,32 @@ def _compute_hd_tuning_curve(
 
     Args:
         activity: Neural activity matrix (n_samples, n_cells).
-        head_directions: Head direction angles in radians [-π, +π], shape (n_samples,).
+        head_directions: Head direction angles in radians [0, 2π), shape (n_samples,).
+            Angles are normalized to [0, 2π) if needed.
         cell_idx: Index of the cell to compute tuning for.
         n_bins: Number of angular bins.
 
     Returns:
-        angles_deg: Bin centers in degrees.
+        angles_deg: Bin centers in degrees [0, 360).
         rates: Mean firing rates per bin.
     """
-    angle_bins = np.linspace(0, 2* np.pi, n_bins + 1)
+    # Normalize head directions to [0, 2π) range
+    hd_normalized = head_directions.copy()
+    hd_normalized = hd_normalized % (2 * np.pi)
+    # Handle negative angles
+    hd_normalized[hd_normalized < 0] += 2 * np.pi
+    
+    # Create bins from 0 to 2π
+    angle_bins = np.linspace(0, 2 * np.pi, n_bins + 1)
     bin_centers = (angle_bins[:-1] + angle_bins[1:]) / 2
     rates = np.zeros(n_bins)
 
     for i in range(n_bins):
-        mask = (head_directions >= angle_bins[i]) & (
-            head_directions < angle_bins[i + 1]
-        )
+        # Handle the last bin to include 2π (wrap-around)
+        if i == n_bins - 1:
+            mask = (hd_normalized >= angle_bins[i]) & (hd_normalized <= angle_bins[i + 1])
+        else:
+            mask = (hd_normalized >= angle_bins[i]) & (hd_normalized < angle_bins[i + 1])
         if mask.sum() > 0:
             rates[i] = activity[mask, cell_idx].mean()
 
@@ -1751,6 +1761,7 @@ def _create_hd_example_cells(
             kwargs={
                 "x_label": "Head Direction (°)",
                 "y_label": "Firing Rate (Hz)",
+                "set_xlim": (0.0, 360.0),  # Explicitly set full 0-360° range
             },
         )
         specs.append(spec)
@@ -1929,6 +1940,7 @@ def _create_random_hd_tuning_examples(
             kwargs={
                 "x_label": "Head Direction (°)",
                 "y_label": "Firing Rate (Hz)",
+                "set_xlim": (0.0, 360.0),  # Explicitly set full 0-360° range
             },
         )
         specs.append(spec)
@@ -1963,6 +1975,11 @@ def _create_hd_tuning_plot(
         subplot_position=subplot_position,
         title="Head Direction Tuning",
         color=colors[0],
+        kwargs={
+            "x_label": "Head Direction (°)",
+            "y_label": "Firing Rate (Hz)",
+            "set_xlim": (0.0, 360.0),  # Explicitly set full 0-360° range
+        },
     )
 
     return spec

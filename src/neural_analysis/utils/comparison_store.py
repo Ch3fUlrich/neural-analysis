@@ -128,13 +128,17 @@ def _encode_dict_for_hdf5(d: dict[str, dict[str, float]]) -> npt.NDArray[np.void
     -------
     ndarray
         Structured array with fields: (key_i, key_j, value)
+        String fields are stored as bytes (S100) for HDF5 compatibility
     """
+    from neural_analysis.utils.io import _to_bytes_array
+    
     records = []
     for key_i, inner_dict in d.items():
         for key_j, value in inner_dict.items():
             records.append((str(key_i), str(key_j), float(value)))
 
-    dtype = [("key_i", "U100"), ("key_j", "U100"), ("value", "f8")]
+    # Use bytes dtype (S100) instead of Unicode (U100) for HDF5 compatibility
+    dtype = [("key_i", "S100"), ("key_j", "S100"), ("value", "f8")]
     return np.array(records, dtype=dtype)
 
 
@@ -144,17 +148,31 @@ def _decode_dict_from_hdf5(arr: npt.NDArray[np.void]) -> dict[str, dict[str, flo
     Parameters
     ----------
     arr : ndarray
-        Structured array from HDF5
+        Structured array from HDF5 (with bytes string fields)
 
     Returns
     -------
     dict[str, dict[str, float]]
         Nested dictionary
     """
+    from neural_analysis.utils.io import _from_bytes_array
+    
     result: dict[str, dict[str, float]] = {}
     for record in arr:
-        key_i = str(record["key_i"])
-        key_j = str(record["key_j"])
+        # Handle both bytes (S) and Unicode (U) string types
+        key_i_bytes = record["key_i"]
+        key_j_bytes = record["key_j"]
+        
+        if isinstance(key_i_bytes, bytes):
+            key_i = key_i_bytes.decode("utf-8").rstrip("\x00")
+        else:
+            key_i = str(key_i_bytes)
+            
+        if isinstance(key_j_bytes, bytes):
+            key_j = key_j_bytes.decode("utf-8").rstrip("\x00")
+        else:
+            key_j = str(key_j_bytes)
+            
         value = float(record["value"])
 
         if key_i not in result:
@@ -252,12 +270,17 @@ def save_comparison(
     if not overwrite:
         filepath_obj = Path(filepath)
         if filepath_obj.exists():
-            with h5py.File(filepath_obj, "r") as f:
-                if dataset_name in f and result_key in f[dataset_name]:
-                    raise ValueError(
-                        f"Comparison already exists: {dataset_name}/{result_key}. "
-                        "Set overwrite=True to replace."
-                    )
+            try:
+                with h5py.File(filepath_obj, "r") as f:
+                    if dataset_name in f and result_key in f[dataset_name]:
+                        raise ValueError(
+                            f"Comparison already exists: {dataset_name}/{result_key}. "
+                            "Set overwrite=True to replace."
+                        )
+            except (OSError, IOError):
+                # File exists but is corrupted or not a valid HDF5 file
+                # Continue to overwrite it
+                pass
 
     # Prepare scalar_data and array_data for io.py backend
     scalar_data: dict[str, Any] = {
@@ -370,20 +393,22 @@ def load_comparison(
         or dataset_name not in results
         or result_key not in results[dataset_name]
     ):
-        raise KeyError(
-            f"Comparison not found: {filepath}:{dataset_name}/{result_key}"
-        )
+        raise KeyError(f"Comparison not found: {filepath}:{dataset_name}/{result_key}")
 
     entry = results[dataset_name][result_key]
 
     # Reconstruct value based on value_type
-    value_type = entry.get("scalars", {}).get("value_type", "scalar")
+    # load_results_from_hdf5_dataset returns {"attributes": {...}, "arrays": {...}}
+    attrs = entry.get("attributes", {})
+    arrays = entry.get("arrays", {})
+    
+    value_type = attrs.get("value_type", "scalar")
     if value_type == "scalar":
-        return float(entry["scalars"]["value"])
+        return float(attrs["value"])
     elif value_type == "matrix":
-        return np.asarray(entry["arrays"]["value"], dtype=np.float64)
+        return np.asarray(arrays["value"], dtype=np.float64)
     elif value_type == "dict":
-        return _decode_dict_from_hdf5(entry["arrays"]["value"])
+        return _decode_dict_from_hdf5(arrays["value"])
     else:
         raise TypeError(f"Unknown value_type: {value_type}")
 
@@ -511,9 +536,7 @@ def try_load_cached_comparison(
                     "Provide tuple like ('control', 'treatment')"
                 )
             dataset_i, dataset_j = dataset_names
-            cached_result = load_comparison(
-                save_path_obj, metric, dataset_i, dataset_j
-            )
+            cached_result = load_comparison(save_path_obj, metric, dataset_i, dataset_j)
             logger.info(
                 f"Successfully loaded cached result from {save_path}: "
                 f"{metric}/{dataset_i}___{dataset_j}"
@@ -524,16 +547,12 @@ def try_load_cached_comparison(
             cached_result = load_comparison(
                 save_path_obj, metric, "all_pairs", "all_pairs"
             )
-            logger.info(
-                f"Successfully loaded cached all-pairs result from {save_path}"
-            )
+            logger.info(f"Successfully loaded cached all-pairs result from {save_path}")
             return cached_result
         # Within mode doesn't support save_path (single dataset)
         return None
-    except (FileNotFoundError, KeyError) as e:
-        logger.info(
-            f"Cache miss ({type(e).__name__}), will compute result: {e}"
-        )
+    except (FileNotFoundError, KeyError, OSError, IOError) as e:
+        logger.info(f"Cache miss ({type(e).__name__}), will compute result: {e}")
         return None
 
 
@@ -601,9 +620,7 @@ def save_comparison_result(
             metadata=metadata,
             overwrite=overwrite,
         )
-        logger.info(
-            f"Saved between-mode result: {metric}/{dataset_i}___{dataset_j}"
-        )
+        logger.info(f"Saved between-mode result: {metric}/{dataset_i}___{dataset_j}")
     elif mode == "all-pairs":
         # Determine number of datasets for all-pairs
         n_datasets = len(result) if isinstance(result, dict) else 1

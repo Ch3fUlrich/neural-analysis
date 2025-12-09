@@ -1379,6 +1379,20 @@ def compare_datasets(
                 dataset_names=dataset_names,
             )
             if cached_result is not None:
+                # For between-mode with scalar result, wrap in dict for consistency
+                # (same as computed results)
+                if (
+                    mode == "between"
+                    and not return_matrix
+                    and isinstance(cached_result, (int, float, np.floating))
+                ):
+                    return cast(
+                        "BetweenResult",
+                        {
+                            "value": float(cached_result),
+                            "metric": str(metric),
+                        },
+                    )
                 return cached_result
         else:
             logger.info("regenerate=True, forcing recomputation (will overwrite cache)")
@@ -1462,9 +1476,9 @@ def compare_datasets(
                 "dataset_names required for save_path with mode='between'. "
                 "Provide tuple like ('control', 'treatment')"
             )
-        
+
         from neural_analysis.utils.comparison_store import save_comparison_result
-        
+
         try:
             save_comparison_result(
                 save_path=save_path,
