@@ -1335,7 +1335,9 @@ def shape_distance_procrustes(
     Y_aligned = R @ Y
     diff = X - Y_aligned
 
-    distance = float(np.linalg.norm(diff, ord="fro"))
+    # Normalize by sqrt(N) for per-neuron RMS to make it comparable with one-to-one/soft-matching
+    N = X.shape[0]
+    distance = float(np.linalg.norm(diff, ord="fro") / np.sqrt(N))
 
     if not return_pairs:
         return distance, None
