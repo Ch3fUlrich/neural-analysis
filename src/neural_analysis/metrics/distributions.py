@@ -1266,16 +1266,9 @@ def shape_distance_procrustes(
 
     Computes the minimal Frobenius norm after optimal rotation/reflection Q in neuron
     space (rows=neurons N, columns=conditions M). Assumes FIXED point correspondence
-    (row i in X ↔ row i in Y), optimizing only global orthogonal transform.
-    
-    Ordering relationship: The relationship between d_O (Procrustes), d_P (one-to-one),
-    and d_T (soft-matching) depends on data alignment:
-    - For well-aligned data (same neuron order, rotated): d_O ≤ d_P ≤ d_T
-    - For shuffled/misaligned data: d_P ≤ d_T ≤ d_O (permutations help more than rotations)
-    - In general: d_T ≤ d_P (soft-matching always ≤ one-to-one for equal N)
-    
-    Smallest distance when fixed correspondence is good (same neuron order + rotation
-    drift, e.g., sessions).
+    (row i in X ↔ row i in Y), optimizing only global orthogonal transform. Theoretically
+    d_O ≤ d_P (one-to-one) since permutations Π_N ⊂ orthogonals O_N; smallest distance
+    when fixed corr good (same neuron order + rotation drift, e.g., sessions).
 
     Preprocessing (modify_matrix): column-center (translations), unit Frobenius (scale),
     no whitening/var scaling (matches scipy procrustes). Raw ||diff||_F ~ sqrt(N M); divide
@@ -1307,10 +1300,7 @@ def shape_distance_procrustes(
     Notes
     -----
     SVD solution: Q = U V^T from svd(X @ Y^T). Exact, O(N^3).
-    
-    Ordering: The relationship d_O, d_P, d_T depends on data alignment.
-    For well-aligned data: d_O ≤ d_P ≤ d_T. For shuffled data: d_P ≤ d_T ≤ d_O.
-    Always: d_T ≤ d_P (soft-matching ≤ one-to-one for equal N).
+    Theoretical: d_O ≤ d_P ≤ d_T (nested sets O ⊃ Π ⊃ T).
 
     Examples
     --------
