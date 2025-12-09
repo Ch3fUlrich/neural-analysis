@@ -43,10 +43,12 @@ from neural_analysis.metrics import (
     euclidean_distance,
     mahalanobis_distance,
     cosine_similarity,
-    compare_distributions,
-    compare_distribution_groups,
     filter_outlier,
     similarity_matrix,  # Use new unified function
+)
+from neural_analysis.metrics.pairwise_metrics import (
+    compare_datasets,
+    compute_within_distances,
 )
 from neural_analysis.plotting import (
     plot_scatter_2d,
@@ -258,7 +260,9 @@ results = {}
 for metric in metrics:
     results[metric] = {}
     for scenario_name, (p1, p2, desc) in scenarios.items():
-        dist = compare_distributions(p1, p2, metric=metric)
+        result = compare_datasets(p1, p2, mode="between", metric=metric)
+        # Extract value from BetweenResult dict if needed
+        dist = result["value"] if isinstance(result, dict) and "value" in result else float(result)
         results[metric][scenario_name] = dist
 
 # Display as DataFrame
@@ -336,7 +340,9 @@ sensitivity_results = {metric: [] for metric in metrics}
 for shift in shifts:
     p2_shifted = np.random.randn(200, 3) + shift
     for metric in metrics:
-        dist = compare_distributions(p1_base, p2_shifted, metric=metric)
+        result = compare_datasets(p1_base, p2_shifted, mode="between", metric=metric)
+        # Extract value from BetweenResult dict if needed
+        dist = result["value"] if isinstance(result, dict) and "value" in result else float(result)
         sensitivity_results[metric].append(dist)
 
 # Use PlotGrid to create multi-line plot (all metrics in one subplot)
@@ -675,32 +681,33 @@ conditions = {
     + np.array([0.5] * n_neurons),
 }
 
-# Between-group comparison
-between_results = compare_distribution_groups(
-    conditions, compare_type="between", metric="wasserstein"
-)
-
-# Convert to distance matrix
+# Between-group comparison using compare_datasets
 condition_names = list(conditions.keys())
 dist_matrix = np.zeros((len(condition_names), len(condition_names)))
-for i, name in enumerate(condition_names):
-    dist_matrix[i, :] = between_results[name]
+
+# Compute all-pairs distances
+all_pairs_result = compare_datasets(conditions, mode="all-pairs", metric="wasserstein")
+for i, name_i in enumerate(condition_names):
+    for j, name_j in enumerate(condition_names):
+        dist_matrix[i, j] = all_pairs_result[name_i][name_j]
 
 print("\nBetween-Condition Distance Matrix (Wasserstein):")
 print(
     pd.DataFrame(dist_matrix, index=condition_names, columns=condition_names).round(3)
 )
 
-# Within-group variability
-inside_results = compare_distribution_groups(
-    conditions, compare_type="inside", metric="euclidean"
-)
+# Within-group variability using compute_within_distances
+from neural_analysis.metrics.pairwise_metrics import compute_within_distances
+
+inside_results = {}
+for name, data in conditions.items():
+    result = compute_within_distances(data, metric="euclidean")
+    inside_results[name] = result
 
 print("\nWithin-Condition Variability:")
-for i, name in enumerate(condition_names):
-    print(
-        f"{name}: mean={inside_results['mean'][i]:.3f}, std={inside_results['std'][i]:.3f}"
-    )
+for name in condition_names:
+    mean_dist = inside_results[name]
+    print(f"{name}: mean={mean_dist:.3f}")
 
 # --- Cell 22 (code) ---
 # Visualize as heatmap using modular function
@@ -766,14 +773,16 @@ print("\nNeural Manifold Analysis:")
 print("Comparing activity patterns across movement directions\n")
 
 # Adjacent angles
-dist_adjacent = compare_distributions(
-    neural_data["angle_0"], neural_data["angle_45"], metric="mahalanobis"
+result_adjacent = compare_datasets(
+    neural_data["angle_0"], neural_data["angle_45"], mode="between", metric="mahalanobis"
 )
+dist_adjacent = result_adjacent["value"] if isinstance(result_adjacent, dict) and "value" in result_adjacent else float(result_adjacent)
 
 # Opposite angles
-dist_opposite = compare_distributions(
-    neural_data["angle_0"], neural_data["angle_180"], metric="mahalanobis"
+result_opposite = compare_datasets(
+    neural_data["angle_0"], neural_data["angle_180"], mode="between", metric="mahalanobis"
 )
+dist_opposite = result_opposite["value"] if isinstance(result_opposite, dict) and "value" in result_opposite else float(result_opposite)
 
 print(f"Distance between adjacent angles (0° vs 45°): {dist_adjacent:.3f}")
 print(f"Distance between opposite angles (0° vs 180°): {dist_opposite:.3f}")
@@ -781,13 +790,16 @@ print(
     f"\nValidation: Opposite directions should be farther: {dist_opposite > dist_adjacent}"
 )
 
-# Full comparison matrix
+# Full comparison matrix using compare_datasets
 angle_names = list(neural_data.keys())
-angle_matrix = compare_distribution_groups(
-    neural_data, compare_type="between", metric="euclidean"
-)
+all_pairs_result = compare_datasets(neural_data, mode="all-pairs", metric="euclidean")
 
-matrix_vals = np.array([angle_matrix[name] for name in angle_names])
+# Convert to matrix format
+matrix_vals = np.zeros((len(angle_names), len(angle_names)))
+for i, name_i in enumerate(angle_names):
+    for j, name_j in enumerate(angle_names):
+        matrix_vals[i, j] = all_pairs_result[name_i][name_j]
+
 print("\nFull Angular Distance Matrix:")
 print(pd.DataFrame(matrix_vals, index=angle_names, columns=angle_names).round(2))
 
