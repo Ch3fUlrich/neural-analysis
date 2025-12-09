@@ -2207,7 +2207,6 @@ def generate_cluster_templates(
     >>> # Each template has fundamentally different structure
     >>> # templates.shape = (5, 100)
     """
-    rng = np.random.default_rng(seed if seed is not None else 0)
     templates = []
 
     for k in range(n_clusters):

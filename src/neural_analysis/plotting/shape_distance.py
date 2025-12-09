@@ -11,9 +11,10 @@ from typing import Any, Literal
 import numpy as np
 import numpy.typing as npt
 from sklearn.decomposition import PCA
-from sklearn.manifold import MDS
 
-from neural_analysis.metrics.distributions import modify_matrix, shape_distance
+from neural_analysis.embeddings.dimensionality_reduction import compute_embedding
+from neural_analysis.metrics.pairwise_metrics import compute_all_pairs
+from neural_analysis.plotting.embeddings import plot_embedding_2d
 from neural_analysis.plotting.grid_config import (
     GridLayoutConfig,
     PlotConfig,
@@ -27,9 +28,13 @@ def compute_pairwise_distance_matrix(
     method: Literal["procrustes", "one-to-one", "soft-matching"] = "procrustes",
     metric: str = "sqeuclidean",
     max_neurons: int | None = None,
+    show_progress: bool = True,
     **method_kwargs: Any,
 ) -> npt.NDArray[np.float64]:
     """Compute pairwise distance matrix between multiple datasets.
+
+    Uses `compute_all_pairs` from `pairwise_metrics` and converts the result
+    to a symmetric distance matrix.
 
     Parameters
     ----------
@@ -39,49 +44,63 @@ def compute_pairwise_distance_matrix(
         Shape distance method to use.
     metric : str, default='sqeuclidean'
         Distance metric for one-to-one and soft-matching.
+        Passed to shape_distance via metric_kwargs.
     max_neurons : int or None, default=None
         Maximum number of neurons to use per dataset (for speed).
         If None, uses all neurons.
+    show_progress : bool, default=True
+        Show progress bar during computation.
     **method_kwargs
-        Additional keyword arguments for shape_distance.
+        Additional keyword arguments for shape_distance (e.g., approx, reg).
 
     Returns
     -------
     distance_matrix : ndarray of shape (n_datasets, n_datasets)
         Symmetric pairwise distance matrix.
+
+    Notes
+    -----
+    This function uses `compute_all_pairs` internally, which handles the
+    parameter name conflict between the shape method name (passed as `metric`
+    to `compute_all_pairs`) and the distance metric (passed as `metric` in
+    `metric_kwargs` to `shape_distance`).
     """
     n_datasets = len(datasets)
+
+    # Subsample if needed for speed
+    if max_neurons is not None:
+        rng = np.random.default_rng(42)
+        subsampled_datasets = []
+        for d in datasets:
+            N, F = d.shape
+            if N > max_neurons:
+                idx = rng.choice(N, size=max_neurons, replace=False)
+                subsampled_datasets.append(d[idx])
+            else:
+                subsampled_datasets.append(d)
+        datasets = subsampled_datasets
+
+    # Convert list to dict for compute_all_pairs
+    datasets_dict = {str(i): d for i, d in enumerate(datasets)}
+
+    # Use compute_all_pairs with shape metric
+    # Note: compute_all_pairs uses 'metric' for the shape method name,
+    # and we pass the distance metric (sqeuclidean, etc.) via metric_kwargs
+    # The distance metric parameter name for shape_distance is also 'metric',
+    # so we pass it via metric_kwargs
+    metric_kwargs = {"metric": metric, **method_kwargs}
+    results = compute_all_pairs(
+        datasets_dict,
+        metric=method,  # Shape method name (procrustes, one-to-one, soft-matching)
+        show_progress=show_progress,
+        **metric_kwargs,  # Contains metric='sqeuclidean' and other shape_distance kwargs
+    )
+
+    # Convert nested dict to symmetric matrix
     D = np.zeros((n_datasets, n_datasets), dtype=np.float64)
-
-    # Preprocess all datasets once
-    preprocessed = [
-        modify_matrix(d, whiten=True, normalize=True, scale_variance=False)
-        for d in datasets
-    ]
-
     for i in range(n_datasets):
-        Xi = preprocessed[i]
-        for j in range(i + 1, n_datasets):
-            Yj = preprocessed[j]
-
-            # Subsample if needed for speed
-            if max_neurons is not None:
-                rng = np.random.default_rng(42)
-                Nx, F = Xi.shape
-                Ny, Fy = Yj.shape
-                if Nx > max_neurons:
-                    idx_x = rng.choice(Nx, size=max_neurons, replace=False)
-                    Xi = Xi[idx_x]
-                if Ny > max_neurons:
-                    idx_y = rng.choice(Ny, size=max_neurons, replace=False)
-                    Yj = Yj[idx_y]
-
-            dist, _, _ = shape_distance(
-                Xi, Yj, method=method, metric=metric, **method_kwargs
-            )
-            if isinstance(dist, np.ndarray):
-                dist = float(np.mean(dist))
-            D[i, j] = D[j, i] = float(dist)
+        for j in range(n_datasets):
+            D[i, j] = results[str(i)][str(j)]
 
     return D
 
@@ -90,6 +109,8 @@ def embed_mds(
     distance_matrix: npt.NDArray[np.float64], n_components: int = 2, seed: int = 0
 ) -> npt.NDArray[np.float64]:
     """Embed distance matrix using MDS.
+
+    Uses `compute_embedding` from `embeddings.dimensionality_reduction`.
 
     Parameters
     ----------
@@ -105,14 +126,13 @@ def embed_mds(
     embedding : ndarray of shape (n_samples, n_components)
         MDS embedding coordinates.
     """
-    mds = MDS(
+    return compute_embedding(
+        distance_matrix,
+        method="mds",
         n_components=n_components,
-        dissimilarity="precomputed",
+        metric="precomputed",
         random_state=seed,
-        n_init=4,
-        max_iter=300,
     )
-    return mds.fit_transform(distance_matrix)
 
 
 def embed_mds_pca(
@@ -123,12 +143,15 @@ def embed_mds_pca(
 ) -> npt.NDArray[np.float64]:
     """Embed distance matrix using MDS followed by PCA.
 
+    Uses `compute_embedding` for MDS, then applies PCA.
+
     Parameters
     ----------
     distance_matrix : ndarray of shape (n_samples, n_samples)
         Pairwise distance matrix.
     mds_dim : int, default=20
         Number of dimensions for initial MDS embedding.
+        Automatically reduced if n_samples < mds_dim.
     pca_dim : int, default=2
         Number of dimensions for PCA reduction.
     seed : int, default=0
@@ -139,8 +162,21 @@ def embed_mds_pca(
     embedding : ndarray of shape (n_samples, pca_dim)
         MDS+PCA embedding coordinates.
     """
-    Z = embed_mds(distance_matrix, n_components=mds_dim, seed=seed)
-    pca = PCA(n_components=pca_dim, random_state=seed)
+    n_samples = distance_matrix.shape[0]
+    # Ensure mds_dim doesn't exceed n_samples
+    actual_mds_dim = min(mds_dim, n_samples - 1)  # MDS needs at least n_samples-1
+    if actual_mds_dim < mds_dim:
+        import warnings
+        warnings.warn(
+            f"Reducing mds_dim from {mds_dim} to {actual_mds_dim} "
+            f"because n_samples={n_samples}",
+            UserWarning,
+        )
+    
+    Z = embed_mds(distance_matrix, n_components=actual_mds_dim, seed=seed)
+    # Ensure pca_dim doesn't exceed the MDS embedding dimension
+    actual_pca_dim = min(pca_dim, Z.shape[1])
+    pca = PCA(n_components=actual_pca_dim, random_state=seed)
     return pca.fit_transform(Z)
 
 
@@ -151,6 +187,8 @@ def plot_shape_distance_mds(
     figsize: tuple[float, float] = (12, 12),
 ) -> Any:
     """Plot MDS embeddings for multiple distance matrices using PlotGrid.
+
+    Uses `plot_embedding_2d` from `plotting.embeddings` for each embedding.
 
     Parameters
     ----------
@@ -228,7 +266,11 @@ def plot_shape_distance_mds(
                         data={"x": emb_mds_pca_2[idx, 0], "y": emb_mds_pca_2[idx, 1]},
                         plot_type="scatter",
                         subplot_position=row * 2 + 1,
-                        title=f"{method_name}: MDS(20D) + PCA(2D)" if lab_idx == 0 else None,
+                        title=(
+                            f"{method_name}: MDS(20D) + PCA(2D)"
+                            if lab_idx == 0
+                            else None
+                        ),
                         label=f"Cluster {lab}" if row == 0 else None,
                         color=f"C{lab % 10}",  # Use matplotlib color cycle
                         marker_size=30,

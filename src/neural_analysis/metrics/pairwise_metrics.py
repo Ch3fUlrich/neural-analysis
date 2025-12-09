@@ -39,7 +39,6 @@ try:
 
     NUMBA_AVAILABLE = True
 
-
     class BetweenResult(TypedDict):
         """TypedDict for wrapping scalar between-mode result.
 
@@ -48,6 +47,7 @@ try:
 
         value: float
         metric: str
+
 except Exception:
     numba = None
     NUMBA_AVAILABLE = False
@@ -197,6 +197,7 @@ try:
                     s += abs(x_arr[i, k] - y_arr[j, k])
                 out[i, j] = s
         return out
+
 except Exception:
     # numba functions not available; fall back to numpy/scipy
     pass
@@ -608,7 +609,6 @@ def compute_pairwise_matrix(
 
         from .distributions import shape_distance
 
-
         method_typed = cast(
             "Literal['procrustes', 'one-to-one', 'soft-matching']",
             metric_normalized,
@@ -617,12 +617,12 @@ def compute_pairwise_matrix(
         return cast(
             "tuple[float, dict[tuple[int, int], float]]",
             shape_distance(
-            x_arr.astype(np.float64),
-            y_arr.astype(np.float64),
-            method=method_typed,
-            return_pairs=True,
-            **metric_kwargs,
-        )
+                x_arr.astype(np.float64),
+                y_arr.astype(np.float64),
+                method=method_typed,
+                return_pairs=True,
+                **metric_kwargs,
+            ),
         )
 
     else:
@@ -797,7 +797,7 @@ def compute_within_distances(
         data_arr,
         metric=metric_normalized,
         parallel=parallel,
-            **metric_kwargs,
+        **metric_kwargs,
     )
 
     if return_matrix:
@@ -919,9 +919,9 @@ def compute_between_distances(
     # Handle different return types and return standard floats/arrays
     if metric_normalized in POINT_TO_POINT_METRICS:
         # Point-to-point metrics return matrix
-        assert isinstance(result, np.ndarray), (
-            f"Expected ndarray for {metric_normalized}"
-        )
+        assert isinstance(
+            result, np.ndarray
+        ), f"Expected ndarray for {metric_normalized}"
 
         if return_matrix:
             logger.info(f"Returning full distance matrix: shape={result.shape}")
@@ -933,9 +933,9 @@ def compute_between_distances(
 
     elif metric_normalized in DISTRIBUTION_METRICS:
         # Distribution metrics return scalar
-        assert isinstance(result, (int, float, np.number)), (
-            f"Expected scalar for {metric_normalized}"
-        )
+        assert isinstance(
+            result, (int, float, np.number)
+        ), f"Expected scalar for {metric_normalized}"
         dist = float(result)
         logger.info(f"Distribution distance: {dist:.6f}")
         return dist
@@ -1082,7 +1082,7 @@ def compute_all_pairs(
             if metric_normalized in DISTRIBUTION_METRICS:
                 results[name_i][name_j] = 0.0
                 continue
-            
+
             # For shape metrics, require same sample count for within-dataset
             if metric_normalized in SHAPE_METRICS:
                 # Within-dataset comparison with shape metric
@@ -1100,7 +1100,9 @@ def compute_all_pairs(
                 # Procrustes requires identical shapes, so both halves must have same count
                 mid = n_samples // 2
                 data_i_half1 = data_i[:mid]
-                data_i_half2 = data_i[mid : 2 * mid]  # Take mid:2*mid to ensure equal size
+                data_i_half2 = data_i[
+                    mid : 2 * mid
+                ]  # Take mid:2*mid to ensure equal size
 
                 result = compute_pairwise_matrix(
                     data_i_half1,
@@ -1127,7 +1129,7 @@ def compute_all_pairs(
             )
             # Extract scalar from tuple if shape metric
             dist = result[0] if isinstance(result, tuple) else float(result)
-            
+
             # Validate result is finite (especially for distribution metrics)
             if not np.isfinite(dist):
                 logger.warning(
@@ -1160,7 +1162,14 @@ def compare_datasets(
     regenerate: bool = False,
     dataset_names: tuple[str, str] | None = None,
     **metric_kwargs: Any,
-) -> float | npt.NDArray[np.floating] | dict[str, dict[str, float]] | dict[str, float] | BetweenResult | tuple[float, dict[tuple[int, int], float]]:
+) -> (
+    float
+    | npt.NDArray[np.floating]
+    | dict[str, dict[str, float]]
+    | dict[str, float]
+    | BetweenResult
+    | tuple[float, dict[tuple[int, int], float]]
+):
     """Unified API for dataset comparisons (orchestrates within/between/all-pairs).
 
     This function provides a single entry point for all comparison modes,
@@ -1294,7 +1303,7 @@ def compare_datasets(
     >>> results = compare_datasets(datasets, mode="all-pairs", metric="wasserstein")
     >>> print(results["control"]["treatment_A"])  # Distance control → treatment_A
     >>> # Distance treatment_A → control (symmetric)
-    >>> print(results["treatment_A"]["control"]) 
+    >>> print(results["treatment_A"]["control"])
 
     **Shape comparison**:
 
@@ -1359,8 +1368,10 @@ def compare_datasets(
     # Auto-save/load logic
     if save_path is not None:
         if not regenerate:
-            from neural_analysis.utils.comparison_store import try_load_cached_comparison
-            
+            from neural_analysis.utils.comparison_store import (
+                try_load_cached_comparison,
+            )
+
             cached_result = try_load_cached_comparison(
                 save_path=save_path,
                 mode=mode,
@@ -1370,9 +1381,7 @@ def compare_datasets(
             if cached_result is not None:
                 return cached_result
         else:
-            logger.info(
-                "regenerate=True, forcing recomputation (will overwrite cache)"
-            )
+            logger.info("regenerate=True, forcing recomputation (will overwrite cache)")
 
     # Route to appropriate function
     logger.info(
@@ -1381,8 +1390,15 @@ def compare_datasets(
     )
 
     # Compute result
-    result: float | npt.NDArray[np.floating] | dict[str, dict[str, float]] | dict[str, float] | BetweenResult | tuple[float, dict[tuple[int, int], float]]
-    
+    result: (
+        float
+        | npt.NDArray[np.floating]
+        | dict[str, dict[str, float]]
+        | dict[str, float]
+        | BetweenResult
+        | tuple[float, dict[tuple[int, int], float]]
+    )
+
     if mode == "within":
         result = compute_within_distances(
             data,
@@ -1403,7 +1419,10 @@ def compare_datasets(
             return_matrix=return_matrix,
             **metric_kwargs,
         )
-        result = cast("float | npt.NDArray[np.floating] | dict[str, dict[str, float]] | dict[str, float] | tuple[float, dict[tuple[int, int], float]]",raw_between_result)
+        result = cast(
+            "float | npt.NDArray[np.floating] | dict[str, dict[str, float]] | dict[str, float] | tuple[float, dict[tuple[int, int], float]]",
+            raw_between_result,
+        )
         # For between-mode with scalar result, return legacy dict for compatibility
         if not return_matrix and isinstance(result, (int, float, np.floating)):
             # Wrap scalar result into dict for compatibility
@@ -1433,9 +1452,17 @@ def compare_datasets(
         raise ValueError(
             f"Unknown mode '{mode}'. Must be 'within', 'between', or 'all-pairs'."
         )
-    
+
     # Auto-save result if save_path provided
     if save_path is not None:
+        # Validate dataset_names before saving (for between mode)
+        # This check must happen before try block so ValueError propagates correctly
+        if mode == "between" and dataset_names is None:
+            raise ValueError(
+                "dataset_names required for save_path with mode='between'. "
+                "Provide tuple like ('control', 'treatment')"
+            )
+        
         from neural_analysis.utils.comparison_store import save_comparison_result
         
         try:
@@ -1454,7 +1481,7 @@ def compare_datasets(
         except Exception as e:
             logger.warning(f"Failed to save result: {e}")
             # Continue anyway, return computed result
-    
+
     return result
 
 
@@ -1714,6 +1741,7 @@ if NUMBA_AVAILABLE:
                 corr_matrix[i, j] = tau
                 corr_matrix[j, i] = tau
         return corr_matrix
+
 else:
 
     def _spearman_numba(data: npt.NDArray[Any]) -> npt.NDArray[Any]:
