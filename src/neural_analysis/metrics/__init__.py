@@ -18,6 +18,7 @@ __all__ = [
     "compute_within_distances",
     "compute_between_distances",
     "compute_all_pairs",
+    "compare_datasets",  # Unified comparison API
     # Metric category constants (Phase 3)
     "POINT_TO_POINT_METRICS",
     "DISTRIBUTION_METRICS",
@@ -58,6 +59,7 @@ def __getattr__(name: str) -> Any:
         "compute_within_distances",
         "compute_between_distances",
         "compute_all_pairs",
+        "compare_datasets",  # Unified comparison API
         # Phase 3: Metric categories
         "POINT_TO_POINT_METRICS",
         "DISTRIBUTION_METRICS",

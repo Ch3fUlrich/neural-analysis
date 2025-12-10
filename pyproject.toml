@@ -22,6 +22,7 @@ dependencies = [
     "umap-learn>=0.5.3", # UMAP dimensionality reduction
     "networkx>=3.4.2",
     "faiss-cpu>=1.8.0", # Efficient similarity search for structure index computation
+    "marimo>=0.18.3",
 ]
 
 [project.optional-dependencies]

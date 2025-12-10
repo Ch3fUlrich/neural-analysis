@@ -1,0 +1,123 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.18.3"
+  },
+  "cells": [
+    {
+      "id": "vblA",
+      "code_hash": "1d617c6ccfb948f8f863dab7f928f537",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h1 id=\"metrics-package-examples\">Metrics Package Examples</h1>\n<span class=\"paragraph\">This notebook demonstrates the neural_analysis metrics package with:</span>\n<ul>\n<li>Distance metrics (Euclidean, Mahalanobis, Cosine)</li>\n<li>Distribution comparison (6 statistical methods)</li>\n<li>Outlier detection (5 different algorithms)</li>\n<li>Visual comparisons showing strengths and weaknesses</li>\n<li>Ground truth validation</li>\n</ul></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Hbol",
+      "code_hash": "1d0db38904205bec4d6f6f6a1f6cec3e",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "bkHC",
+      "code_hash": "d05983f6ba9f2a8615a7935c68256ade",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "PKri",
+      "code_hash": "e200c49f1f0bf56512fae8b5ee907fa6",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "Xref",
+      "code_hash": "6c5d29bba3277bd9c5e4362714708a55",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "BYtC",
+      "code_hash": "46327a918c23999a371d3cc258a357de",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "Kclp",
+      "code_hash": "e40cfc3171d4d0674635988510aa52f8",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "emfo",
+      "code_hash": "ef238714eaa7f290ac5aa34aa570ae75",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "nWHF",
+      "code_hash": "783aa57b47ced0dbed093879b1e47d63",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "ZHCJ",
+      "code_hash": "15b6286d5b56e757bb4d0f2da91aa4d1",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "ROlb",
+      "code_hash": "95cb5821da9667417a66bcd8d7bb7caa",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "qnkX",
+      "code_hash": "eae03b4eaff237c9aae68b65797ccae8",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "Vxnm",
+      "code_hash": "b5734cd6e3c32b0875fd55a375590165",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "DnEU",
+      "code_hash": "0ac370332f83f0c86d5c2d40e2784943",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "ecfG",
+      "code_hash": "c5e742acbe5cd66759bb7c5130fecb2d",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "Pvdt",
+      "code_hash": "3904faaefc63e4a1cddf7726526f252b",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "aLJB",
+      "code_hash": "48ec0af54f137a013e8b010b40da380c",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "AjVT",
+      "code_hash": "5a5604fea948c4464e5b572ed61327c6",
+      "outputs": [],
+      "console": []
+    }
+  ]
+}

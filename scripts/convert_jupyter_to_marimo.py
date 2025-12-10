@@ -65,7 +65,7 @@ def ensure_standard_header(content: str) -> str:
 
 __generated_with = "0.18.3"
 
-app = marimo.App()
+app = marimo.App(width="full")
 
 @app.cell(hide_code=True)
 def __():
@@ -75,17 +75,17 @@ def __():
     return mo
 
 """
-    
+
     # Find where the actual cells start (after app creation and any initial cells)
     # Look for the first @app.cell that is NOT the mo import cell
     app_match = re.search(r"app = marimo\.App\(\)\s*\n", content)
     if not app_match:
         # If no app creation found, prepend the entire header
         return standard_header + content
-    
+
     # Find the first content cell (not the mo import)
     after_app = app_match.end()
-    
+
     # Look for the first @app.cell that uses mo (markdown or other cells)
     first_content_cell = re.search(r"@app\.cell", content[after_app:])
     if first_content_cell:
