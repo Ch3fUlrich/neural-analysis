@@ -83,6 +83,22 @@ Always consult `docs/folder_structure.md` before assuming how modules are organi
   - Use `PlotGrid`, `PlotSpec`, `GridLayoutConfig`, and helpers like `plot_bar`, `plot_violin`, and `plot_line`.
   - Do not introduce new direct `matplotlib.pyplot` or `plotly` usage except for minimal post‑processing of PlotGrid results.
 
+## Marimo notebook rules
+
+- **Default output location**: Always save fully executed marimo notebooks with html outputs to `examples/notebooks_with_outputs/` by default. This is the standard location for all exported marimo notebooks.
+- **Export with outputs**: When creating or updating marimo notebooks, always export them with outputs using:
+  ```bash
+  uv run marimo export html examples/notebook.py -o examples/notebooks_with_outputs/notebook.html
+  ```
+  (Outputs are included by default when the notebook is executed during export)
+- **Conversion**: Use `scripts/convert_jupyter_to_marimo.py` to convert Jupyter notebooks. See `docs/jupyter_to_marimo_conversion.md` for quick reference (compressed guide with essential patterns).
+- **Key patterns** (see `docs/jupyter_to_marimo_conversion.md` for details):
+  - Markdown cells: `mo.md(r"""...""")` then `return` (do NOT return `mo.md()`)
+  - Variables: Return from cells to share across cells; prefix local vars with `_`
+  - No `if __name__ == "__main__": app.run()` blocks needed
+  - First cell should be content, not `mo` import (marimo handles it automatically)
+- **Testing**: Run `uv run marimo check notebook.py` before committing marimo notebooks.
+
 ## Logging and observability
 
 - Do not use `print()` for runtime information in library code.
