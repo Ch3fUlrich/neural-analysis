@@ -1,11 +1,12 @@
 name: CI
 
+# Workflow disabled - pipeline not finished, not in CI/CD state
 on:
-  push:
-    branches: [ main, migration, develop ]
-  pull_request:
-    branches: [ main, migration ]
-  workflow_dispatch:
+  # push:
+  #   branches: [ main, migration, develop ]
+  # pull_request:
+  #   branches: [ main, migration ]
+  workflow_dispatch:  # Keep manual trigger available if needed
 
 jobs:
   test:
