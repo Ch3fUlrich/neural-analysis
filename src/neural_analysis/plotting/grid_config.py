@@ -297,6 +297,9 @@ class PlotSpec:
 
     kwargs: dict[str, Any] = field(default_factory=dict)
 
+    # Internal attribute for legend handles (set dynamically during plotting)
+    _legend_handle: Any = field(default=None, init=False, repr=False)
+
 
 @dataclass
 class GridLayoutConfig:
@@ -796,9 +799,12 @@ class PlotGrid:
                 handles = []
                 labels = []
                 for spec in spec_group:
-                    if hasattr(spec, "_legend_handle"):
+                    if hasattr(spec, "_legend_handle") and spec._legend_handle is not None:
                         handles.append(spec._legend_handle)
-                        labels.append(spec.label)
+                        if spec.label:
+                            labels.append(spec.label)
+                        else:
+                            labels.append("")  # Empty label if spec.label is None
                 if handles:
                     ax.legend(handles, labels)
 
@@ -1149,7 +1155,7 @@ class PlotGrid:
             y_label = spec.kwargs.pop("y_label", None)
             grid_config = spec.kwargs.pop("grid", None)
 
-            renderers.render_line_matplotlib(
+            lines = renderers.render_line_matplotlib(
                 ax=ax,
                 data=_convert_data_to_array(spec.data),
                 color=spec.color,
@@ -1165,6 +1171,9 @@ class PlotGrid:
                 x_labels=spec.kwargs.pop("x_labels", None),
                 **spec.kwargs,
             )
+            # Store legend handle (first line in the list)
+            if lines and len(lines) > 0 and label_to_use:
+                spec._legend_handle = lines[0]
 
             # Add vertical reference lines
             if spec.vlines:
@@ -1299,7 +1308,7 @@ class PlotGrid:
             )
             # Store legend handle for later
             if "legend_handle" in result:
-                setattr(spec, "_legend_handle", result["legend_handle"])
+                spec._legend_handle = result["legend_handle"]
 
         elif spec.plot_type == "bar":
             # Pop custom parameters that shouldn't be passed to matplotlib
@@ -1354,7 +1363,7 @@ class PlotGrid:
             )
             # Store legend handle for later
             if "legend_handle" in result:
-                setattr(spec, "_legend_handle", result["legend_handle"])
+                spec._legend_handle = result["legend_handle"]
 
         elif spec.plot_type == "trajectory":
             # 2D trajectory with time-based coloring
@@ -1521,7 +1530,7 @@ class PlotGrid:
             x, states = extract_xy_from_data(spec.data)
             states = states.astype(bool)
 
-            renderers.render_boolean_states_matplotlib(
+            result = renderers.render_boolean_states_matplotlib(
                 ax=ax,
                 x=x,
                 states=states,
@@ -1531,6 +1540,9 @@ class PlotGrid:
                 false_label=spec.false_label or "False",
                 alpha=spec.alpha,
             )
+            # Store legend handles if available
+            if isinstance(result, dict) and "legend_handle" in result:
+                spec._legend_handle = result["legend_handle"]
 
         elif spec.plot_type == "ellipse":
             # Render ellipses/ellipsoids
@@ -1841,10 +1853,9 @@ class PlotGrid:
                 )
 
             colors_list = spec.colors or get_default_categorical_colors(len(spec.data))
-            colors_array_grouped: npt.NDArray[np.floating[Any]] | None = None
             if isinstance(colors_list, list):
                 # Convert list of colors to array if needed
-                colors_array_grouped = np.array(colors_list) if all(isinstance(c, (int, float)) for c in colors_list) else None
+                np.array(colors_list) if all(isinstance(c, (int, float)) for c in colors_list) else None
 
             # Return list of traces (one per group)
             traces = []

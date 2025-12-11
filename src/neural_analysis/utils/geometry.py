@@ -5,13 +5,18 @@ This module provides functions for computing geometric properties and
 transformations, such as convex hulls, density estimates, and spatial statistics.
 """
 
+from typing import TYPE_CHECKING
+
 import numpy as np
-from numpy.typing import NDArray
+import numpy.typing as npt
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 
 def compute_convex_hull(
-    x: NDArray[np.floating], y: NDArray[np.floating]
-) -> tuple[NDArray[np.floating], NDArray[np.floating]] | None:
+    x: npt.NDArray[np.floating], y: npt.NDArray[np.floating]
+) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]] | None:
     """
     Compute the convex hull boundary points for 2D data.
 
@@ -64,12 +69,12 @@ def compute_convex_hull(
 
 
 def compute_kde_2d(
-    x: NDArray[np.floating],
-    y: NDArray[np.floating],
+    x: npt.NDArray[np.floating],
+    y: npt.NDArray[np.floating],
     bandwidth: float | None = None,
     grid_size: int = 100,
     expand_fraction: float = 0.1,
-) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.floating]]:
+) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.floating], npt.NDArray[np.floating]]:
     """
     Compute 2D kernel density estimation on a grid.
 

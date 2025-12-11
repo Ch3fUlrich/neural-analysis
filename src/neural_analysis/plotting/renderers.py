@@ -19,14 +19,10 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
 
-    import matplotlib.axes
-    import matplotlib.collections
     import plotly.graph_objects as go
     from numpy.typing import NDArray
 
-import matplotlib  # For type annotations
 
 try:
     import plotly.graph_objects as go
@@ -943,7 +939,6 @@ def render_heatmap_walls_matplotlib(
 
     from matplotlib.colors import Normalize
     norm = Normalize(vmin=vmin, vmax=vmax)
-    from matplotlib import cm
     mapper = cm.ScalarMappable(norm=norm, cmap=cmap)
 
     # Get wall positions (default to min values if not specified)

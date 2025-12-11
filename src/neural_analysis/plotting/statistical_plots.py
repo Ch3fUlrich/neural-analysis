@@ -107,7 +107,7 @@ def plot_bar(
     plot_title = kwargs.pop("title", None)
     x_label = kwargs.pop("xlabel", None)
     y_label = kwargs.pop("ylabel", None)
-    fig_size = kwargs.pop("figsize", None)
+    kwargs.pop("figsize", None)
 
     # Create a single bar spec with all data
     if orientation == "v":
@@ -170,7 +170,6 @@ def plot_bar(
     else:  # matplotlib
         # Check if result is a Figure or Axes
         from matplotlib.figure import Figure
-        import matplotlib.pyplot as plt
 
         ax = result.axes[0] if isinstance(result, Figure) else result
 

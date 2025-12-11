@@ -6,10 +6,13 @@ useful for robust comparisons when datasets differ in size.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Sequence
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import numpy.typing as npt
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
 
 
 def run_with_subsampling(
@@ -19,7 +22,7 @@ def run_with_subsampling(
     subsample_axes: Sequence[int],
     repeats: int = 10,
     seed: int | None = None,
-) -> tuple[npt.NDArray[np.float64], Dict[str, Any]]:
+) -> tuple[npt.NDArray[np.float64], dict[str, Any]]:
     """Run `func` multiple times with random subsampling along given axes.
 
     This function repeatedly draws random subsets from input arrays along specified
@@ -90,15 +93,15 @@ def run_with_subsampling(
 
     rng = np.random.default_rng(seed)
 
-    values: List[float] = []
-    all_indices: List[List[Dict[int, npt.NDArray[np.int_]]]] = []
+    values: list[float] = []
+    all_indices: list[list[dict[int, npt.NDArray[np.int_]]]] = []
 
     for _ in range(repeats):
         # For each array, keep a dict axis -> indices
-        per_array_indexers: List[Dict[int, npt.NDArray[np.int_]]] = []
+        per_array_indexers: list[dict[int, npt.NDArray[np.int_]]] = []
 
         for arr in arrays:
-            indexers: Dict[int, npt.NDArray[np.int_]] = {}
+            indexers: dict[int, npt.NDArray[np.int_]] = {}
             for s, axis in zip(subsamples, subsample_axes, strict=False):
                 n = arr.shape[axis]
                 size = min(s, n)
@@ -107,10 +110,31 @@ def run_with_subsampling(
             per_array_indexers.append(indexers)
 
         # Build actual subsampled arrays
-        sub_arrays: List[npt.NDArray[np.float64]] = []
+        sub_arrays: list[npt.NDArray[np.float64]] = []
         for arr, indexers in zip(arrays, per_array_indexers, strict=False):
-            idx_list = [indexers.get(ax, slice(None)) for ax in range(ndim)]
-            sub_arr = arr[tuple(idx_list)]
+            # Build indexing tuple: use index arrays for subsampled axes, slice(None) for others
+            indexed_axes = set(indexers.keys())
+            if len(indexed_axes) == 0:
+                sub_arr = arr
+            elif len(indexed_axes) == 1:
+                # Single axis: simple indexing
+                axis = list(indexed_axes)[0]
+                idx = indexers[axis]
+                idx_list: list[slice | npt.NDArray[np.int_]] = [slice(None)] * ndim
+                idx_list[axis] = idx
+                sub_arr = arr[tuple(idx_list)]
+            else:
+                # Multiple axes: index sequentially along each axis
+                # This is more efficient than np.ix_ which creates a full meshgrid
+                sub_arr = arr
+                # Sort axes in descending order to avoid index shifting issues
+                sorted_axes = sorted(indexed_axes, reverse=True)
+                for axis in sorted_axes:
+                    idx = indexers[axis]
+                    # Create indexing tuple: use idx for this axis, : for others
+                    idx_tuple: list[slice | npt.NDArray[np.int_]] = [slice(None)] * sub_arr.ndim
+                    idx_tuple[axis] = idx
+                    sub_arr = sub_arr[tuple(idx_tuple)]
             sub_arrays.append(sub_arr)
 
         # Compute output
@@ -119,6 +143,6 @@ def run_with_subsampling(
         all_indices.append(per_array_indexers)
 
     values_array = np.asarray(values, dtype=float)
-    metadata: Dict[str, Any] = {"indices": all_indices}
+    metadata: dict[str, Any] = {"indices": all_indices}
     return values_array, metadata
 

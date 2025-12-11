@@ -289,7 +289,6 @@ def _plot_parameter_sweep(
             sweep_results[(n_bins_values[0], n_neighbors)]["SI"]
             for n_neighbors in n_neighbors_values
         ]
-        xlabel = "n_neighbors"
         plot_title = f"{title}\n(n_bins={n_bins_values[0]})"
     elif len(n_neighbors_values) == 1:
         # Sweep over n_bins only
@@ -298,7 +297,6 @@ def _plot_parameter_sweep(
             sweep_results[(n_bins, n_neighbors_values[0])]["SI"]
             for n_bins in n_bins_values
         ]
-        xlabel = "n_bins"
         plot_title = f"{title}\n(n_neighbors={n_neighbors_values[0]})"
     else:
         # Multi-variable sweep: create heatmap
@@ -324,12 +322,6 @@ def _plot_parameter_sweep(
     )
 
     layout = GridLayoutConfig(rows=1, cols=1)
-    config = {
-        "xlabel": xlabel,
-        "ylabel": "Structure Index",
-        "show_legend": True,
-        "grid": True,
-    }
 
     grid = PlotGrid(
         plot_specs=[spec],
@@ -387,7 +379,7 @@ def _plot_parameter_heatmap(
     )
 
     layout = GridLayoutConfig(rows=1, cols=1)
-    config = {
+    {
         "xlabel": "n_neighbors",
         "ylabel": "n_bins",
         "xtick_labels": [str(x) for x in n_neighbors_values],
@@ -514,13 +506,6 @@ def plot_structure_index_comparison(
         plot_specs.append(spec)
 
     layout = GridLayoutConfig(rows=1, cols=1)
-    config = {
-        "xlabel": parameter,
-        "ylabel": "Structure Index",
-        "title": title,
-        "show_legend": True,
-        "grid": True,
-    }
 
     grid = PlotGrid(
         plot_specs=plot_specs,

@@ -16,9 +16,9 @@ import numpy.typing as npt
 from sklearn.decomposition import PCA
 
 from neural_analysis.embeddings.dimensionality_reduction import compute_embedding
+from neural_analysis.plotting.core import PlotConfig
 from neural_analysis.plotting.grid_config import (
     GridLayoutConfig,
-    PlotConfig,
     PlotGrid,
     PlotSpec,
 )
@@ -45,13 +45,15 @@ def embed_mds(
     embedding : ndarray of shape (n_samples, n_components)
         MDS embedding coordinates.
     """
-    return compute_embedding(
+    embedding = compute_embedding(
         distance_matrix,
         method="mds",
         n_components=n_components,
         metric="precomputed",
         random_state=seed,
     )
+    # Ensure float64 dtype for return type
+    return embedding.astype(np.float64)
 
 
 def embed_mds_pca(
@@ -90,14 +92,17 @@ def embed_mds_pca(
         warnings.warn(
             f"Reducing mds_dim from {mds_dim} to {actual_mds_dim} "
             f"because n_samples={n_samples}",
-            UserWarning,
+            UserWarning, stacklevel=2,
         )
 
     Z = embed_mds(distance_matrix, n_components=actual_mds_dim, seed=seed)
     # Ensure pca_dim doesn't exceed the MDS embedding dimension
     actual_pca_dim = min(pca_dim, Z.shape[1])
     pca = PCA(n_components=actual_pca_dim, random_state=seed)
-    return pca.fit_transform(Z)
+    result = pca.fit_transform(Z)
+    # Ensure float64 dtype for return type
+    result_float64: npt.NDArray[np.float64] = result.astype(np.float64)
+    return result_float64
 
 
 def plot_shape_distance_mds(
@@ -233,22 +238,23 @@ def plot_shape_distance_mds(
             )
 
             # Convert dict result to symmetric matrix
-            D = np.zeros((n_datasets, n_datasets), dtype=np.float64)
+            dist_mat = np.zeros((n_datasets, n_datasets), dtype=np.float64)
             for i in range(n_datasets):
                 for j in range(n_datasets):
-                    D[i, j] = result[str(i)][str(j)]
-            distance_matrices[method] = D
-    methods = list(distance_matrices.keys())
-    n_methods = len(methods)
+                    dist_mat[i, j] = result[str(i)][str(j)]
+            distance_matrices[method] = dist_mat
+    # Convert dict keys to list (mypy needs explicit type)
+    method_names: list[str] = list(distance_matrices.keys())
+    n_methods = len(method_names)
     unique_labels = np.unique(labels) if labels is not None else None
 
     plot_specs = []
 
-    for row, method_name in enumerate(methods):
-        D = distance_matrices[method_name]
+    for row, method_name in enumerate(method_names):
+        dist_matrix: npt.NDArray[np.float64] = distance_matrices[method_name]
 
         # MDS 2D
-        emb_mds_2 = embed_mds(D, n_components=2)
+        emb_mds_2 = embed_mds(dist_matrix, n_components=2)
         if labels is not None and unique_labels is not None:
             # Create one spec per cluster for proper coloring
             for lab_idx, lab in enumerate(unique_labels):
@@ -288,7 +294,7 @@ def plot_shape_distance_mds(
             plot_specs.append(spec)
 
         # MDS 20D + PCA 2D
-        emb_mds_pca_2 = embed_mds_pca(D, mds_dim=20, pca_dim=2)
+        emb_mds_pca_2 = embed_mds_pca(dist_matrix, mds_dim=20, pca_dim=2)
         if labels is not None and unique_labels is not None:
             for lab_idx, lab in enumerate(unique_labels):
                 idx = labels == lab
@@ -330,9 +336,11 @@ def plot_shape_distance_mds(
             )
             plot_specs.append(spec)
 
+    # Convert figsize from float tuple to int tuple for PlotConfig
+    figsize_int: tuple[int, int] = (int(figsize[0]), int(figsize[1]))
     grid = PlotGrid(
         plot_specs=plot_specs,
-        config=PlotConfig(figsize=figsize),
+        config=PlotConfig(figsize=figsize_int),
         layout=GridLayoutConfig(rows=n_methods, cols=2),
         backend=backend,
     )

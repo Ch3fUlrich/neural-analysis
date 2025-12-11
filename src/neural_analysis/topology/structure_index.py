@@ -98,11 +98,10 @@ import copy
 import logging
 import warnings
 from pathlib import Path
-from typing import Any, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import matplotlib
 import matplotlib.cm as cm
-import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import numpy.typing as npt
@@ -161,17 +160,19 @@ def validate_args_types(**decls: Any) -> Any:
     return wrapper
 
 
-def _outlier_detection(data: npt.NDArray[np.floating[Any]]) -> npt.NDArray[np.floating[Any]]:
+def _outlier_detection(
+    data: npt.NDArray[np.floating[Any]],
+) -> npt.NDArray[np.floating[Any]]:
     """Filter outliers from data based on local density.
-    
+
     Identifies points that have fewer neighbors than expected based on
     distance thresholds, marking them as potential outliers.
-    
+
     Parameters:
     ----------
         data: numpy 2d array of shape [n_samples, n_features]
             Array containing data points to filter
-    
+
     Returns:
     -------
         noiseIdx: numpy 1d array
@@ -205,7 +206,7 @@ def _filter_noisy_outliers(
     """
     arr = np.atleast_2d(np.asarray(data, dtype=np.float64))
     if arr.size == 0:
-        return cast(npt.NDArray[np.int64], np.array([], dtype=np.int64))
+        return cast("npt.NDArray[np.int64]", np.array([], dtype=np.int64))
 
     mean = arr.mean(axis=0, keepdims=True)
     std = arr.std(axis=0, keepdims=True) + 1e-12
@@ -219,20 +220,20 @@ def _filter_noisy_outliers(
             [zscore_outliers.astype(np.int64), density_outliers.astype(np.int64)]
         )
     )
-    return cast(npt.NDArray[np.int64], combined.astype(np.int64))
+    return cast("npt.NDArray[np.int64]", combined.astype(np.int64))
 
 
 def _meshgrid2(arrs: tuple[Any, ...]) -> tuple[Any, ...]:
     """Create a meshgrid from a tuple of 1D arrays.
-    
+
     Similar to numpy.meshgrid but with a different implementation that
     handles arbitrary dimensions more efficiently.
-    
+
     Parameters:
     ----------
         arrs: tuple of numpy arrays
             Tuple containing 1D arrays for each dimension
-    
+
     Returns:
     -------
         ans: tuple of numpy arrays
@@ -263,32 +264,32 @@ def _create_ndim_grid(
     discrete_label: list[bool],
 ) -> tuple[npt.NDArray[np.floating[Any]], npt.NDArray[np.floating[Any]]]:
     """Create an N-dimensional grid for binning data.
-    
+
     Divides the label space into bins and assigns data points to bins.
     Handles both continuous and discrete label dimensions.
-    
+
     Parameters:
     ----------
         label: numpy 2d array of shape [n_samples, n_features]
             Array containing label values to bin
-        
+
         n_bins: list[Any] of integers
             Number of bins for each dimension
-        
+
         min_label: list[Any] of scalars
             Minimum value for each dimension
-        
+
         max_label: list[Any] of scalars
             Maximum value for each dimension
-        
+
         discrete_label: list[Any] of booleans
             Whether each dimension should be treated as discrete
-    
+
     Returns:
     -------
         grid: numpy 1d array of objects
             Array where each element contains indices of points in that bin
-        
+
         coords: numpy 3d array
             Coordinates of bin edges and centers [n_bins, n_dims, 3]
             where the last dimension contains [min_edge, center, max_edge]
@@ -356,7 +357,7 @@ def _cloud_overlap_neighbors(
     Returns:
     -------
         overlap_1_2: float
-            Degree of overlap of cloud1 over cloud2 (fraction of cloud1's 
+            Degree of overlap of cloud1 over cloud2 (fraction of cloud1's
             neighbors that belong to cloud2)
 
         overlap_2_1: float
@@ -403,7 +404,6 @@ def _cloud_overlap_neighbors(
     else:
         raise ValueError(f"Unknown distance metric: {distance_metric}")
 
-
     # Compute overlapping: fraction of neighbors belonging to other cloud
     # For cloud1, count how many neighbors belong to cloud2 (indices >= idx_sep)
     overlap_1_2 = np.sum(I[:idx_sep, :] >= idx_sep) / (cloud1.shape[0] * k)
@@ -441,7 +441,7 @@ def _cloud_overlap_radius(
     Returns:
     -------
         overlap_1_2: float
-            Degree of overlap of cloud1 over cloud2 (fraction of cloud1's 
+            Degree of overlap of cloud1 over cloud2 (fraction of cloud1's
             neighbors that belong to cloud2)
 
         overlap_2_1: float
@@ -574,10 +574,20 @@ def compute_structure_index(
     # themselves are being checked.
     # i) data input
     assert data.ndim == 2, "data must be 2D array"
-    # ii) label input
+
+    samples, features = data.shape
     if label.ndim == 1:
         label = label.reshape(-1, 1)
     assert label.ndim == 2, "label must be 1D or 2D array"
+
+    if features > samples:
+        print(
+            f"WARNING: data has more features ({features}) than samples ({samples})."
+            f"Transposing data to have more samples than features. Data shape: {data.shape} -> {data.T.shape}"
+        )
+        data = data.T
+
+    # ii) label input
 
     # iii) n_bins input
     # Process n_bins
@@ -672,7 +682,9 @@ def compute_structure_index(
         label[np.where(label[:, ld] < min_label[ld])[0], ld] = min_label[ld] + 0.00001
         label[np.where(label[:, ld] > max_label[ld])[0], ld] = max_label[ld] - 0.00001
 
-    grid, coords = _create_ndim_grid(label, n_bins, min_label, max_label, discrete_label)
+    grid, coords = _create_ndim_grid(
+        label, n_bins, min_label, max_label, discrete_label
+    )
     bin_label = np.zeros(label.shape[0], dtype=int) * np.nan
 
     for b in range(len(grid)):
@@ -689,7 +701,7 @@ def compute_structure_index(
     # a) Compute number of points in each bin-group
     unique_bin_label = np.unique(bin_label[~np.isnan(bin_label)])
     n_points = np.array([np.sum(bin_label == val) for val in unique_bin_label])
-    
+
     # b) Get the bin-groups that do not meet criteria and delete them
     min_points_per_bin = 0.1 * data.shape[0] / np.prod(n_bins)
     del_labels = np.where(n_points < min_points_per_bin)[0]
@@ -748,7 +760,7 @@ def compute_structure_index(
     if num_shuffles == 0:
         # Return immediately if no shuffles requested
         return SI, (bin_label, coords), overlap_mat, np.array([])
-    
+
     shuf_SI = np.zeros(num_shuffles) * np.nan
     shuf_overlap_mat = np.zeros(overlap_mat.shape)
 
@@ -853,7 +865,9 @@ def draw_overlap_graph(
         nodes_info = list(g.nodes(data=True))
         names_dict = {val[0]: node_names[i] for i, val in enumerate(nodes_info)}
         with_labels = True
-        node_val = node_names if not isinstance(node_names[0], str) else range(number_nodes)
+        node_val = (
+            node_names if not isinstance(node_names[0], str) else range(number_nodes)
+        )
     else:
         names_dict = {}
         node_val = range(number_nodes)
@@ -968,11 +982,11 @@ def compute_structure_index_sweep(
     **kwargs: Any,
 ) -> dict[tuple[int, int], dict[str, Any]]:
     """Run Structure Index computation with parameter sweeps and automatic caching.
-    
+
     This function orchestrates multiple Structure Index computations across
     different parameter combinations, automatically saving results to an HDF5
     file and loading cached results when available.
-    
+
     Parameters
     ----------
     data : ndarray
@@ -982,7 +996,7 @@ def compute_structure_index_sweep(
     dataset_name : str
         Unique identifier for this dataset (e.g., "session_001")
     save_path : str or Path, optional
-        Path to HDF5 file for saving results. If None, defaults to 
+        Path to HDF5 file for saving results. If None, defaults to
         './output/structure_indices.h5'
     n_neighbors_list : list[Any] of int, optional
         List of n_neighbors values to sweep. Default: [10, 15, 20]
@@ -1002,14 +1016,14 @@ def compute_structure_index_sweep(
         Print detailed progress information
     **kwargs
         Additional parameters passed to compute_structure_index
-        
+
     Returns
     -------
     results : dict[str, Any]
         Dictionary with keys (n_bins, n_neighbors) and values containing
         SI results: {'SI': float, 'bin_label': tuple, 'overlap_mat': ndarray,
         'shuf_SI': ndarray, 'metadata': dict[str, Any]}
-        
+
     Examples
     --------
     >>> results = compute_structure_index_sweep(
@@ -1026,34 +1040,37 @@ def compute_structure_index_sweep(
         load_results_from_hdf5_dataset,
         save_result_to_hdf5_dataset,
     )
+
     StorageManagerCls: type[StorageManager] | None
     try:
-        from neural_analysis.utils.storage.manager import StorageManager as _StorageManager
+        from neural_analysis.utils.storage.manager import (
+            StorageManager as _StorageManager,
+        )
     except Exception:  # pragma: no cover - optional dependency
         StorageManagerCls = None
     else:
         StorageManagerCls = _StorageManager
-    
+
     # Set default save path if not provided
     if save_path is None:
         save_path = Path("./output/structure_indices.h5")
     else:
         save_path = Path(save_path)
     save_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     storage_manager: StorageManager | None = None
     if StorageManagerCls is not None:
         try:
             storage_manager = StorageManagerCls()
         except Exception:
             storage_manager = None
-    
+
     # Set defaults
     if n_neighbors_list is None:
         n_neighbors_list = [10, 15, 20]
     if n_bins_list is None:
         n_bins_list = [10]
-    
+
     # Subset data if indices provided
     if data_indices is not None:
         data = data[data_indices]
@@ -1061,7 +1078,7 @@ def compute_structure_index_sweep(
         indices_key = _array_to_key(data_indices)
     else:
         indices_key = "all"
-    
+
     # Load existing results
     existing_data = load_results_from_hdf5_dataset(
         save_path=save_path,
@@ -1076,10 +1093,10 @@ def compute_structure_index_sweep(
                     dataset_name, n_bins, n_neighbors, indices_key
                 )
                 storage_manager.cache_set(cache_key, existing)
-    
+
     results: dict[tuple[int, int], dict[str, Any]] = {}
     total_iterations = len(n_bins_list) * len(n_neighbors_list)
-    
+
     with tqdm(
         total=total_iterations,
         desc=f"Computing SI for {dataset_name}",
@@ -1091,7 +1108,7 @@ def compute_structure_index_sweep(
                 cache_key = _structure_index_cache_key(
                     dataset_name, n_bins, n_neighbors, indices_key
                 )
-                
+
                 if not regenerate:
                     if storage_manager:
                         cached_result = storage_manager.cache_get(cache_key)
@@ -1100,16 +1117,16 @@ def compute_structure_index_sweep(
                             pbar.update(1)
                             continue
                     if param_key in existing_results:
-                        indices_key_present = existing_results[param_key]["metadata"].get(
-                            "indices_key"
-                        )
+                        indices_key_present = existing_results[param_key][
+                            "metadata"
+                        ].get("indices_key")
                         if indices_key_present == indices_key:
                             results[param_key] = existing_results[param_key]
                             if storage_manager:
                                 storage_manager.cache_set(cache_key, results[param_key])
                             pbar.update(1)
                             continue
-                
+
                 # Compute structure index
                 si, bin_label, overlap_mat, shuf_si = compute_structure_index(
                     data=data,
@@ -1119,8 +1136,10 @@ def compute_structure_index_sweep(
                     discrete_label=discrete_label,
                     num_shuffles=num_shuffles,
                     distance_metric=distance_metric,
-                    verbose=False, **kwargs)
-                
+                    verbose=False,
+                    **kwargs,
+                )
+
                 # Store result
                 metadata = {
                     "n_bins": n_bins,
@@ -1137,7 +1156,7 @@ def compute_structure_index_sweep(
                         float(np.std(shuf_si)) if len(shuf_si) > 0 else np.nan
                     ),
                 }
-                
+
                 result = {
                     "SI": si,
                     "bin_label": bin_label,
@@ -1145,9 +1164,9 @@ def compute_structure_index_sweep(
                     "shuf_SI": shuf_si,
                     "metadata": metadata,
                 }
-                
+
                 results[param_key] = result
-                
+
                 # Save incrementally
                 result_key = f"bins{n_bins}_neighbors{n_neighbors}_{indices_key}"
                 save_result_to_hdf5_dataset(
@@ -1163,12 +1182,12 @@ def compute_structure_index_sweep(
                     },
                     storage_manager=storage_manager,
                 )
-                
+
                 if storage_manager:
                     storage_manager.cache_set(cache_key, result)
-                
+
                 pbar.update(1)
-    
+
     # Fallback: ensure results persisted to disk even if storage manager handled caching
     if save_path and not Path(save_path).exists() and results:
         warn_msg = (
@@ -1189,8 +1208,12 @@ def compute_structure_index_sweep(
                 array_data={
                     "overlap_mat": result.get("overlap_mat", np.array([])),
                     "shuf_SI": result.get("shuf_SI", np.array([])),
-                    "bin_label_assignments": result.get("bin_label", (np.array([]),))[0],
-                    "bin_label_coords": result.get("bin_label", (None, np.array([])))[1],
+                    "bin_label_assignments": result.get("bin_label", (np.array([]),))[
+                        0
+                    ],
+                    "bin_label_coords": result.get("bin_label", (None, np.array([])))[
+                        1
+                    ],
                 },
                 use_cache=False,
                 use_sql_index=False,
@@ -1201,7 +1224,7 @@ def compute_structure_index_sweep(
         f"Completed Structure Index sweep for {dataset_name}: "
         f"{len(results)} parameter combinations"
     )
-    
+
     return results
 
 
@@ -1213,7 +1236,7 @@ def load_structure_index_results(
     indices_key: str | None = None,
 ) -> dict[tuple[int, int], dict[str, Any]]:
     """Load Structure Index results from HDF5 file.
-    
+
     Parameters
     ----------
     save_path : str or Path
@@ -1226,13 +1249,13 @@ def load_structure_index_results(
         Filter by specific n_neighbors value
     indices_key : str, optional
         Filter by specific data indices key
-        
+
     Returns
     -------
     results : dict[str, Any]
         Dictionary with keys (n_bins, n_neighbors) and values containing
         SI results and metadata
-        
+
     Examples
     --------
     >>> # Load all results for a dataset
@@ -1240,7 +1263,7 @@ def load_structure_index_results(
     ...     "results/structure_indices.h5",
     ...     dataset_name="session_001"
     ... )
-    >>> 
+    >>>
     >>> # Load specific parameter combination
     >>> results = load_structure_index_results(
     ...     "results/structure_indices.h5",
@@ -1250,13 +1273,13 @@ def load_structure_index_results(
     ... )
     """
     from neural_analysis.utils.io import load_results_from_hdf5_dataset
-    
+
     save_path = Path(save_path)
-    
+
     if not save_path.exists():
         logger.debug(f"No saved results found at {save_path}")
         return {}
-    
+
     # Build filter
     filter_attrs: dict[str, Any] = {}
     if n_bins is not None:
@@ -1265,20 +1288,18 @@ def load_structure_index_results(
         filter_attrs["n_neighbors"] = n_neighbors
     if indices_key is not None:
         filter_attrs["indices_key"] = indices_key
-    
+
     # Load data
     loaded_data = load_results_from_hdf5_dataset(
         save_path=save_path,
         dataset_name=dataset_name,
         filter_attrs=filter_attrs if filter_attrs else None,
     )
-    
+
     # Parse results
     results: dict[tuple[int, int], dict[str, Any]] = {}
-    for ds_name in loaded_data.keys():
+    for ds_name in loaded_data:
         ds_parsed = _parse_loaded_results(loaded_data, ds_name)
         results.update(ds_parsed)
-    
+
     return results
-
-

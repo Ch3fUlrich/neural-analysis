@@ -5,8 +5,7 @@ Provides a single interface for multi-layer data access with automatic fallback.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
@@ -14,6 +13,9 @@ from neural_analysis.utils.logging import get_logger
 from neural_analysis.utils.storage.config import get_config
 from neural_analysis.utils.storage.redis_cache import RedisCache
 from neural_analysis.utils.storage.sql_metadata import SQLMetadata
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = get_logger(__name__)
 
@@ -49,7 +51,7 @@ class StorageManager:
             f"metadata={'enabled' if self.metadata.is_available() else 'disabled'}"
         )
 
-    def __enter__(self) -> "StorageManager":
+    def __enter__(self) -> StorageManager:
         return self
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
@@ -97,9 +99,13 @@ class StorageManager:
         success = False
 
         # Cache in Redis
-        if use_cache and data is not None and self.cache.is_available():
-            if self.cache_set(key, data, ttl=cache_ttl, metadata=metadata):
-                success = True
+        if (
+            use_cache
+            and data is not None
+            and self.cache.is_available()
+            and self.cache_set(key, data, ttl=cache_ttl, metadata=metadata)
+        ):
+            success = True
 
         # Index in SQL metadata
         if file_path and self.metadata.is_available():

@@ -9,13 +9,15 @@ matrices, and spatial autocorrelation helpers.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-from typing import Any, Literal, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
 import numpy as np
 import numpy.typing as npt
 from scipy.spatial.distance import cdist, cosine
 from scipy.stats import kendalltau, spearmanr
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 try:
     from neural_analysis.utils.logging import get_logger, log_calls
@@ -629,10 +631,7 @@ def compute_pairwise_matrix(
         )
 
         # Handle subsampling case (returns array)
-        if isinstance(dist, np.ndarray):
-            dist = float(np.mean(dist))
-        else:
-            dist = float(dist)
+        dist = float(np.mean(dist)) if isinstance(dist, np.ndarray) else float(dist)
 
         return cast(
             "tuple[float, dict[tuple[int, int], float]]",
@@ -1415,7 +1414,12 @@ def compare_datasets(
                             "metric": str(metric),
                         },
                     )
-                return cached_result
+                # cached_result could be various types matching the return type
+                # Cast to satisfy mypy (runtime type is already correct)
+                return cast(
+                    "float | npt.NDArray[np.floating[Any]] | dict[str, dict[str, float]] | dict[str, float] | BetweenResult | tuple[float, dict[tuple[int, int], float]]",
+                    cached_result,
+                )
         else:
             logger.info("regenerate=True, forcing recomputation (will overwrite cache)")
 

@@ -1481,6 +1481,7 @@ name = "neural-analysis"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "debugpy" },
     { name = "faiss-cpu" },
     { name = "h5py" },
     { name = "ipykernel" },
@@ -1535,6 +1536,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "debugpy", specifier = ">=1.8.17" },
     { name = "duckdb", marker = "extra == 'storage'", specifier = ">=0.10" },
     { name = "faiss-cpu", specifier = ">=1.8.0" },
     { name = "h5py", specifier = ">=3.10" },

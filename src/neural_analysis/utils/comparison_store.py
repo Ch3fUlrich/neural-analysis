@@ -59,7 +59,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 import h5py
 import numpy as np
@@ -130,7 +130,6 @@ def _encode_dict_for_hdf5(d: dict[str, dict[str, float]]) -> npt.NDArray[np.void
         Structured array with fields: (key_i, key_j, value)
         String fields are stored as bytes (S100) for HDF5 compatibility
     """
-    from neural_analysis.utils.io import _to_bytes_array
 
     records = []
     for key_i, inner_dict in d.items():
@@ -155,7 +154,6 @@ def _decode_dict_from_hdf5(arr: npt.NDArray[np.void]) -> dict[str, dict[str, flo
     dict[str, dict[str, float]]
         Nested dictionary
     """
-    from neural_analysis.utils.io import _from_bytes_array
 
     result: dict[str, dict[str, float]] = {}
     for record in arr:
@@ -277,7 +275,7 @@ def save_comparison(
                             f"Comparison already exists: {dataset_name}/{result_key}. "
                             "Set overwrite=True to replace."
                         )
-            except (OSError, IOError):
+            except OSError:
                 # File exists but is corrupted or not a valid HDF5 file
                 # Continue to overwrite it
                 pass
@@ -551,7 +549,7 @@ def try_load_cached_comparison(
             return cached_result
         # Within mode doesn't support save_path (single dataset)
         return None
-    except (FileNotFoundError, KeyError, OSError, IOError) as e:
+    except (FileNotFoundError, KeyError, OSError) as e:
         logger.info(f"Cache miss ({type(e).__name__}), will compute result: {e}")
         return None
 
@@ -603,12 +601,12 @@ def save_comparison_result(
         # Handle dict return from compute_between_distances
         save_value: float | npt.NDArray[np.floating] | dict[str, dict[str, float]]
         if isinstance(result, dict) and "value" in result:
-            save_value = float(result["value"])  # type: ignore[assignment]
+            save_value = float(result["value"])
         elif isinstance(result, tuple):
             # For shape metrics: (distance, pairs_dict)
-            save_value = float(result[0])  # type: ignore[assignment]
+            save_value = float(result[0])
         else:
-            save_value = result  # type: ignore[assignment]
+            save_value = result
 
         save_comparison(
             filepath=save_path,
@@ -624,7 +622,7 @@ def save_comparison_result(
     elif mode == "all-pairs":
         # Determine number of datasets for all-pairs
         n_datasets = len(result) if isinstance(result, dict) else 1
-        save_val_all_pairs = result  # type: ignore[assignment]
+        save_val_all_pairs = result
         save_comparison(
             filepath=save_path,
             metric=metric,

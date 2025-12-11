@@ -18,6 +18,7 @@ Notes:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 from collections.abc import Iterable, Mapping
@@ -66,11 +67,11 @@ DatasetDict = dict[str, Any]
 
 
 def _resolve_storage_manager(
-    storage_manager: "StorageManager | None",
+    storage_manager: StorageManager | None,
     *,
     use_cache: bool,
     use_sql: bool,
-) -> "StorageManager | None":
+) -> StorageManager | None:
     """Lazy import StorageManager ensuring single creation path."""
     if storage_manager is not None or (not use_cache and not use_sql):
         return storage_manager
@@ -119,10 +120,8 @@ def _attr_equals(attr_value: Any, expected: Any) -> bool:
         except Exception:
             attr_value = bool(attr_value)
     elif isinstance(expected, (int, float)) and isinstance(attr_value, str):
-        try:
+        with contextlib.suppress(Exception):
             attr_value = type(expected)(attr_value)
-        except Exception:
-            pass
     elif isinstance(expected, str) and not isinstance(attr_value, str):
         attr_value = str(attr_value)
     result = attr_value == expected
@@ -617,7 +616,7 @@ def save_result_to_hdf5_dataset(
     compression: str = "gzip",
     use_cache: bool = True,
     use_sql_index: bool = True,
-    storage_manager: "StorageManager | None" = None,
+    storage_manager: StorageManager | None = None,
 ) -> None:
     """Save analysis results to HDF5 file with hierarchical structure.
 

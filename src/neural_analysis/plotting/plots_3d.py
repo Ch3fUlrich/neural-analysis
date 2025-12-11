@@ -15,7 +15,7 @@ static publication-quality figures and interactive exploratory visualizations.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 import numpy as np
 import numpy.typing as npt
@@ -23,11 +23,6 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 from .core import PlotConfig
 from .grid_config import PlotGrid, PlotSpec
-
-if TYPE_CHECKING:
-    import matplotlib.axes
-    import matplotlib.pyplot as plt
-    import plotly.graph_objects as go
 
 # Optional imports
 try:

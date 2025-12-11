@@ -1,34 +1,17 @@
 import marimo
 
+
 __generated_with = "0.18.3"
+
 app = marimo.App(width="full")
 
 
 @app.cell(hide_code=True)
 def __():
+
     import marimo as mo
 
     return mo
-
-
-@app.cell
-def _(mo):
-    mo.md(
-        r"""
-    # New PlotGrid System - Quick Examples
-
-    The neural_analysis package now includes a flexible, metadata-driven plotting system that makes creating complex multi-panel visualizations easy. Key features:
-
-    ## Features
-    - **DataFrame-driven**: Specify plots using structured data
-    - **Multiple traces per subplot**: Use `subplot_position` to overlay multiple data series
-    - **Automatic layout**: Grid size auto-calculated from number of plots
-    - **Color schemes**: Automatic color assignment by group
-    - **Single API**: Works for scatter, line, histogram, heatmap, 3D plots
-    - **Both backends**: Matplotlib and Plotly supported
-    """
-    )
-    return
 
 
 @app.cell
@@ -87,9 +70,9 @@ def _():
         euclidean_distance,
         mahalanobis_distance,
         cosine_similarity,
+        compare_datasets,  # Replaces compare_distributions and compare_distribution_groups
         filter_outlier,
         similarity_matrix,  # Use new unified function
-        compare_datasets,  # Unified comparison API
     )
     from neural_analysis.plotting import (
         plot_scatter_2d,
@@ -198,9 +181,7 @@ def _(
     test_point_aligned,
     test_point_perpendicular,
 ):
-    # Create plot specifications using PlotGrid system
     _plot_specs = [
-        # Spherical distribution
         PlotSpec(
             data=spherical,
             plot_type="scatter",
@@ -210,7 +191,6 @@ def _(
             alpha=0.5,
             marker_size=4,
         ),
-        # Elongated distribution
         PlotSpec(
             data=elongated,
             plot_type="scatter",
@@ -221,21 +201,12 @@ def _(
             marker_size=4,
         ),
     ]
-
-    # Create grid with 1 row, 2 columns
     _grid = PlotGrid(
         plot_specs=_plot_specs,
         config=PlotConfig(title="Distance Metric Comparison", figsize=(10, 5)),
         backend="plotly",
     )
-
-    # Generate the figure
     _fig = _grid.plot()
-
-    # Add test points manually (more complex, keep manual for now but add via subplot utilities)
-    # add_trace_to_subplot is already imported in the main import cell
-
-    # Test points for both subplots
     for col in [1, 2]:
         add_trace_to_subplot(
             _fig,
@@ -245,7 +216,7 @@ def _(
                 mode="markers",
                 marker=dict(size=12, color="red", symbol="x"),
                 name="Aligned",
-                showlegend=(col == 2),
+                showlegend=col == 2,
             ),
             row=1,
             col=col,
@@ -258,12 +229,11 @@ def _(
                 mode="markers",
                 marker=dict(size=12, color="orange", symbol="x"),
                 name="Perpendicular",
-                showlegend=(col == 2),
+                showlegend=col == 2,
             ),
             row=1,
             col=col,
         )
-
     _fig.update_xaxes(title_text="X", range=[-4, 4])
     _fig.update_yaxes(title_text="Y", range=[-4, 4])
     _fig.show()
@@ -322,8 +292,6 @@ def _(mo):
 def _(compare_datasets, np, pd):
     # Create test distributions with controlled differences
     n_samples = 300
-
-    # Ground truth: 4 scenarios with known similarity
     scenarios = {
         "Identical": (
             np.random.randn(n_samples, 3),
@@ -346,8 +314,7 @@ def _(compare_datasets, np, pd):
             "Same center, different spread",
         ),
     }
-
-    # Test all metrics
+    # Ground truth: 4 scenarios with known similarity
     metrics = [
         "wasserstein",
         "kolmogorov-smirnov",
@@ -356,20 +323,13 @@ def _(compare_datasets, np, pd):
         "mahalanobis",
         "cosine",
     ]
-
     results = {}
     for _metric in metrics:
         results[_metric] = {}
         for _scenario_name, (_p1, _p2, _desc) in scenarios.items():
             _result = compare_datasets(_p1, _p2, mode="between", metric=_metric)
-            _dist = (
-                _result["value"]
-                if isinstance(_result, dict) and "value" in _result
-                else float(_result)
-            )
+            _dist = _result["value"] if isinstance(_result, dict) else _result
             results[_metric][_scenario_name] = _dist
-
-    # Display as DataFrame
     df_results = pd.DataFrame(results).T
     print("\nDistribution Comparison Results:")
     print("=" * 80)
@@ -377,6 +337,8 @@ def _(compare_datasets, np, pd):
     print("\nInterpretation:")
     print("- Lower = more similar (except cosine: higher = more similar)")
     print("- Identical should be ~0 for distance metrics, ~1 for cosine")
+    # Test all metrics
+    # Display as DataFrame
     print("- Large Shift should show biggest difference")
     return metrics, scenarios
 
@@ -385,15 +347,13 @@ def _(compare_datasets, np, pd):
 def _(GridLayoutConfig, PlotConfig, PlotGrid, PlotSpec, scenarios):
     # Now we can use PlotGrid with multiple traces per subplot!
     # Create plot specifications where multiple specs share the same subplot_position
-
     _plot_specs = []
     for _i, (_scenario_name, (_p1, _p2, _desc)) in enumerate(scenarios.items()):
-        # First distribution (blue)
         _plot_specs.append(
             PlotSpec(
-                data=_p1[:, :2],  # First 2 dimensions
+                data=_p1[:, :2],
                 plot_type="scatter",
-                subplot_position=_i,  # Group by scenario
+                subplot_position=_i,
                 title=_scenario_name,
                 label="Dist 1",
                 color="blue",
@@ -401,21 +361,17 @@ def _(GridLayoutConfig, PlotConfig, PlotGrid, PlotSpec, scenarios):
                 marker_size=3,
             )
         )
-
-        # Second distribution (red)
         _plot_specs.append(
             PlotSpec(
                 data=_p2[:, :2],
                 plot_type="scatter",
-                subplot_position=_i,  # Same subplot as above
+                subplot_position=_i,
                 label="Dist 2",
                 color="red",
                 alpha=0.4,
                 marker_size=3,
             )
-        )
-
-    # Create grid - it will automatically arrange 4 subplots (one per unique subplot_position)
+        )  # First distribution (blue)
     _grid = PlotGrid(
         plot_specs=_plot_specs,
         config=PlotConfig(
@@ -424,13 +380,14 @@ def _(GridLayoutConfig, PlotConfig, PlotGrid, PlotSpec, scenarios):
         layout=GridLayoutConfig(rows=2, cols=2),
         backend="plotly",
     )
-
     _fig = _grid.plot()
-    _fig.update_xaxes(title_text="Dimension 1")
+    _fig.update_xaxes(title_text="Dimension 1")  # First 2 dimensions
     _fig.update_yaxes(title_text="Dimension 2")
-    _fig.show()
-
-    print("\n✓ Using PlotGrid with subplot_position for multiple traces per subplot!")
+    _fig.show()  # Group by scenario
+    # Create grid - it will automatically arrange 4 subplots (one per unique subplot_position)
+    print(
+        "\n✓ Using PlotGrid with subplot_position for multiple traces per subplot!"
+    )  # Second distribution (red)  # Same subplot as above
     return
 
 
@@ -458,44 +415,32 @@ def _(
 ):
     # Vary shift magnitude
     shifts = np.linspace(0, 3, 15)
-    _p1_base = np.random.randn(200, 3)
-
+    p1_base = np.random.randn(200, 3)
     sensitivity_results = {_metric: [] for _metric in metrics}
-
-    for _shift in shifts:
-        _p2_shifted = np.random.randn(200, 3) + _shift
+    for shift in shifts:
+        p2_shifted = np.random.randn(200, 3) + shift
         for _metric in metrics:
             _result = compare_datasets(
-                _p1_base, _p2_shifted, mode="between", metric=_metric
+                p1_base, p2_shifted, mode="between", metric=_metric
             )
-            _dist = (
-                _result["value"]
-                if isinstance(_result, dict) and "value" in _result
-                else float(_result)
-            )
+            _dist = _result["value"] if isinstance(_result, dict) else _result
             sensitivity_results[_metric].append(_dist)
-
-    # Use PlotGrid to create multi-line plot (all metrics in one subplot)
     _plot_specs = []
     colors = ["blue", "red", "green", "orange", "purple", "brown"]
-
     for _i, _metric in enumerate(metrics):
-        # Create x-y pairs for line plot
+        # Use PlotGrid to create multi-line plot (all metrics in one subplot)
         line_data = np.column_stack([shifts, sensitivity_results[_metric]])
-
         _plot_specs.append(
             PlotSpec(
                 data=line_data,
                 plot_type="line",
-                subplot_position=0,  # All in same subplot
+                subplot_position=0,
                 label=_metric,
                 color=colors[_i % len(colors)],
                 line_width=2,
                 alpha=0.8,
             )
         )
-
-    # Create single subplot with all metrics
     _grid = PlotGrid(
         plot_specs=_plot_specs,
         config=PlotConfig(
@@ -504,18 +449,21 @@ def _(
         layout=GridLayoutConfig(rows=1, cols=1),
         backend="plotly",
     )
-
     _fig = _grid.plot()
-    _fig.update_xaxes(title_text="Shift Magnitude (std devs)")
+    _fig.update_xaxes(
+        title_text="Shift Magnitude (std devs)"
+    )  # Create x-y pairs for line plot
     _fig.update_yaxes(title_text="Distance/Similarity")
     _fig.show()
-
     print("\n✓ Using PlotGrid for multi-line plot with all metrics overlaid!")
     print("\nKey Observations:")
     print("- Wasserstein: Linear response to shift (good for quantifying displacement)")
     print("- K-S: Saturates quickly (good for detecting any difference)")
-    print("- Euclidean: Simple linear response (centroid distance)")
+    print(
+        "- Euclidean: Simple linear response (centroid distance)"
+    )  # All in same subplot
     print("- Mahalanobis: Accounts for variance (more stable)")
+    # Create single subplot with all metrics
     print("- Cosine: Relatively stable (direction-based)")
     return
 
@@ -545,57 +493,39 @@ def _(mo):
 def _(sys):
     # Import shape distance function
     from neural_analysis.metrics.distributions import shape_distance
-
-    # Run validation using the test script
-    # sys is already imported in the main import cell
     from pathlib import Path
 
-    # Add examples directory to path for imports
+    # Run validation using the test script
     examples_dir = Path.cwd() / "examples"
     if str(examples_dir) not in sys.path:
         sys.path.insert(0, str(examples_dir))
-
+    # Add examples directory to path for imports
     from test_shape_distance_validation import (
         validate_shape_distance_ordering,
         print_validation_summary,
     )
 
-    # Run validation with smaller parameters for notebook demo
-    shape_distance_results = validate_shape_distance_ordering(
-        n_pairs=10,  # Reduced for faster execution
-        n_samples=100,
-        neuron_range=(15, 50),  # Smaller range for faster execution
-        repeats=5,  # Fewer repeats for faster execution
-        seed=42,
+    results_1 = validate_shape_distance_ordering(
+        n_pairs=10, n_samples=100, neuron_range=(15, 50), repeats=5, seed=42
     )
-
-    print_validation_summary(shape_distance_results)
-    return (shape_distance_results,)
+    # Run validation with smaller parameters for notebook demo
+    print_validation_summary(
+        results_1
+    )  # Reduced for faster execution  # Smaller range for faster execution  # Fewer repeats for faster execution
+    return (results_1,)
 
 
 @app.cell
-def _(
-    GridLayoutConfig,
-    PlotConfig,
-    PlotGrid,
-    PlotSpec,
-    np,
-    shape_distance_results,
-):
-    # Visualize distance comparisons using PlotGrid
-    if "summary" in shape_distance_results:
-        summary = shape_distance_results["summary"]
-
-        # Extract mean distances for visualization
+def _(GridLayoutConfig, PlotConfig, PlotGrid, PlotSpec, np, results_1):
+    if "summary" in results_1:
+        summary = results_1["summary"]
         methods_to_plot = ["soft-matching-exact", "one-to-one", "procrustes"]
         distances = [summary[m]["mean"] for m in methods_to_plot if m in summary]
         method_labels = [
             m.replace("-", " ").title() for m in methods_to_plot if m in summary
         ]
-
         if distances:
-            # Create bar plot comparing methods
-            _plot_specs_bar = [
+            _plot_specs = [
                 PlotSpec(
                     data=np.array(distances),
                     plot_type="bar",
@@ -613,9 +543,8 @@ def _(
                     },
                 )
             ]
-
             _grid = PlotGrid(
-                plot_specs=_plot_specs_bar,
+                plot_specs=_plot_specs,
                 config=PlotConfig(figsize=(8, 5)),
                 layout=GridLayoutConfig(rows=1, cols=1),
                 backend="plotly",
@@ -624,7 +553,6 @@ def _(
             _fig.update_xaxes(title_text="Method")
             _fig.update_yaxes(title_text="Mean Distance")
             _fig.show()
-
             print(
                 "\n✓ Methods should maintain ordering: soft-matching ≤ one-to-one ≤ procrustes"
             )
@@ -637,21 +565,20 @@ def _(np):
     from neural_analysis.data.synthetic_data import generate_shape_distance_datasets
     from neural_analysis.plotting.shape_distance import plot_shape_distance_mds
 
-    # Generate datasets with distinct cluster structure
     print("Generating datasets with distinct clusters for MDS visualization...")
+    # Generate datasets with distinct cluster structure
     datasets, labels = generate_shape_distance_datasets(
-        n_datasets=30,  # Reduced for faster execution
+        n_datasets=30,
         n_clusters=5,
         min_neurons=20,
         max_neurons=50,
-        n_features=50,  # Reduced for faster execution
+        n_features=50,
         seed=42,
     )
-
     print(f"Generated {len(datasets)} datasets with {len(np.unique(labels))} clusters")
-    print(f"Cluster distribution: {dict(zip(*np.unique(labels, return_counts=True)))}")
-
-    # Visualize using MDS (distances computed automatically using compare_datasets)
+    print(
+        f"Cluster distribution: {dict(zip(*np.unique(labels, return_counts=True)))}"
+    )  # Reduced for faster execution
     print("\nComputing distance matrices and creating MDS visualizations...")
     _fig = plot_shape_distance_mds(
         datasets=datasets,
@@ -659,12 +586,14 @@ def _(np):
         labels=labels,
         backend="matplotlib",
         figsize=(12, 12),
-        max_neurons=30,  # Limit for speed
+        max_neurons=30,
         show_progress=True,
     )
-
     print("\n✓ MDS plots show how well each method separates clusters")
-    print("  Good clustering = points of same color cluster together")
+    # Visualize using MDS (distances computed automatically using compare_datasets)
+    print(
+        "  Good clustering = points of same color cluster together"
+    )  # Reduced for faster execution  # Limit for speed
     return
 
 
@@ -686,68 +615,60 @@ def _(filter_outlier, np, pd):
     n_inliers = 200
     n_outliers = 20
     n_dims = 3
-
-    # Inliers: tight cluster
     inliers = np.random.randn(n_inliers, n_dims) * 0.5
-
-    # Outliers: far from cluster
+    # Inliers: tight cluster
     outliers = np.random.randn(n_outliers, n_dims) * 3 + np.array([5, 5, 5])
-
-    # Combine
     data_with_outliers = np.vstack([inliers, outliers])
+    # Outliers: far from cluster
     ground_truth = np.concatenate([np.ones(n_inliers), np.zeros(n_outliers)]).astype(
         bool
     )
-
-    # Test all methods
     methods = ["iqr", "zscore", "isolation", "lof", "elliptic"]
+    # Combine
     contamination = n_outliers / (n_inliers + n_outliers)
-
     outlier_results = {}
-    for method in methods:
-        filtered, mask = filter_outlier(
+    for _method in methods:
+        # Test all methods
+        filtered, _mask = filter_outlier(
             data_with_outliers,
-            method=method,
+            method=_method,
             contamination=contamination,
             threshold=3.0,
             return_mask=True,
         )
-
-        # Compute metrics
-        true_positives = np.sum(mask & ground_truth)
-        false_positives = np.sum(mask & ~ground_truth)
-        true_negatives = np.sum(~mask & ~ground_truth)
-        false_negatives = np.sum(~mask & ground_truth)
-
+        true_positives = np.sum(_mask & ground_truth)
+        false_positives = np.sum(_mask & ~ground_truth)
+        true_negatives = np.sum(~_mask & ~ground_truth)
+        false_negatives = np.sum(~_mask & ground_truth)
         precision = (
             true_positives / (true_positives + false_positives)
-            if (true_positives + false_positives) > 0
+            if true_positives + false_positives > 0
             else 0
         )
         recall = (
             true_positives / (true_positives + false_negatives)
-            if (true_positives + false_negatives) > 0
+            if true_positives + false_negatives > 0
             else 0
         )
         f1 = (
             2 * (precision * recall) / (precision + recall)
-            if (precision + recall) > 0
+            if precision + recall > 0
             else 0
         )
-
-        outlier_results[method] = {
+        outlier_results[_method] = {
             "Precision": precision,
             "Recall": recall,
             "F1-Score": f1,
-            "Detected Outliers": np.sum(~mask),
-            "Kept Inliers": np.sum(mask),
+            "Detected Outliers": np.sum(~_mask),
+            "Kept Inliers": np.sum(_mask),
         }
-
     df_outlier = pd.DataFrame(outlier_results).T
     print("\nOutlier Detection Performance:")
     print("=" * 80)
     print(df_outlier.round(3))
-    print(f"\nGround Truth: {n_inliers} inliers, {n_outliers} outliers")
+    print(
+        f"\nGround Truth: {n_inliers} inliers, {n_outliers} outliers"
+    )  # Compute metrics
     print("\nBest Method: Highest F1-Score balances precision and recall")
     return contamination, data_with_outliers, inliers, methods, outliers
 
@@ -767,8 +688,6 @@ def _(
 ):
     # Visualize outlier detection results using PlotGrid
     _plot_specs = []
-
-    # Subplot 0: Original data with ground truth
     _plot_specs.append(
         PlotSpec(
             data=inliers,
@@ -780,6 +699,7 @@ def _(
             title="Original Data",
         )
     )
+    # Subplot 0: Original data with ground truth
     _plot_specs.append(
         PlotSpec(
             data=outliers,
@@ -790,9 +710,7 @@ def _(
             marker_size=5,
         )
     )
-
-    # Each outlier detection method gets its own subplot (positions 1-5)
-    for _idx, _method in enumerate(methods, start=1):
+    for idx, _method in enumerate(methods, start=1):
         _, _mask = filter_outlier(
             data_with_outliers,
             method=_method,
@@ -801,13 +719,11 @@ def _(
         )
         kept = data_with_outliers[_mask]
         removed = data_with_outliers[~_mask]
-
-        # Add kept points (inliers)
         _plot_specs.append(
             PlotSpec(
                 data=kept,
                 plot_type="scatter3d",
-                subplot_position=_idx,
+                subplot_position=idx,
                 label="Kept",
                 color="green",
                 marker_size=3,
@@ -815,20 +731,16 @@ def _(
                 title=_method.upper(),
             )
         )
-
-        # Add removed points (outliers)
         _plot_specs.append(
             PlotSpec(
                 data=removed,
                 plot_type="scatter3d",
-                subplot_position=_idx,
+                subplot_position=idx,
                 label="Removed",
                 color="orange",
                 marker_size=3,
             )
         )
-
-    # Create the grid with PlotGrid
     _grid = PlotGrid(
         plot_specs=_plot_specs,
         layout=GridLayoutConfig(rows=2, cols=3),
@@ -837,13 +749,13 @@ def _(
         ),
         backend="plotly",
     )
-
     _fig = _grid.plot()
     _fig.show()
-
+    # Each outlier detection method gets its own subplot (positions 1-5)
+    # Create the grid with PlotGrid
     print(
         "\n✓ Using PlotGrid with subplot_position for 3D outlier detection visualization!"
-    )
+    )  # Add kept points (inliers)  # Add removed points (outliers)
     return
 
 
@@ -862,71 +774,52 @@ def _(mo):
 @app.cell
 def _(compare_datasets, np, pd):
     # Simulate neural data: 3 conditions with different activity patterns
-    _n_trials = 40
+    n_trials = 40
     _n_neurons = 50
-
     conditions = {
-        "Baseline": np.random.randn(_n_trials, _n_neurons) * 0.5,
-        "Stimulus_A": np.random.randn(_n_trials, _n_neurons) * 0.5
+        "Baseline": np.random.randn(n_trials, _n_neurons) * 0.5,
+        "Stimulus_A": np.random.randn(n_trials, _n_neurons) * 0.5
         + np.array([1.0] * _n_neurons),
-        "Stimulus_B": np.random.randn(_n_trials, _n_neurons) * 0.8
+        "Stimulus_B": np.random.randn(n_trials, _n_neurons) * 0.8
         + np.array([0.5] * _n_neurons),
     }
-
-    # Between-group comparison using all-pairs mode
-    _all_pairs_result = compare_datasets(
+    between_results = compare_datasets(
         conditions, mode="all-pairs", metric="wasserstein"
     )
-
-    # Convert to distance matrix
     condition_names = list(conditions.keys())
     dist_matrix = np.zeros((len(condition_names), len(condition_names)))
-    for _i, _name_i in enumerate(condition_names):
-        for _j, _name_j in enumerate(condition_names):
-            if _name_j in _all_pairs_result.get(_name_i, {}):
-                dist_matrix[_i, _j] = _all_pairs_result[_name_i][_name_j]
-            elif _name_i in _all_pairs_result.get(_name_j, {}):
-                dist_matrix[_i, _j] = _all_pairs_result[_name_j][_name_i]
-
+    for _i, name_i in enumerate(condition_names):
+        for _j, name_j in enumerate(condition_names):
+            dist_matrix[_i, _j] = between_results[name_i][name_j]
     print("\nBetween-Condition Distance Matrix (Wasserstein):")
     print(
         pd.DataFrame(dist_matrix, index=condition_names, columns=condition_names).round(
             3
         )
     )
-
-    # Within-group variability using compute_within_distances
-    from neural_analysis.metrics.pairwise_metrics import compute_within_distances
-
+    # Compute within-group variability for each condition
     inside_results = {}
-    for _name in condition_names:
-        _within_result = compute_within_distances(conditions[_name], metric="euclidean")
-        inside_results[_name] = {
-            "mean": (
-                float(_within_result)
-                if isinstance(_within_result, (int, float))
-                else float(np.mean(_within_result))
-            ),
-            "std": (
-                0.0
-                if isinstance(_within_result, (int, float))
-                else float(np.std(_within_result))
-            ),
-        }
-
-    print("\nWithin-Condition Variability:")
-    for _name in condition_names:
-        print(
-            f"{_name}: mean={inside_results[_name]['mean']:.3f}, std={inside_results[_name]['std']:.3f}"
+    for name in condition_names:
+        _within_dist = compare_datasets(
+            conditions[name], mode="within", metric="euclidean"
         )
+        inside_results[name] = _within_dist
+    # Between-group comparison
+    print("\nWithin-Condition Variability:")
+    for _i, name in enumerate(condition_names):
+        # Convert to distance matrix
+        # Within-group variability
+        _mean = (
+            inside_results[name]
+            if isinstance(inside_results[name], (int, float))
+            else float(inside_results[name])
+        )
+        print(f"{name}: mean={_mean:.3f}")
     return condition_names, dist_matrix
 
 
 @app.cell
 def _(PlotConfig, condition_names, dist_matrix, plot_heatmap):
-    # Visualize as heatmap using modular function
-    # plot_heatmap is already imported in the main import cell
-
     _fig = plot_heatmap(
         dist_matrix,
         config=PlotConfig(
@@ -944,7 +837,6 @@ def _(PlotConfig, condition_names, dist_matrix, plot_heatmap):
         backend="plotly",
     )
     _fig.show()
-
     print("\nInterpretation:")
     print("- Baseline vs Stimulus_A: Largest difference (highest activity change)")
     print("- Stimulus_A vs Stimulus_B: Moderate difference)")
@@ -967,84 +859,63 @@ def _(mo):
 @app.cell
 def _(compare_datasets, np, pd):
     # Simulate neural population with 2D preferred direction manifold
-    _n_neurons_manifold = 100
+    _n_neurons = 100
     n_timepoints = 50
     n_trials_per_angle = 20
-
     angles = np.linspace(0, 2 * np.pi, 8, endpoint=False)
     neural_data = {}
-
     for angle in angles:
-        # Each angle has a preferred neural pattern
         preferred_pattern = np.array([np.cos(angle), np.sin(angle)])
-
-        # Generate trials with noise
         trials = []
-        for _ in range(n_trials_per_angle):
-            # High-dimensional neural activity projects onto 2D manifold
+        for _ in range(n_trials_per_angle):  # Each angle has a preferred neural pattern
             manifold_activity = preferred_pattern + np.random.randn(2) * 0.2
-            # Random projection to high-dim space
-            projection_matrix = np.random.randn(_n_neurons_manifold, 2)
+            projection_matrix = np.random.randn(_n_neurons, 2)
             neural_activity = (
                 projection_matrix @ manifold_activity
-                + np.random.randn(_n_neurons_manifold) * 0.1
-            )
+                + np.random.randn(_n_neurons) * 0.1
+            )  # Generate trials with noise
             trials.append(neural_activity)
-
         neural_data[f"angle_{int(np.degrees(angle))}"] = np.array(trials)
-
-    # Compare adjacent angles (should be similar) vs opposite angles (should differ)
-    print("\nNeural Manifold Analysis:")
+    print(
+        "\nNeural Manifold Analysis:"
+    )  # High-dimensional neural activity projects onto 2D manifold
     print("Comparing activity patterns across movement directions\n")
-
-    # Adjacent angles
-    _result_adjacent = compare_datasets(
+    _result_adj = compare_datasets(
         neural_data["angle_0"],
         neural_data["angle_45"],
         mode="between",
         metric="mahalanobis",
-    )
-    _dist_adjacent = (
-        _result_adjacent["value"]
-        if isinstance(_result_adjacent, dict) and "value" in _result_adjacent
-        else float(_result_adjacent)
-    )
-
-    # Opposite angles
-    _result_opposite = compare_datasets(
+    )  # Random projection to high-dim space
+    _result_opp = compare_datasets(
         neural_data["angle_0"],
         neural_data["angle_180"],
         mode="between",
         metric="mahalanobis",
     )
-    _dist_opposite = (
-        _result_opposite["value"]
-        if isinstance(_result_opposite, dict) and "value" in _result_opposite
-        else float(_result_opposite)
+    dist_adjacent = (
+        _result_adj["value"] if isinstance(_result_adj, dict) else _result_adj
     )
-
-    print(f"Distance between adjacent angles (0° vs 45°): {_dist_adjacent:.3f}")
-    print(f"Distance between opposite angles (0° vs 180°): {_dist_opposite:.3f}")
+    dist_opposite = (
+        _result_opp["value"] if isinstance(_result_opp, dict) else _result_opp
+    )
+    print(f"Distance between adjacent angles (0° vs 45°): {dist_adjacent:.3f}")
+    print(f"Distance between opposite angles (0° vs 180°): {dist_opposite:.3f}")
     print(
-        f"\nValidation: Opposite directions should be farther: {_dist_opposite > _dist_adjacent}"
+        f"\nValidation: Opposite directions should be farther: {dist_opposite > dist_adjacent}"
     )
-
-    # Full comparison matrix using all-pairs mode
     angle_names = list(neural_data.keys())
-    _all_pairs_result = compare_datasets(
-        neural_data, mode="all-pairs", metric="euclidean"
+    angle_matrix = compare_datasets(neural_data, mode="all-pairs", metric="euclidean")
+    matrix_vals = np.array(
+        [
+            [angle_matrix[name_i][name_j] for name_j in angle_names]
+            for name_i in angle_names
+        ]
     )
-
-    # Convert to matrix format
-    matrix_vals = np.zeros((len(angle_names), len(angle_names)))
-    for _i, _name_i in enumerate(angle_names):
-        for _j, _name_j in enumerate(angle_names):
-            if _name_j in _all_pairs_result.get(_name_i, {}):
-                matrix_vals[_i, _j] = _all_pairs_result[_name_i][_name_j]
-            elif _name_i in _all_pairs_result.get(_name_j, {}):
-                matrix_vals[_i, _j] = _all_pairs_result[_name_j][_name_i]
-
     print("\nFull Angular Distance Matrix:")
+    # Compare adjacent angles (should be similar) vs opposite angles (should differ)
+    # Adjacent angles
+    # Opposite angles
+    # Full comparison matrix
     print(pd.DataFrame(matrix_vals, index=angle_names, columns=angle_names).round(2))
     return
 
@@ -1279,7 +1150,3 @@ def _(
     print("5. Automatic color schemes and grid sizing")
     print("6. Works with both matplotlib and plotly backends")
     return
-
-
-if __name__ == "__main__":
-    app.run()

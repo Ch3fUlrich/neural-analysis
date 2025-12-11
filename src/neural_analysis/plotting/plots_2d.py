@@ -11,18 +11,13 @@ behavior and code reuse.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 import numpy as np
 import numpy.typing as npt
 
 from .core import PlotConfig
 from .grid_config import PlotGrid, PlotSpec
-
-if TYPE_CHECKING:
-    import matplotlib.axes
-    import matplotlib.pyplot as plt
-    import plotly.graph_objects as go
 
 # Optional imports
 try:

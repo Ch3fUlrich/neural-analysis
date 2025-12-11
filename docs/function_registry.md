@@ -22,7 +22,15 @@ This registry helps developers and AI agents:
 
 **Purpose:** Add noise to data.
 
-**Location:** `data.synthetic_data.py` (line 1598)
+**Location:** `data.synthetic_data.py` (line 1604)
+
+#### `generate_cluster_templates(n_clusters, n_features, cluster_separation, ...)`
+
+**Returns:** `npt.NDArray[np.float64]`
+
+**Purpose:** Generate cluster templates with fundamentally different structures.
+
+**Location:** `data.synthetic_data.py` (line 2174)
 
 #### `generate_data(dataset_type, n_samples, n_features, ...)`
 
@@ -30,7 +38,15 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate synthetic datasets with unified interface.
 
-**Location:** `data.synthetic_data.py` (line 74)
+**Location:** `data.synthetic_data.py` (line 75)
+
+#### `generate_dataset_from_cluster_template(template, n_neurons, noise_scale, ...)`
+
+**Returns:** `npt.NDArray[np.float64]`
+
+**Purpose:** Generate a neural dataset from a cluster template.
+
+**Location:** `data.synthetic_data.py` (line 2252)
 
 #### `generate_grid_cells(n_cells, n_samples, positions, ...)`
 
@@ -38,7 +54,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate grid cell firing data in 1D, 2D, or 3D.
 
-**Location:** `data.synthetic_data.py` (line 1064)
+**Location:** `data.synthetic_data.py` (line 1070)
 
 #### `generate_head_direction(n_samples, turning_rate, seed)`
 
@@ -46,7 +62,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate head direction trajectory.
 
-**Location:** `data.synthetic_data.py` (line 782)
+**Location:** `data.synthetic_data.py` (line 788)
 
 #### `generate_head_direction_cells(n_cells, n_samples, head_direction, ...)`
 
@@ -54,7 +70,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate head direction cell firing data.
 
-**Location:** `data.synthetic_data.py` (line 1318)
+**Location:** `data.synthetic_data.py` (line 1324)
 
 #### `generate_mixed_neural_population(n_place, n_grid, n_hd, ...)`
 
@@ -62,7 +78,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate mixed population of place, grid, and head direction cells.
 
-**Location:** `data.synthetic_data.py` (line 1523)
+**Location:** `data.synthetic_data.py` (line 1529)
 
 #### `generate_mixed_population_flexible(cell_config, n_samples, arena_size, ...)`
 
@@ -70,7 +86,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate flexible mixed neural population with custom configuration.
 
-**Location:** `data.synthetic_data.py` (line 1971)
+**Location:** `data.synthetic_data.py` (line 1977)
 
 #### `generate_place_cells(n_cells, n_samples, positions, ...)`
 
@@ -78,7 +94,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate place cell firing data in 1D, 2D, or 3D.
 
-**Location:** `data.synthetic_data.py` (line 820)
+**Location:** `data.synthetic_data.py` (line 826)
 
 #### `generate_position_trajectory(n_samples, arena_size, speed, ...)`
 
@@ -86,7 +102,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate realistic position trajectory for a freely moving animal.
 
-**Location:** `data.synthetic_data.py` (line 714)
+**Location:** `data.synthetic_data.py` (line 720)
 
 #### `generate_random_cells(n_cells, n_samples, baseline_rate, ...)`
 
@@ -94,7 +110,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate random cells with no specific tuning properties.
 
-**Location:** `data.synthetic_data.py` (line 1410)
+**Location:** `data.synthetic_data.py` (line 1416)
 
 #### `generate_s_curve(n_samples, noise, seed)`
 
@@ -102,7 +118,15 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate S-curve manifold dataset using scikit-learn.
 
-**Location:** `data.synthetic_data.py` (line 1681)
+**Location:** `data.synthetic_data.py` (line 1687)
+
+#### `generate_shape_distance_datasets(n_datasets, n_clusters, min_neurons, ...)`
+
+**Returns:** `tuple[list[npt.NDArray[np.float64]], npt.NDArray[np.int_]]`
+
+**Purpose:** Generate multiple neural datasets with distinct cluster structure.
+
+**Location:** `data.synthetic_data.py` (line 2362)
 
 #### `generate_swiss_roll(n_samples, noise, seed)`
 
@@ -110,7 +134,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate Swiss roll manifold dataset using scikit-learn.
 
-**Location:** `data.synthetic_data.py` (line 1649)
+**Location:** `data.synthetic_data.py` (line 1655)
 
 #### `map_to_ring(activity, positions, plot)`
 
@@ -118,7 +142,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Map population activity to ring manifold (1D circular).
 
-**Location:** `data.synthetic_data.py` (line 1713)
+**Location:** `data.synthetic_data.py` (line 1719)
 
 #### `map_to_torus(activity, positions, major_radius, ...)`
 
@@ -126,7 +150,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Map population activity to torus manifold (2D periodic).
 
-**Location:** `data.synthetic_data.py` (line 1832)
+**Location:** `data.synthetic_data.py` (line 1838)
 
 ---
 
@@ -184,7 +208,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute convex hull for a set of points.
 
-**Location:** `plotting.embeddings.py` (line 304)
+**Location:** `plotting.embeddings.py` (line 307)
 
 #### `group_points_by_labels(points, labels)`
 
@@ -192,31 +216,31 @@ This registry helps developers and AI agents:
 
 **Purpose:** Group points by their labels.
 
-**Location:** `plotting.embeddings.py` (line 336)
+**Location:** `plotting.embeddings.py` (line 339)
 
 #### `plot_embedding(embedding, labels)`
 
-**Returns:** `plt.Figure | go.Figure`
+**Returns:** `Any`
 
 **Purpose:** Plot embeddings with automatic 2D/3D detection.
 
-**Location:** `plotting.embeddings.py` (line 39)
+**Location:** `plotting.embeddings.py` (line 41)
 
 #### `plot_embedding_2d(embedding, labels)`
 
-**Returns:** `plt.Figure | go.Figure`
+**Returns:** `Any`
 
 **Purpose:** Plot 2D embeddings with optional convex hulls.
 
-**Location:** `plotting.embeddings.py` (line 119)
+**Location:** `plotting.embeddings.py` (line 121)
 
 #### `plot_embedding_3d(embedding, labels)`
 
-**Returns:** `plt.Figure | go.Figure`
+**Returns:** `Any`
 
 **Purpose:** Plot 3D embeddings with optional convex hulls.
 
-**Location:** `plotting.embeddings.py` (line 209)
+**Location:** `plotting.embeddings.py` (line 212)
 
 ---
 
@@ -280,7 +304,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Align mtx2 to mtx1 using Procrustes analysis.
 
-**Location:** `metrics.distributions.py` (line 1479)
+**Location:** `metrics.distributions.py` (line 1200)
 
 #### `batch_comparison(datasets, comparison_fn)`
 
@@ -288,23 +312,15 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generic batch-comparison utility for arbitrary comparison functions.
 
-**Location:** `metrics.distributions.py` (line 1358)
+**Location:** `metrics.distributions.py` (line 1023)
 
-#### `compare_distribution_groups(group_vectors, compare_type, metric)`
+#### `core_compute(a, b)`
 
-**Returns:** `dict[str, npt.NDArray[np.floating]] | dict[str | tuple[str, ...], npt.NDArray[np.floating]]`
+**Returns:** `tuple[float, Dict[Tuple[int, int], float]]`
 
-**Purpose:** Compare distributions within or between groups (legacy wrapper).
+**Purpose:** No description
 
-**Location:** `metrics.distributions.py` (line 967)
-
-#### `compare_distributions(points1, points2, metric, ...)`
-
-**Returns:** `float | tuple[float, dict[tuple[int, int], float]]`
-
-**Purpose:** Compare two point distributions using a specified metric.
-
-**Location:** `metrics.distributions.py` (line 796)
+**Location:** `metrics.distributions.py` (line 1769)
 
 #### `decorator(func)`
 
@@ -312,7 +328,15 @@ This registry helps developers and AI agents:
 
 **Purpose:** No description
 
-**Location:** `metrics.distributions.py` (line 57)
+**Location:** `metrics.distributions.py` (line 74)
+
+#### `distance_only(a, b)`
+
+**Returns:** `float`
+
+**Purpose:** No description
+
+**Location:** `metrics.distributions.py` (line 1833)
 
 #### `distribution_distance(points1, points2, mode, ...)`
 
@@ -320,7 +344,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute pairwise distances within or between distributions.
 
-**Location:** `metrics.distributions.py` (line 561)
+**Location:** `metrics.distributions.py` (line 588)
 
 #### `get_logger(name)`
 
@@ -328,7 +352,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** No description
 
-**Location:** `metrics.distributions.py` (line 62)
+**Location:** `metrics.distributions.py` (line 79)
 
 #### `jensen_shannon_divergence(points1, points2, bins)`
 
@@ -336,7 +360,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute Jensen-Shannon divergence between point distributions.
 
-**Location:** `metrics.distributions.py` (line 437)
+**Location:** `metrics.distributions.py` (line 464)
 
 #### `kolmogorov_smirnov_distance(points1, points2)`
 
@@ -344,7 +368,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute maximum Kolmogorov-Smirnov statistic over all features.
 
-**Location:** `metrics.distributions.py` (line 375)
+**Location:** `metrics.distributions.py` (line 402)
 
 #### `log_calls()`
 
@@ -352,15 +376,15 @@ This registry helps developers and AI agents:
 
 **Purpose:** No description
 
-**Location:** `metrics.distributions.py` (line 54)
+**Location:** `metrics.distributions.py` (line 71)
 
-#### `modify_matrix(mtx, whiten, normalize)`
+#### `modify_matrix(mtx, whiten, normalize, ...)`
 
 **Returns:** `npt.NDArray[np.floating[Any]]`
 
 **Purpose:** Preprocess matrix for shape comparison.
 
-**Location:** `metrics.distributions.py` (line 1432)
+**Location:** `metrics.distributions.py` (line 1099)
 
 #### `pairwise_distribution_comparison_batch(data, metrics)`
 
@@ -368,39 +392,39 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute all-pairs distribution comparisons with caching and persistence.
 
-**Location:** `metrics.distributions.py` (line 1169)
+**Location:** `metrics.distributions.py` (line 831)
 
 #### `shape_distance(mtx1, mtx2, method, ...)`
 
-**Returns:** `float | tuple[float, dict[tuple[int, int], float]]`
+**Returns:** `tuple[Union[float, npt.NDArray[np.float64]], Union[Dict[Tuple[int, int], float], List[Dict[Tuple[int, int], float]]], Dict[str, Any]]`
 
-**Purpose:** Compute shape distance between two matrices.
+**Purpose:** Compute a shape distance between two neural population activity matrices,
 
-**Location:** `metrics.distributions.py` (line 1769)
+**Location:** `metrics.distributions.py` (line 1596)
 
 #### `shape_distance_one_to_one(mtx1, mtx2, metric)`
 
 **Returns:** `tuple[float, dict[tuple[int, int], float]]`
 
-**Purpose:** Compute shape distance using optimal one-to-one point matching via optimal transport.
+**Purpose:** One-to-one (permutation) shape distance: d_P(X, Y) = min_{Π in Π_N} ||X - Π Y||_F.
 
-**Location:** `metrics.distributions.py` (line 1582)
+**Location:** `metrics.distributions.py` (line 1351)
 
-#### `shape_distance_procrustes(mtx1, mtx2)`
+#### `shape_distance_procrustes(mtx1, mtx2, return_pairs)`
 
-**Returns:** `tuple[float, dict[tuple[int, int], float]]`
+**Returns:** `tuple[float, dict[tuple[int, int], float] | None]`
 
-**Purpose:** Compute shape distance using Procrustes alignment.
+**Purpose:** Orthogonal Procrustes shape distance: d_O(X, Y) = min_{Q in O_N} ||X - Q Y||_F.
 
-**Location:** `metrics.distributions.py` (line 1530)
+**Location:** `metrics.distributions.py` (line 1259)
 
 #### `shape_distance_soft_matching(mtx1, mtx2, metric, ...)`
 
 **Returns:** `tuple[float, dict[tuple[int, int], float]]`
 
-**Purpose:** Compute shape distance using soft optimal transport matching.
+**Purpose:** Soft-matching (OT/Wasserstein) distance: d_T(X,Y) = min_T sum T_ij C_ij, T in transport polytope.
 
-**Location:** `metrics.distributions.py` (line 1667)
+**Location:** `metrics.distributions.py` (line 1460)
 
 #### `wasserstein_distance_multi(points1, points2)`
 
@@ -408,7 +432,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute sum of Wasserstein distances over all features.
 
-**Location:** `metrics.distributions.py` (line 304)
+**Location:** `metrics.distributions.py` (line 331)
 
 ---
 
@@ -472,7 +496,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Get list of all top-level dataset names in HDF5 file.
 
-**Location:** `utils.io.py` (line 825)
+**Location:** `utils.io.py` (line 837)
 
 #### `get_hdf5_result_summary(save_path, dataset_name)`
 
@@ -480,7 +504,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Get summary DataFrame of all results in HDF5 file.
 
-**Location:** `utils.io.py` (line 858)
+**Location:** `utils.io.py` (line 870)
 
 #### `get_logger(name)`
 
@@ -496,7 +520,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Determine which comparisons need to be computed.
 
-**Location:** `utils.io.py` (line 512)
+**Location:** `utils.io.py` (line 529)
 
 #### `h5io(path)`
 
@@ -504,7 +528,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compatibility wrapper replicating legacy `h5io` API.
 
-**Location:** `utils.io.py` (line 563)
+**Location:** `utils.io.py` (line 580)
 
 #### `load_array(path)`
 
@@ -512,7 +536,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Load an array or dict of arrays from .npy/.npz. Returns None if missing.
 
-**Location:** `utils.io.py` (line 242)
+**Location:** `utils.io.py` (line 259)
 
 #### `load_distribution_comparisons(save_path, comparison_name, dataset_i, ...)`
 
@@ -520,7 +544,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Load distribution comparison results from HDF5.
 
-**Location:** `utils.io.py` (line 919)
+**Location:** `utils.io.py` (line 931)
 
 #### `load_hdf5(path)`
 
@@ -528,7 +552,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Load previously saved HDF5 content.
 
-**Location:** `utils.io.py` (line 352)
+**Location:** `utils.io.py` (line 369)
 
 #### `load_results_from_hdf5_dataset(save_path, dataset_name, result_key, ...)`
 
@@ -536,7 +560,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Load analysis results from HDF5 file.
 
-**Location:** `utils.io.py` (line 719)
+**Location:** `utils.io.py` (line 731)
 
 #### `log_calls()`
 
@@ -552,7 +576,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Save a single array (.npy) or a dict of arrays (.npz).
 
-**Location:** `utils.io.py` (line 205)
+**Location:** `utils.io.py` (line 222)
 
 #### `save_comparison_batch(result_rows, df_results, save_path)`
 
@@ -560,7 +584,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Save batch of comparison results to HDF5.
 
-**Location:** `utils.io.py` (line 464)
+**Location:** `utils.io.py` (line 481)
 
 #### `save_hdf5(path, data)`
 
@@ -568,7 +592,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Save a DataFrame or array with optional labels into an HDF5 file.
 
-**Location:** `utils.io.py` (line 294)
+**Location:** `utils.io.py` (line 311)
 
 #### `save_result_to_hdf5_dataset(save_path, dataset_name, result_key, ...)`
 
@@ -576,7 +600,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Save analysis results to HDF5 file with hierarchical structure.
 
-**Location:** `utils.io.py` (line 594)
+**Location:** `utils.io.py` (line 611)
 
 #### `update_array(path, new_data)`
 
@@ -584,7 +608,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Update or create an .npz file by merging in new arrays.
 
-**Location:** `utils.io.py` (line 265)
+**Location:** `utils.io.py` (line 282)
 
 ---
 
@@ -664,7 +688,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Apply common layout (title, labels, limits, grid) for matplotlib.
 
-**Location:** `plotting.core.py` (line 252)
+**Location:** `plotting.core.py` (line 260)
 
 #### `apply_layout_plotly(fig, config)`
 
@@ -672,7 +696,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Apply common layout (title, labels, limits, grid) for Plotly.
 
-**Location:** `plotting.core.py` (line 274)
+**Location:** `plotting.core.py` (line 282)
 
 #### `apply_layout_plotly_3d(fig, config)`
 
@@ -680,7 +704,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Apply common layout for Plotly 3D plots (scene configuration).
 
-**Location:** `plotting.core.py` (line 301)
+**Location:** `plotting.core.py` (line 310)
 
 #### `calculate_alpha(value, min_value, max_value, ...)`
 
@@ -688,7 +712,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Calculate alpha value(s) based on value's position in range.
 
-**Location:** `plotting.core.py` (line 405)
+**Location:** `plotting.core.py` (line 417)
 
 #### `create_rgba_labels(values, alpha, cmap)`
 
@@ -696,7 +720,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create RGBA labels using a colormap.
 
-**Location:** `plotting.core.py` (line 550)
+**Location:** `plotting.core.py` (line 562)
 
 #### `finalize_plot_matplotlib(config)`
 
@@ -704,7 +728,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Handle save and show for matplotlib plots.
 
-**Location:** `plotting.core.py` (line 352)
+**Location:** `plotting.core.py` (line 364)
 
 #### `finalize_plot_plotly(fig, config)`
 
@@ -712,7 +736,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Handle save and show for plotly plots.
 
-**Location:** `plotting.core.py` (line 365)
+**Location:** `plotting.core.py` (line 377)
 
 #### `generate_similar_colors(base_color, num_colors, hue_variation, ...)`
 
@@ -720,7 +744,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate a list of similar colors based on a base color.
 
-**Location:** `plotting.core.py` (line 492)
+**Location:** `plotting.core.py` (line 504)
 
 #### `get_default_categorical_colors(n)`
 
@@ -728,7 +752,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Return a list of n default categorical colors as hex strings.
 
-**Location:** `plotting.core.py` (line 334)
+**Location:** `plotting.core.py` (line 346)
 
 #### `get_save_path()`
 
@@ -744,7 +768,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Convert value to list if it isn't already.
 
-**Location:** `plotting.core.py` (line 671)
+**Location:** `plotting.core.py` (line 683)
 
 #### `resolve_colormap(cmap, backend)`
 
@@ -752,7 +776,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Return a backend-appropriate colormap identifier.
 
-**Location:** `plotting.core.py` (line 218)
+**Location:** `plotting.core.py` (line 223)
 
 #### `save_plot(save_path, format, dpi, ...)`
 
@@ -760,7 +784,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Save current matplotlib figure to file.
 
-**Location:** `plotting.core.py` (line 623)
+**Location:** `plotting.core.py` (line 635)
 
 ### `plotting.grid_config`
 
@@ -770,7 +794,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** No description
 
-**Location:** `plotting.grid_config.py` (line 480)
+**Location:** `plotting.grid_config.py` (line 497)
 
 #### `add_plot(data, plot_type)`
 
@@ -778,7 +802,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Add a plot to the grid.
 
-**Location:** `plotting.grid_config.py` (line 612)
+**Location:** `plotting.grid_config.py` (line 629)
 
 #### `add_trace_to_subplot(fig, trace, row, ...)`
 
@@ -786,7 +810,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Add a trace to a specific subplot in a plotly figure.
 
-**Location:** `plotting.grid_config.py` (line 2408)
+**Location:** `plotting.grid_config.py` (line 2438)
 
 #### `auto_size_grid(n_plots)`
 
@@ -794,7 +818,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Automatically determine grid size from number of plots.
 
-**Location:** `plotting.grid_config.py` (line 326)
+**Location:** `plotting.grid_config.py` (line 343)
 
 #### `create_subplot_grid(rows, cols, config, ...)`
 
@@ -802,7 +826,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create a multi-panel subplot grid.
 
-**Location:** `plotting.grid_config.py` (line 2098)
+**Location:** `plotting.grid_config.py` (line 2134)
 
 #### `from_dataframe(df, data_col, plot_type_col, ...)`
 
@@ -810,7 +834,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create PlotGrid from a pandas DataFrame.
 
-**Location:** `plotting.grid_config.py` (line 495)
+**Location:** `plotting.grid_config.py` (line 512)
 
 #### `from_dict(data_dict, plot_type)`
 
@@ -818,7 +842,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create PlotGrid from a dictionary of {label: data}.
 
-**Location:** `plotting.grid_config.py` (line 578)
+**Location:** `plotting.grid_config.py` (line 595)
 
 #### `get_colors(groups)`
 
@@ -826,7 +850,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Get color mapping for a list of groups.
 
-**Location:** `plotting.grid_config.py` (line 378)
+**Location:** `plotting.grid_config.py` (line 395)
 
 #### `plot()`
 
@@ -834,7 +858,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Generate the plot grid.
 
-**Location:** `plotting.grid_config.py` (line 648)
+**Location:** `plotting.grid_config.py` (line 665)
 
 #### `plot_comparison_grid(data_dict, plot_type, rows, ...)`
 
@@ -842,7 +866,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create a grid comparing multiple datasets with the same plot type.
 
-**Location:** `plotting.grid_config.py` (line 1977)
+**Location:** `plotting.grid_config.py` (line 2012)
 
 #### `plot_grouped_comparison(data, x_col, y_col, ...)`
 
@@ -850,7 +874,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create overlaid plots grouped by a category.
 
-**Location:** `plotting.grid_config.py` (line 2019)
+**Location:** `plotting.grid_config.py` (line 2054)
 
 ---
 
@@ -864,7 +888,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Extract x and y coordinates from various data formats.
 
-**Location:** `plotting.renderers.py` (line 38)
+**Location:** `plotting.renderers.py` (line 44)
 
 #### `extract_xyz_from_data(data)`
 
@@ -872,7 +896,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Extract x, y, and z coordinates from various data formats.
 
-**Location:** `plotting.renderers.py` (line 67)
+**Location:** `plotting.renderers.py` (line 79)
 
 #### `render_bar_matplotlib(ax, data, x, ...)`
 
@@ -880,7 +904,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a bar plot using matplotlib.
 
-**Location:** `plotting.renderers.py` (line 1073)
+**Location:** `plotting.renderers.py` (line 1094)
 
 #### `render_bar_plotly(data, x, color, ...)`
 
@@ -888,7 +912,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a bar plot using plotly.
 
-**Location:** `plotting.renderers.py` (line 1196)
+**Location:** `plotting.renderers.py` (line 1219)
 
 #### `render_boolean_states_matplotlib(ax, x, states, ...)`
 
@@ -896,7 +920,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render boolean states as filled regions using matplotlib.
 
-**Location:** `plotting.renderers.py` (line 2349)
+**Location:** `plotting.renderers.py` (line 2376)
 
 #### `render_boolean_states_plotly(x, states, true_color, ...)`
 
@@ -904,7 +928,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render boolean states as filled regions using plotly.
 
-**Location:** `plotting.renderers.py` (line 2442)
+**Location:** `plotting.renderers.py` (line 2469)
 
 #### `render_box_matplotlib(ax, data, position, ...)`
 
@@ -912,7 +936,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a box plot with sample points using matplotlib.
 
-**Location:** `plotting.renderers.py` (line 1536)
+**Location:** `plotting.renderers.py` (line 1560)
 
 #### `render_box_plotly(data, color, alpha, ...)`
 
@@ -920,7 +944,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a box plot with sample points using plotly.
 
-**Location:** `plotting.renderers.py` (line 1619)
+**Location:** `plotting.renderers.py` (line 1643)
 
 #### `render_convex_hull_matplotlib(ax, hull_x, hull_y, ...)`
 
@@ -928,7 +952,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a convex hull boundary using matplotlib.
 
-**Location:** `plotting.renderers.py` (line 2221)
+**Location:** `plotting.renderers.py` (line 2248)
 
 #### `render_convex_hull_plotly(hull_x, hull_y, color, ...)`
 
@@ -936,7 +960,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a convex hull boundary using plotly.
 
-**Location:** `plotting.renderers.py` (line 2286)
+**Location:** `plotting.renderers.py` (line 2313)
 
 #### `render_ellipse_matplotlib(ax, centers, widths, ...)`
 
@@ -944,15 +968,15 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render ellipses using matplotlib patches.
 
-**Location:** `plotting.renderers.py` (line 2543)
+**Location:** `plotting.renderers.py` (line 2570)
 
 #### `render_ellipse_plotly(centers, widths, heights, ...)`
 
-**Returns:** `list`
+**Returns:** `list[Any]`
 
 **Purpose:** Render ellipses using plotly shapes.
 
-**Location:** `plotting.renderers.py` (line 2662)
+**Location:** `plotting.renderers.py` (line 2689)
 
 #### `render_heatmap_matplotlib(ax, data, cmap, ...)`
 
@@ -960,7 +984,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a heatmap using matplotlib.
 
-**Location:** `plotting.renderers.py` (line 772)
+**Location:** `plotting.renderers.py` (line 790)
 
 #### `render_heatmap_plotly(data, cmap, colorscale)`
 
@@ -968,7 +992,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a heatmap using plotly.
 
-**Location:** `plotting.renderers.py` (line 1018)
+**Location:** `plotting.renderers.py` (line 1039)
 
 #### `render_heatmap_walls_matplotlib(ax, data, cmap, ...)`
 
@@ -976,7 +1000,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render three orthogonal heatmap projections on the walls of a 3D axes.
 
-**Location:** `plotting.renderers.py` (line 871)
+**Location:** `plotting.renderers.py` (line 889)
 
 #### `render_histogram_matplotlib(ax, data, color, ...)`
 
@@ -984,7 +1008,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a histogram using matplotlib.
 
-**Location:** `plotting.renderers.py` (line 682)
+**Location:** `plotting.renderers.py` (line 700)
 
 #### `render_histogram_plotly(data, color, alpha, ...)`
 
@@ -992,7 +1016,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a histogram using plotly.
 
-**Location:** `plotting.renderers.py` (line 719)
+**Location:** `plotting.renderers.py` (line 737)
 
 #### `render_kde_matplotlib(ax, xi, yi, ...)`
 
@@ -1000,7 +1024,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a 2D KDE plot using matplotlib contour/contourf.
 
-**Location:** `plotting.renderers.py` (line 2075)
+**Location:** `plotting.renderers.py` (line 2102)
 
 #### `render_kde_plotly(xi, yi, zi, ...)`
 
@@ -1008,7 +1032,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a 2D KDE plot using plotly contour.
 
-**Location:** `plotting.renderers.py` (line 2143)
+**Location:** `plotting.renderers.py` (line 2170)
 
 #### `render_line_matplotlib(ax, data, color, ...)`
 
@@ -1016,7 +1040,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a line plot using matplotlib with optional error bands.
 
-**Location:** `plotting.renderers.py` (line 396)
+**Location:** `plotting.renderers.py` (line 414)
 
 #### `render_line_plotly(data, color, line_width, ...)`
 
@@ -1024,7 +1048,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a line plot using plotly with optional error bands.
 
-**Location:** `plotting.renderers.py` (line 548)
+**Location:** `plotting.renderers.py` (line 566)
 
 #### `render_scatter3d_plotly(data, color, colors, ...)`
 
@@ -1032,7 +1056,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a 3D scatter plot using plotly.
 
-**Location:** `plotting.renderers.py` (line 307)
+**Location:** `plotting.renderers.py` (line 325)
 
 #### `render_scatter_matplotlib(ax, data, color, ...)`
 
@@ -1040,7 +1064,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a 2D scatter plot using matplotlib.
 
-**Location:** `plotting.renderers.py` (line 133)
+**Location:** `plotting.renderers.py` (line 151)
 
 #### `render_scatter_plotly(data, color, colors, ...)`
 
@@ -1048,7 +1072,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a 2D scatter plot using plotly.
 
-**Location:** `plotting.renderers.py` (line 220)
+**Location:** `plotting.renderers.py` (line 238)
 
 #### `render_trajectory3d_matplotlib(ax, x, y, ...)`
 
@@ -1056,7 +1080,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a 3D trajectory using matplotlib Line3DCollection.
 
-**Location:** `plotting.renderers.py` (line 1971)
+**Location:** `plotting.renderers.py` (line 1998)
 
 #### `render_trajectory3d_plotly(x, y, z, ...)`
 
@@ -1064,7 +1088,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a 3D trajectory using plotly.
 
-**Location:** `plotting.renderers.py` (line 1886)
+**Location:** `plotting.renderers.py` (line 1911)
 
 #### `render_trajectory_matplotlib(ax, x, y, ...)`
 
@@ -1072,7 +1096,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a 2D trajectory using matplotlib LineCollection.
 
-**Location:** `plotting.renderers.py` (line 1688)
+**Location:** `plotting.renderers.py` (line 1713)
 
 #### `render_trajectory_plotly(x, y, colors, ...)`
 
@@ -1080,7 +1104,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a 2D trajectory using plotly.
 
-**Location:** `plotting.renderers.py` (line 1791)
+**Location:** `plotting.renderers.py` (line 1816)
 
 #### `render_violin_matplotlib(ax, data, position, ...)`
 
@@ -1088,7 +1112,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a half violin plot (right side) with points on the left using matplotlib.
 
-**Location:** `plotting.renderers.py` (line 1273)
+**Location:** `plotting.renderers.py` (line 1296)
 
 #### `render_violin_plotly(data, color, alpha, ...)`
 
@@ -1096,7 +1120,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Render a half violin plot (right side) with points on the left using plotly.
 
-**Location:** `plotting.renderers.py` (line 1440)
+**Location:** `plotting.renderers.py` (line 1463)
 
 ---
 
@@ -1110,7 +1134,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create a bar plot for comparing multiple groups.
 
-**Location:** `plotting.statistical_plots.py` (line 45)
+**Location:** `plotting.statistical_plots.py` (line 46)
 
 #### `plot_box(data, labels, colors, ...)`
 
@@ -1118,7 +1142,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create box plots for comparing distributions.
 
-**Location:** `plotting.statistical_plots.py` (line 282)
+**Location:** `plotting.statistical_plots.py` (line 283)
 
 #### `plot_comparison_distributions(data, plot_type, rows, ...)`
 
@@ -1126,7 +1150,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create separate distribution plots for each group in a grid.
 
-**Location:** `plotting.statistical_plots.py` (line 441)
+**Location:** `plotting.statistical_plots.py` (line 442)
 
 #### `plot_grouped_distributions(data, plot_type, colors, ...)`
 
@@ -1134,7 +1158,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create multiple distribution plots grouped by category.
 
-**Location:** `plotting.statistical_plots.py` (line 357)
+**Location:** `plotting.statistical_plots.py` (line 358)
 
 #### `plot_violin(data, labels, colors, ...)`
 
@@ -1142,7 +1166,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Create violin plots for comparing distributions.
 
-**Location:** `plotting.statistical_plots.py` (line 194)
+**Location:** `plotting.statistical_plots.py` (line 195)
 
 ---
 
@@ -1156,7 +1180,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Visualize boolean states over time using PlotGrid.
 
-**Location:** `plotting.plots_1d.py` (line 174)
+**Location:** `plotting.plots_1d.py` (line 176)
 
 #### `plot_line(data, x, config, ...)`
 
@@ -1178,53 +1202,53 @@ This registry helps developers and AI agents:
 
 #### `plot_grouped_scatter_2d(group_data, config, show_hulls, ...)`
 
-**Returns:** `plt.Axes | go.Figure`
+**Returns:** `Any`
 
 **Purpose:** Plot grouped scatter data with optional convex hulls.
 
-**Location:** `plotting.plots_2d.py` (line 188)
+**Location:** `plotting.plots_2d.py` (line 190)
 
 #### `plot_kde_2d(x, y, config, ...)`
 
-**Returns:** `plt.Axes | go.Figure`
+**Returns:** `Any`
 
 **Purpose:** Create a 2D KDE (kernel density estimation) plot.
 
-**Location:** `plotting.plots_2d.py` (line 254)
+**Location:** `plotting.plots_2d.py` (line 256)
 
 #### `plot_scatter_2d(x, y, config, ...)`
 
-**Returns:** `plt.Axes | go.Figure`
+**Returns:** `Any`
 
 **Purpose:** Create a 2D scatter plot.
 
-**Location:** `plotting.plots_2d.py` (line 41)
+**Location:** `plotting.plots_2d.py` (line 43)
 
 #### `plot_trajectory_2d(x, y, config, ...)`
 
-**Returns:** `plt.Axes | go.Figure`
+**Returns:** `Any`
 
 **Purpose:** Plot a 2D trajectory with line connecting points.
 
-**Location:** `plotting.plots_2d.py` (line 122)
+**Location:** `plotting.plots_2d.py` (line 124)
 
 ### `plotting.plots_3d`
 
 #### `plot_scatter_3d(x, y, z, ...)`
 
-**Returns:** `plt.Axes | go.Figure`
+**Returns:** `Any`
 
 **Purpose:** Create a 3D scatter plot.
 
-**Location:** `plotting.plots_3d.py` (line 44)
+**Location:** `plotting.plots_3d.py` (line 46)
 
 #### `plot_trajectory_3d(x, y, z, ...)`
 
-**Returns:** `plt.Axes | go.Figure`
+**Returns:** `Any`
 
 **Purpose:** Plot a 3D trajectory with line connecting points.
 
-**Location:** `plotting.plots_3d.py` (line 122)
+**Location:** `plotting.plots_3d.py` (line 124)
 
 ---
 
@@ -1238,7 +1262,7 @@ This registry helps developers and AI agents:
 
 **Purpose:** Compute convex hull for a set of points.
 
-**Location:** `plotting.embeddings.py` (line 304)
+**Location:** `plotting.embeddings.py` (line 307)
 
 #### `group_points_by_labels(points, labels)`
 
@@ -1246,31 +1270,31 @@ This registry helps developers and AI agents:
 
 **Purpose:** Group points by their labels.
 
-**Location:** `plotting.embeddings.py` (line 336)
+**Location:** `plotting.embeddings.py` (line 339)
 
 #### `plot_embedding(embedding, labels)`
 
-**Returns:** `plt.Figure | go.Figure`
+**Returns:** `Any`
 
 **Purpose:** Plot embeddings with automatic 2D/3D detection.
 
-**Location:** `plotting.embeddings.py` (line 39)
+**Location:** `plotting.embeddings.py` (line 41)
 
 #### `plot_embedding_2d(embedding, labels)`
 
-**Returns:** `plt.Figure | go.Figure`
+**Returns:** `Any`
 
 **Purpose:** Plot 2D embeddings with optional convex hulls.
 
-**Location:** `plotting.embeddings.py` (line 119)
+**Location:** `plotting.embeddings.py` (line 121)
 
 #### `plot_embedding_3d(embedding, labels)`
 
-**Returns:** `plt.Figure | go.Figure`
+**Returns:** `Any`
 
 **Purpose:** Plot 3D embeddings with optional convex hulls.
 
-**Location:** `plotting.embeddings.py` (line 209)
+**Location:** `plotting.embeddings.py` (line 212)
 
 ### `plotting.heatmaps`
 
@@ -1298,6 +1322,6 @@ This registry helps developers and AI agents:
 
 **Purpose:** Plot comprehensive visualization of synthetic neural data.
 
-**Location:** `plotting.synthetic_plots.py` (line 773)
+**Location:** `plotting.synthetic_plots.py` (line 776)
 
 ---

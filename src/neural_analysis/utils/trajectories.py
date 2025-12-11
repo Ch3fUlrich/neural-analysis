@@ -5,16 +5,20 @@ This module provides functions for processing and analyzing trajectory data,
 including time-based segmentation and color mapping for visualization.
 """
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
 import numpy as np
-from numpy.typing import NDArray
+import numpy.typing as npt
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 
 def prepare_trajectory_segments(
-    x: NDArray[np.floating],
-    y: NDArray[np.floating],
-    z: NDArray[np.floating] | None = None,
-) -> NDArray[np.floating]:
+    x: npt.NDArray[np.floating],
+    y: npt.NDArray[np.floating],
+    z: npt.NDArray[np.floating] | None = None,
+) -> npt.NDArray[np.floating]:
     """
     Prepare 2D or 3D trajectory data as line segments for visualization.
 
@@ -56,8 +60,8 @@ def prepare_trajectory_segments(
         if len(x) < 2:
             raise ValueError("Need at least 2 points for trajectory")
 
-        points2d: NDArray[np.floating] = np.array([x, y]).T.reshape(-1, 1, 2)
-        segments2d: NDArray[np.floating] = np.concatenate([points2d[:-1], points2d[1:]], axis=1)
+        points2d: npt.NDArray[np.floating] = np.array([x, y]).T.reshape(-1, 1, 2)
+        segments2d: npt.NDArray[np.floating] = np.concatenate([points2d[:-1], points2d[1:]], axis=1)
         return segments2d
     else:
         # 3D trajectory
@@ -69,15 +73,15 @@ def prepare_trajectory_segments(
         if len(x) < 2:
             raise ValueError("Need at least 2 points for trajectory")
 
-        points3d: NDArray[np.floating] = np.array([x, y, z]).T.reshape(-1, 1, 3)
-        segments3d: NDArray[np.floating] = np.concatenate([points3d[:-1], points3d[1:]], axis=1)
+        points3d: npt.NDArray[np.floating] = np.array([x, y, z]).T.reshape(-1, 1, 3)
+        segments3d: npt.NDArray[np.floating] = np.concatenate([points3d[:-1], points3d[1:]], axis=1)
         return segments3d
 
 
 def compute_colors(
     n_points: int,
-    color_by: Literal["time"] | NDArray[np.floating] = "time"
-) -> NDArray[np.floating]:
+    color_by: Literal["time"] | npt.NDArray[np.floating] = "time"
+) -> npt.NDArray[np.floating]:
     """
     Compute color values based on specified method.
 
@@ -109,7 +113,7 @@ def compute_colors(
         raise ValueError(f"Unsupported color_by method: {color_by}")
     else:
         # If color_by is an array or other type, assume it's color data
-        color_array: NDArray[np.floating] = np.asarray(color_by, dtype=float)
+        color_array: npt.NDArray[np.floating] = np.asarray(color_by, dtype=float)
         if len(color_array) != n_points:
             raise ValueError(
                 f"color_by array length ({len(color_array)}) "

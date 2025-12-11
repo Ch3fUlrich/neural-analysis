@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pandas as pd
 
@@ -53,7 +53,6 @@ class SQLMetadata:
         config : StorageConfig, optional
             Configuration instance. If None, uses global config.
         """
-        from neural_analysis.utils.storage.config import StorageConfig, get_config
 
         self.config = config or get_config()
         self._conn: duckdb.DuckDBPyConnection | None = None

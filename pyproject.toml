@@ -23,6 +23,7 @@ dependencies = [
     "networkx>=3.4.2",
     "faiss-cpu>=1.8.0", # Efficient similarity search for structure index computation
     "marimo>=0.18.3",
+    "debugpy>=1.8.17",
 ]
 
 [project.optional-dependencies]

@@ -6,8 +6,7 @@ Provides caching layer with automatic fallback if Redis is unavailable.
 from __future__ import annotations
 
 import pickle
-import sys
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from neural_analysis.utils.logging import get_logger
 from neural_analysis.utils.storage.config import get_config
@@ -65,10 +64,10 @@ class RedisCache:
         config : StorageConfig, optional
             Configuration instance. If None, uses global config.
         """
-        from neural_analysis.utils.storage.config import StorageConfig, get_config
+        from neural_analysis.utils.storage.config import get_config
 
         self.config = config or get_config()
-        self._client: Optional[redis.Redis] = None
+        self._client: redis.Redis | None = None
         self._available = False
 
         if REDIS_AVAILABLE and self.config.use_redis:
@@ -133,7 +132,7 @@ class RedisCache:
 
         try:
             cache_key = self._namespaced_key(key)
-            raw_data: bytes | None = cast(Optional[bytes], client.get(cache_key))
+            raw_data: bytes | None = cast("bytes | None", client.get(cache_key))
             data = raw_data
             if data is None:
                 return None
@@ -233,7 +232,7 @@ class RedisCache:
 
         try:
             cache_key = self._namespaced_key(key)
-            deleted = cast(int, client.delete(cache_key))
+            deleted = cast("int", client.delete(cache_key))
             if deleted:
                 logger.debug(f"Deleted from cache: {key}")
             return bool(deleted)
@@ -265,7 +264,7 @@ class RedisCache:
                 return 0
 
             deleted_raw = client.delete(*keys)
-            deleted = cast(int, deleted_raw)
+            deleted = cast("int", deleted_raw)
             logger.info(f"Invalidated {deleted} cache entries matching pattern: {pattern}")
             return deleted
         except Exception as e:

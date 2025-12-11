@@ -201,9 +201,12 @@ def generate_data(
             return _generate_head_direction(n_samples, seed, **kwargs)
 
         case "shape_distance_clusters":
-            return _generate_shape_distance_clusters(
+            data, labels = _generate_shape_distance_clusters(
                 n_samples, n_features, seed, **kwargs
             )
+            # Convert labels to float64 array to match return type
+            # (shape_distance_clusters returns int labels, but generate_data expects float64 or dict)
+            return data, labels.astype(np.float64)
 
         case _:
             raise ValueError(
@@ -889,7 +892,7 @@ def generate_place_cells(
             n_samples, arena_size=arena_size, seed=seed
         )
     positions = np.asarray(positions, dtype=np.float64)
-    positions = cast(npt.NDArray[np.float64], positions)
+    positions = cast("npt.NDArray[np.float64]", positions)
     n_dims = positions.shape[1] if positions.ndim > 1 else 1
     if n_dims == 1 and positions.ndim == 1:
         positions = positions.reshape(-1, 1)
@@ -1128,7 +1131,7 @@ def generate_grid_cells(
     positions = np.asarray(positions, dtype=np.float64)
     if positions.ndim == 1:
         positions = positions.reshape(-1, 1)
-    positions = cast(npt.NDArray[np.float64], positions)
+    positions = cast("npt.NDArray[np.float64]", positions)
     n_dims = positions.shape[1] if positions.ndim > 1 else 1
 
     activity = np.zeros((n_samples, n_cells))
@@ -1787,7 +1790,7 @@ def map_to_ring(
             plot_type="scatter",
             subplot_position=1,
             title="Ring Embedding (S¹) - Colored by Time",
-            color_by=cast(Any, time_array),
+            color_by=cast("Any", time_array),
             cmap="viridis",
             marker_size=10,
             alpha=0.7,
@@ -1807,7 +1810,7 @@ def map_to_ring(
             plot_type="scatter",
             subplot_position=2,
             title="Ring Embedding - Colored by Position",
-            color_by=cast(Any, positions_flat),
+            color_by=cast("Any", positions_flat),
             cmap="plasma",
             marker_size=10,
             alpha=0.7,
@@ -1899,7 +1902,7 @@ def map_to_torus(
             plot_type="trajectory",
             subplot_position=0,
             title="2D Position Trajectory",
-            color_by=cast(Any, time_array),
+            color_by=cast("Any", time_array),
             cmap="viridis",
             marker_size=5,
             alpha=0.7,
@@ -1923,7 +1926,7 @@ def map_to_torus(
             plot_type="scatter3d",
             subplot_position=1,
             title="Torus Embedding (T²) - Colored by Time",
-            color_by=cast(Any, time_array),
+            color_by=cast("Any", time_array),
             cmap="viridis",
             marker_size=5,
             alpha=0.7,
@@ -1947,7 +1950,7 @@ def map_to_torus(
             plot_type="scatter3d",
             subplot_position=2,
             title="Torus - Colored by X Position",
-            color_by=cast(Any, positions[:, 0]),
+            color_by=cast("Any", positions[:, 0]),
             cmap="plasma",
             marker_size=5,
             alpha=0.7,
@@ -2310,26 +2313,28 @@ def generate_dataset_from_cluster_template(
     n_intrinsic = max(3, min(12, n_features // (2 + cluster_id)))
 
     # Generate points with cluster-specific geometry
+    # Initialize intrinsic with correct shape and dtype
+    intrinsic: npt.NDArray[np.float64] = np.zeros((n_neurons, n_intrinsic), dtype=np.float64)
+    
     if cluster_id % 3 == 0:
         # Type 0: Points along a curve (1D manifold embedded in high-D)
         t = np.linspace(0, 2 * np.pi, n_neurons)
-        intrinsic = np.zeros((n_neurons, n_intrinsic))
         for dim in range(n_intrinsic):
-            intrinsic[:, dim] = np.sin((dim + 1) * t)
+            intrinsic[:, dim] = np.sin((dim + 1) * t).astype(np.float64)
     elif cluster_id % 3 == 1:
         # Type 1: Points in a plane (2D manifold)
         t1 = np.linspace(0, 2 * np.pi, int(np.sqrt(n_neurons)))
         t2 = np.linspace(0, 2 * np.pi, int(np.sqrt(n_neurons)))
         T1, T2 = np.meshgrid(t1, t2)
-        intrinsic = np.zeros((n_neurons, n_intrinsic))
         if n_intrinsic >= 2:
-            intrinsic[: len(T1.ravel()), 0] = T1.ravel()[:n_neurons]
-            intrinsic[: len(T2.ravel()), 1] = T2.ravel()[:n_neurons]
+            intrinsic[: len(T1.ravel()), 0] = T1.ravel()[:n_neurons].astype(np.float64)
+            intrinsic[: len(T2.ravel()), 1] = T2.ravel()[:n_neurons].astype(np.float64)
         # Fill remaining with small values
-        intrinsic[:, 2:] = cluster_rng.normal(0, 0.1, size=(n_neurons, n_intrinsic - 2))
+        if n_intrinsic > 2:
+            intrinsic[:, 2:] = cluster_rng.normal(0, 0.1, size=(n_neurons, n_intrinsic - 2)).astype(np.float64)
     else:
         # Type 2: More spread distribution (higher intrinsic dim)
-        intrinsic = cluster_rng.normal(0, 1, size=(n_neurons, n_intrinsic))
+        intrinsic = cluster_rng.normal(0, 1, size=(n_neurons, n_intrinsic)).astype(np.float64)
 
     # Create cluster-specific embedding
     from scipy.linalg import svd
@@ -2356,7 +2361,9 @@ def generate_dataset_from_cluster_template(
     noise = rng.normal(0, noise_scale, size=(n_neurons, n_features))
     X = X + noise
 
-    return X.astype(np.float64)
+    # Ensure float64 dtype explicitly
+    result: npt.NDArray[np.float64] = X.astype(np.float64)
+    return result
 
 
 def generate_shape_distance_datasets(
@@ -2427,7 +2434,7 @@ def generate_shape_distance_datasets(
         cluster_id = i % n_clusters
         labels[i] = cluster_id
         template = templates[cluster_id]
-        n_neurons = rng.integers(min_neurons, max_neurons + 1)
+        n_neurons = int(rng.integers(min_neurons, max_neurons + 1))
         X = generate_dataset_from_cluster_template(
             template,
             n_neurons,

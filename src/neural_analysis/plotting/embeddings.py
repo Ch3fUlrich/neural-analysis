@@ -32,10 +32,9 @@ from .core import PlotConfig
 from .grid_config import GridLayoutConfig, PlotGrid, PlotSpec
 
 if TYPE_CHECKING:
-    import plotly.graph_objects as go
+    import plotly.graph_objects as go  # noqa: F401
 
     plt = None
-    go = None
 
 
 def plot_embedding(
