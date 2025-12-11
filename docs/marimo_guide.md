@@ -319,11 +319,29 @@ Unlike Jupyter notebooks, marimo notebooks do **not** save outputs directly in t
 
 ### Exporting to HTML (with outputs)
 
-Export your notebook to HTML, which includes all outputs:
+Export your notebook to HTML, which includes all outputs. **All example notebooks with outputs are saved to `examples/__marimo__/`**:
 
 ```bash
-uv run marimo export html examples/metrics_examples_marimo_nb.py -o output.html
+uv run marimo export html examples/metrics_examples_marimo_nb.py -o examples/__marimo__/metrics_examples_marimo_nb.html
 ```
+
+**Finding Example Notebooks with Outputs:**
+
+All exported HTML notebooks with executed outputs are located in `examples/__marimo__/`. This directory contains:
+- Fully executed HTML notebooks with all outputs, plots, and visualizations
+- Session data for interactive editing
+- Automatic snapshots (if enabled)
+
+**To view**: Open any `.html` file in `examples/__marimo__/` in your web browser. These are standalone HTML files that don't require marimo to view.
+
+**Available examples**:
+- `examples/__marimo__/metrics_examples_marimo_nb.html`
+- `examples/__marimo__/structure_index_examples_marimo_nb.html`
+- `examples/__marimo__/neural_analysis_example_marimo_nb.html`
+- `examples/__marimo__/synthetic_datasets_example_marimo_nb.html`
+- And more...
+
+The `__marimo__/` directory is automatically created by marimo when exporting notebooks.
 
 ### Automatic Export with Watch Mode
 
@@ -361,6 +379,23 @@ Marimo can automatically save snapshots of your notebook:
 - Snapshots are saved to `__marimo__/` directory in the notebook folder
 
 **Important:** Unlike Jupyter, marimo notebooks are **reactive** - outputs are computed on-demand when cells are executed, not stored in the file. To persist outputs, use the export commands above.
+
+### Finding Example Notebooks with Outputs
+
+All example notebooks with executed outputs are located in `examples/__marimo__/`. This directory contains:
+
+- **HTML exports**: Fully executed notebooks with all outputs, plots, and visualizations
+- **Session data**: Interactive editing state (`.json` files)
+- **Snapshots**: Automatic snapshots if enabled
+
+**To view**: Simply open any `.html` file in `examples/__marimo__/` in your web browser. These are standalone HTML files that work without marimo installed.
+
+**To regenerate**: Export a marimo notebook to HTML:
+```bash
+uv run marimo export html examples/notebook.py -o examples/__marimo__/notebook.html
+```
+
+The `__marimo__/` directory is automatically created by marimo when exporting notebooks.
 
 ## Quick Reference
 

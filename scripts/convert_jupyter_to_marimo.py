@@ -11,8 +11,15 @@ This script:
 6. Preserves the full structure of the original notebook
 
 Usage:
-    python scripts/convert_jupyter_to_marimo.py input.ipynb output.py
-    python scripts/convert_jupyter_to_marimo.py examples/metrics_examples.ipynb examples/metrics_examples_marimo_nb.py
+    python scripts/convert_jupyter_to_marimo.py input.ipynb [output.py] [--overwrite]
+    python scripts/convert_jupyter_to_marimo.py examples/metrics_examples.ipynb
+    # Output will be automatically generated as: examples/metrics_examples_marimo_nb.py
+
+After conversion, export the notebook to HTML with outputs:
+    uv run marimo export html examples/notebook_marimo_nb.py -o examples/__marimo__/notebook_marimo_nb.html
+
+Note: All exported HTML notebooks with outputs are saved to examples/__marimo__/
+      This directory is automatically created by marimo when exporting.
 """
 
 import json
@@ -206,6 +213,103 @@ def _(mo):
     return content
 
 
+def remove_duplicate_mo_imports(content: str) -> str:
+    """
+    Remove all duplicate mo import cells, keeping only the header one.
+    
+    Args:
+        content: The marimo notebook content
+        
+    Returns:
+        Updated content with duplicate mo imports removed
+    """
+    lines = content.split('\n')
+    result_lines = []
+    i = 0
+    header_found = False
+    
+    while i < len(lines):
+        # Check if this is the header mo import cell (keep this one)
+        if (i + 5 < len(lines) and 
+            lines[i].strip() == '@app.cell(hide_code=True)' and
+            lines[i+1].strip() == 'def __():' and
+            'import marimo as mo' in '\n'.join(lines[i:i+10])):
+            # This is the header cell - keep it
+            # Find the end of this cell (next @app.cell or end of function)
+            j = i
+            while j < len(lines) and not (j > i + 3 and lines[j].strip().startswith('@app.cell')):
+                result_lines.append(lines[j])
+                j += 1
+                if j < len(lines) and lines[j-1].strip() == 'return mo':
+                    break
+            i = j
+            header_found = True
+        # Check if this is a duplicate mo import cell (remove it)
+        elif (i + 3 < len(lines) and
+              lines[i].strip().startswith('@app.cell') and
+              (lines[i+1].strip().startswith('def _():') or 
+               (i+2 < len(lines) and lines[i+2].strip().startswith('def _():'))) and
+              'import marimo as mo' in '\n'.join(lines[i:i+10])):
+            # This is a duplicate - skip it
+            # Find the end of this cell
+            j = i
+            while j < len(lines):
+                if j > i + 3 and lines[j].strip().startswith('@app.cell'):
+                    break
+                if 'return' in lines[j] and ('mo' in lines[j] or 'mo,' in lines[j]):
+                    j += 1
+                    break
+                j += 1
+            i = j
+        else:
+            result_lines.append(lines[i])
+            i += 1
+    
+    return '\n'.join(result_lines)
+
+
+def remove_hidden_cells_except_header(content: str) -> str:
+    """
+    Remove all hide_code=True cells except the header mo import cell.
+    
+    Args:
+        content: The marimo notebook content
+        
+    Returns:
+        Updated content with hidden cells removed (except header)
+    """
+    lines = content.split('\n')
+    result_lines = []
+    i = 0
+    
+    while i < len(lines):
+        line = lines[i].strip()
+        # Check if this is a hide_code=True cell
+        if line == '@app.cell(hide_code=True)':
+            # Check if it's the header cell (def __())
+            if i + 1 < len(lines) and lines[i+1].strip() == 'def __():':
+                # This is the header - keep it
+                j = i
+                while j < len(lines):
+                    result_lines.append(lines[j])
+                    if j > i + 3 and lines[j].strip().startswith('@app.cell'):
+                        break
+                    if 'return mo' in lines[j]:
+                        j += 1
+                        break
+                    j += 1
+                i = j
+            else:
+                # This is a non-header hide_code cell - remove hide_code=True
+                result_lines.append('@app.cell')
+                i += 1
+        else:
+            result_lines.append(lines[i])
+            i += 1
+    
+    return '\n'.join(result_lines)
+
+
 def remove_unnecessary_blocks(content: str) -> str:
     """
     Remove unnecessary code blocks from marimo notebook.
@@ -298,11 +402,19 @@ def convert_jupyter_to_marimo(
     print("  Setting up standard notebook header...")
     content = ensure_standard_header(content)
 
-    # Step 5: Replace empty cells with markdown (after mo import is ensured)
+    # Step 5: Remove duplicate mo imports (keep only header)
+    print("  Removing duplicate mo imports...")
+    content = remove_duplicate_mo_imports(content)
+
+    # Step 6: Remove hidden cells except header
+    print("  Removing hidden cells (except header)...")
+    content = remove_hidden_cells_except_header(content)
+
+    # Step 7: Replace empty cells with markdown (after mo import is ensured)
     print("  Replacing empty cells with markdown...")
     content = replace_empty_cells_with_markdown(content, markdown_cells)
 
-    # Step 6: Remove unnecessary blocks
+    # Step 8: Remove unnecessary blocks
     print("  Cleaning up unnecessary code blocks...")
     content = remove_unnecessary_blocks(content)
 
@@ -318,18 +430,28 @@ def convert_jupyter_to_marimo(
 
 def main():
     """Main entry point for the conversion script."""
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 2:
         print(
-            "Usage: python scripts/convert_jupyter_to_marimo.py <input.ipynb> <output.py> [--overwrite]"
+            "Usage: python scripts/convert_jupyter_to_marimo.py <input.ipynb> [output.py] [--overwrite]"
         )
         print("\nExample:")
+        print(
+            "  python scripts/convert_jupyter_to_marimo.py examples/metrics_examples.ipynb"
+        )
         print(
             "  python scripts/convert_jupyter_to_marimo.py examples/metrics_examples.ipynb examples/metrics_examples_marimo_nb.py"
         )
         sys.exit(1)
 
     ipynb_path = Path(sys.argv[1])
-    output_path = Path(sys.argv[2])
+
+    # Auto-generate output filename if not provided
+    if len(sys.argv) >= 3 and not sys.argv[2].startswith("--"):
+        output_path = Path(sys.argv[2])
+    else:
+        # Generate output filename: {original_name}_marimo_nb.py
+        output_path = ipynb_path.parent / f"{ipynb_path.stem}_marimo_nb.py"
+
     overwrite = "--overwrite" in sys.argv or "-f" in sys.argv
 
     try:

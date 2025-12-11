@@ -193,6 +193,21 @@ The script handles:
 4. Ensuring `mo` is imported and returned as `(mo,)`
 5. Cleaning up unnecessary blocks
 
+## Exporting Notebooks with Outputs
+
+After converting and testing your notebook, export it to HTML with outputs:
+
+```bash
+uv run marimo export html examples/notebook_marimo_nb.py -o examples/__marimo__/notebook_marimo_nb.html
+```
+
+**Output Location**: All exported HTML notebooks are saved to `examples/__marimo__/`. This directory:
+- Is automatically created by marimo when exporting
+- Contains all HTML exports with executed outputs
+- Also stores session data and snapshots for interactive editing
+
+**Finding Example Notebooks**: All example notebooks with outputs are located in `examples/__marimo__/`. Simply open any `.html` file in your web browser to view the fully executed notebook with all outputs, plots, and visualizations.
+
 ## Testing Checklist
 
 - [ ] Run `marimo check` - no critical errors
@@ -201,6 +216,7 @@ The script handles:
 - [ ] Variables are properly scoped (no multiple-definitions errors)
 - [ ] Imports work correctly
 - [ ] Notebook runs with `marimo run`
+- [ ] Export to HTML: `uv run marimo export html notebook.py -o examples/__marimo__/notebook.html`
 
 ## Key Differences from Jupyter
 

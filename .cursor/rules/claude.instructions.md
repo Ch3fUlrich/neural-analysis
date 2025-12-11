@@ -85,10 +85,10 @@ Always consult `docs/folder_structure.md` before assuming how modules are organi
 
 ## Marimo notebook rules
 
-- **Default output location**: Always save fully executed marimo notebooks with html outputs to `examples/notebooks_with_outputs/` by default. This is the standard location for all exported marimo notebooks.
+- **Default output location**: Always save fully executed marimo notebooks with html outputs to `examples/__marimo__/` by default. This is the standard location for all exported marimo notebooks (marimo automatically creates this directory when exporting).
 - **Export with outputs**: When creating or updating marimo notebooks, always export them with outputs using:
   ```bash
-  uv run marimo export html examples/notebook.py -o examples/notebooks_with_outputs/notebook.html
+  uv run marimo export html examples/notebook.py -o examples/__marimo__/notebook.html
   ```
   (Outputs are included by default when the notebook is executed during export)
 - **Conversion**: Use `scripts/convert_jupyter_to_marimo.py` to convert Jupyter notebooks. See `docs/jupyter_to_marimo_conversion.md` for quick reference (compressed guide with essential patterns).

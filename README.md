@@ -278,3 +278,25 @@ When you choose to install the development environment (or pass `INSTALL_DEV=1`)
 - Pre-commit hooks (if inside a git repository)
 
 If you skip the dev environment (`INSTALL_DEV=0`), only core dependencies will be installed.
+
+## Example Notebooks with Outputs
+
+This repository includes example marimo notebooks demonstrating various neural analysis methods. To view notebooks with executed outputs:
+
+**Location**: All exported HTML notebooks with outputs are saved in `examples/__marimo__/`
+
+**Available notebooks**:
+- `examples/__marimo__/metrics_examples_marimo_nb.html` - Metrics and distance calculations
+- `examples/__marimo__/structure_index_examples_marimo_nb.html` - Structure index analysis
+- `examples/__marimo__/neural_analysis_example_marimo_nb.html` - Comprehensive neural analysis
+- `examples/__marimo__/synthetic_datasets_example_marimo_nb.html` - Synthetic data generation
+- And more...
+
+**To view**: Simply open any `.html` file in `examples/__marimo__/` in your web browser. These HTML files contain fully executed notebooks with all outputs, plots, and visualizations.
+
+**To regenerate**: Export a marimo notebook to HTML with outputs:
+```bash
+uv run marimo export html examples/notebook.py -o examples/__marimo__/notebook.html
+```
+
+The `__marimo__/` directory is automatically created by marimo when exporting notebooks. This directory also contains session data and snapshots for interactive editing.

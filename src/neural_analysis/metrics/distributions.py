@@ -1559,6 +1559,17 @@ def shape_distance_soft_matching(
         scale_variance=False,
     )
 
+    # Early return for identical matrices (self-comparison)
+    # This handles the case where Sinkhorn regularization would give non-zero distance
+    # even though the matrices are identical
+    if np.allclose(X, Y, rtol=1e-10, atol=1e-10):
+        # Return zero distance with identity pairs
+        n = X.shape[0]
+        pairs: dict[tuple[int, int], float] = {
+            (int(i), int(i)): 1.0 / n for i in range(n)
+        }
+        return 0.0, pairs
+
     # Cost between neurons (rows)
     C = cdist(X, Y, metric=metric)  # (n1, n2)
 
@@ -1774,16 +1785,16 @@ def shape_distance(
                     "Choose 'procrustes', 'one-to-one', or 'soft-matching'."
                 )
 
+    # Check if matrices have different numbers of neurons (rows)
+    n_neurons1, n_features1 = mtx1.shape
+    n_neurons2, n_features2 = mtx2.shape
+
     meta: Dict[str, Any] = {
         "method": method,
         "metric": metric,
         "mtx1_shape": mtx1.shape,
         "mtx2_shape": mtx2.shape,
     }
-
-    # Check if matrices have different numbers of neurons (rows)
-    n_neurons1, n_features1 = mtx1.shape
-    n_neurons2, n_features2 = mtx2.shape
 
     if n_features1 != n_features2:
         raise ValueError(
