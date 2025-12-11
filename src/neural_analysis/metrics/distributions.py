@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import inspect
 import logging
-from collections.abc import Callable, Mapping, Sequence, Iterable
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import (
@@ -27,22 +27,13 @@ from typing import (
     TypedDict,
     TypeVar,
     cast,
-    Callable,
-    Dict,
-    List,
-    Sequence,
-    Tuple,
-    Union,
 )
-
 
 import numpy as np
 import numpy.typing as npt
 from scipy.linalg import orthogonal_procrustes
 from scipy.optimize import linear_sum_assignment
-from scipy.spatial import procrustes
 from scipy.spatial.distance import cdist
-from scipy.spatial import procrustes
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -99,7 +90,7 @@ DEFAULT_COMPARISON_SAVE_PATH = Path("./output/distribution_comparisons.h5")
 T = TypeVar("T")
 
 
-def _progress_iterable(
+def _progress_iterable[T](
     iterable: Iterable[T],
     *,
     enable: bool,
@@ -112,7 +103,7 @@ def _progress_iterable(
         from tqdm.auto import tqdm as tqdm_impl
     except Exception:  # pragma: no cover - optional dependency
         return iterable
-    return cast(Iterable[T], tqdm_impl(iterable, desc=desc))
+    return cast("Iterable[T]", tqdm_impl(iterable, desc=desc))
 
 
 def _normalize_metrics_input(
@@ -761,12 +752,19 @@ def distribution_distance(
                     points1_arr.astype(np.float64),
                     points2_arr.astype(np.float64),
                     method=method_typed,
-                    return_pairs=True,
                     **metric_kwargs,
                 )
                 assert isinstance(result_shape, tuple)
-                dist, pairs = result_shape
+                dist_result, pairs_result, _meta = result_shape
+                # Extract float distance (handle both float and array when subsampling)
+                dist = float(dist_result) if isinstance(dist_result, (float, np.floating)) else float(np.mean(dist_result))
                 logger.info(f"Shape distance computed: {dist:.6f}")
+                # Extract pairs dict (handle both single dict and list of dicts)
+                if isinstance(pairs_result, list):
+                    # If subsampling was used, take first result
+                    pairs = pairs_result[0] if pairs_result else {}
+                else:
+                    pairs = pairs_result
                 return (dist, pairs)
 
             # For distribution-level metrics, compute directly
@@ -1562,7 +1560,8 @@ def shape_distance_soft_matching(
     # Early return for identical matrices (self-comparison)
     # This handles the case where Sinkhorn regularization would give non-zero distance
     # even though the matrices are identical
-    if np.allclose(X, Y, rtol=1e-10, atol=1e-10):
+    # Only check if shapes match (can't be identical if shapes differ)
+    if X.shape == Y.shape and np.allclose(X, Y, rtol=1e-10, atol=1e-10):
         # Return zero distance with identity pairs
         n = X.shape[0]
         pairs: dict[tuple[int, int], float] = {
@@ -1577,20 +1576,17 @@ def shape_distance_soft_matching(
     a = np.full(n1, 1.0 / n1, dtype=np.float64)
     b = np.full(n2, 1.0 / n2, dtype=np.float64)
 
-    if approx:
-        T = ot.sinkhorn(a, b, C, reg)
-    else:
-        T = ot.emd(a, b, C)
+    T = ot.sinkhorn(a, b, C, reg) if approx else ot.emd(a, b, C)
 
     ot_cost = float(np.sum(T * C))
     distance = float(np.sqrt(max(ot_cost, 0.0)))
 
-    i_idx, j_idx = np.where(T > threshold)
-    pairs: dict[tuple[int, int], float] = {
+    i_idx, j_idx = np.where(threshold < T)
+    transport_pairs: dict[tuple[int, int], float] = {
         (int(i), int(j)): float(T[i, j]) for i, j in zip(i_idx, j_idx, strict=False)
     }
 
-    return distance, pairs
+    return distance, transport_pairs
 
 
 def shape_distance(
@@ -1605,9 +1601,9 @@ def shape_distance(
     plot: bool = False,
     **method_kwargs: Any,
 ) -> tuple[
-    Union[float, npt.NDArray[np.float64]],
-    Union[Dict[Tuple[int, int], float], List[Dict[Tuple[int, int], float]]],
-    Dict[str, Any],
+    float | npt.NDArray[np.float64],
+    dict[tuple[int, int], float] | list[dict[tuple[int, int], float]],
+    dict[str, Any],
 ]:
     """
     Compute a shape distance between two neural population activity matrices,
@@ -1769,10 +1765,14 @@ def shape_distance(
     def core_compute(
         a: npt.NDArray[np.float64],
         b: npt.NDArray[np.float64],
-    ) -> tuple[float, Dict[Tuple[int, int], float]]:
+    ) -> tuple[float, dict[tuple[int, int], float]]:
         match method:
             case "procrustes":
-                return shape_distance_procrustes(a, b)
+                dist, pairs_result = shape_distance_procrustes(a, b, return_pairs=True)
+                if pairs_result is None:
+                    # Should not happen when return_pairs=True, but handle for type safety
+                    pairs_result = {}
+                return dist, pairs_result
             case "one-to-one":
                 return shape_distance_one_to_one(a, b, metric=metric)
             case "soft-matching":
@@ -1789,7 +1789,7 @@ def shape_distance(
     n_neurons1, n_features1 = mtx1.shape
     n_neurons2, n_features2 = mtx2.shape
 
-    meta: Dict[str, Any] = {
+    meta: dict[str, Any] = {
         "method": method,
         "metric": metric,
         "mtx1_shape": mtx1.shape,
@@ -1827,6 +1827,8 @@ def shape_distance(
         return dist, pairs, meta
 
     # With subsampling → run_with_subsampling on the distance-only wrapper
+    if subsamples is None or subsample_axes is None:
+        raise ValueError("subsamples and subsample_axes must be provided when subsampling is needed")
     if len(subsamples) != len(subsample_axes):
         raise ValueError("subsamples and subsample_axes must have the same length")
 
@@ -1844,7 +1846,7 @@ def shape_distance(
     )
 
     # If you want pairs for subsampled runs as well, you can recompute on each
-    pairs_list: List[Dict[Tuple[int, int], float]] = []
+    pairs_list: list[dict[tuple[int, int], float]] = []
     for per_array_indexers in meta_sub["indices"]:
         idx1 = [per_array_indexers[0].get(ax, slice(None)) for ax in range(mtx1.ndim)]
         idx2 = [per_array_indexers[1].get(ax, slice(None)) for ax in range(mtx2.ndim)]

@@ -350,3 +350,52 @@ class TestComparisonBatch:
 
         assert len(missing) == 1
         assert ("A", "B", "wasserstein") in missing
+
+    def test_get_hdf5_result_summary(self, tmp_path: Any) -> None:
+        """Test get_hdf5_result_summary function."""
+        from neural_analysis.utils.io import (
+            get_hdf5_result_summary,
+            save_result_to_hdf5_dataset,
+        )
+
+        # Create test HDF5 file with some results
+        save_path = tmp_path / "test_summary.h5"
+        data = {
+            "dataset_A": {
+                "result_1": {"value": 0.5, "metric": "wasserstein"},
+                "result_2": {"value": 0.3, "metric": "euclidean"},
+            },
+            "dataset_B": {
+                "result_1": {"value": 0.7, "metric": "wasserstein"},
+            },
+        }
+
+        # Save using save_result_to_hdf5_dataset
+        for dataset_name, results in data.items():
+            for result_key, attrs in results.items():
+                save_result_to_hdf5_dataset(
+                    save_path,
+                    dataset_name=dataset_name,
+                    result_key=result_key,
+                    scalar_data=attrs,
+                    array_data={},
+                    use_cache=False,
+                    use_sql_index=False,
+                )
+
+        # Test loading all results
+        summary = get_hdf5_result_summary(save_path)
+        assert len(summary) == 3  # 3 total results
+        assert "dataset_name" in summary.columns
+        assert "result_key" in summary.columns
+        assert "value" in summary.columns
+        assert "metric" in summary.columns
+
+        # Test filtering by dataset
+        summary_a = get_hdf5_result_summary(save_path, dataset_name="dataset_A")
+        assert len(summary_a) == 2
+        assert all(summary_a["dataset_name"] == "dataset_A")
+
+        # Test with non-existent file
+        empty_summary = get_hdf5_result_summary(tmp_path / "nonexistent.h5")
+        assert len(empty_summary) == 0
