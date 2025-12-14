@@ -184,7 +184,7 @@ class TestKNNDecoder:
 
         decoded = knn_decoder(train_act, train_pos, test_act, k=5)
 
-        # Should work with 1D labels
+        # Should work with 1D labels (covers line 171)
         assert decoded.shape == test_pos.shape
         errors = np.abs(decoded - test_pos)
         assert errors.mean() < 0.25
@@ -281,6 +281,28 @@ class TestCrossValidatedKNN:
             assert "test_idx" in fold
             assert "predictions" in fold
             assert "true_labels" in fold
+
+    def test_cv_knn_1d_labels(self) -> None:
+        """Test cross-validated k-NN with 1D labels (covers lines 243, 270)."""
+        activity, meta = generate_place_cells(
+            n_cells=30,
+            n_samples=500,
+            arena_size=1.0,  # 1D arena
+            field_size=0.2,
+            seed=42,
+            plot=False,
+        )
+
+        positions_1d = meta["positions"].flatten() if meta["positions"].ndim > 1 else meta["positions"]
+        
+        metrics = cross_validated_knn_decoder(
+            activity, positions_1d, k=5, n_folds=3
+        )
+
+        # Check metrics structure
+        assert "mean_r2" in metrics
+        assert "mean_error" in metrics
+        assert metrics["mean_error"] >= 0  # Should be non-negative
 
 
 class TestCompareHighDLowD:
@@ -409,6 +431,64 @@ class TestEvaluateDecoder:
 
         # Population vector should give reasonable results
         assert metrics["r2_score"] > 0.5
+
+    def test_evaluate_decoder_1d_labels(self) -> None:
+        """Test evaluate_decoder with 1D labels (covers lines 442, 444, 454)."""
+        activity, meta = generate_place_cells(
+            n_cells=30,
+            n_samples=500,
+            arena_size=1.0,  # 1D arena
+            field_size=0.2,
+            seed=42,
+            plot=False,
+        )
+
+        train_act, test_act = activity[:350], activity[350:]
+        train_pos, test_pos = meta["positions"][:350], meta["positions"][350:]
+        
+        # Ensure positions are 1D
+        train_pos_1d = train_pos.flatten() if train_pos.ndim > 1 else train_pos
+        test_pos_1d = test_pos.flatten() if test_pos.ndim > 1 else test_pos
+
+        metrics = evaluate_decoder(
+            train_act, train_pos_1d, test_act, test_pos_1d, decoder="knn", k=5
+        )
+
+        assert "r2_score" in metrics
+        assert "mse" in metrics
+        assert "mean_error" in metrics
+        assert metrics["mean_error"] >= 0  # Should be non-negative
+
+    def test_evaluate_decoder_1d_predictions(self) -> None:
+        """Test evaluate_decoder with 1D predictions (covers line 444)."""
+        from unittest.mock import patch
+        from neural_analysis.learning.decoding import evaluate_decoder, population_vector_decoder
+        
+        activity = np.random.rand(100, 20)
+        train_act, test_act = activity[:80], activity[80:]
+        train_pos_1d = np.random.rand(80)
+        test_pos_1d = np.random.rand(20)
+        field_centers_1d = np.random.rand(10)  # 1D field centers
+        
+        # Mock population_vector_decoder to return 1D predictions
+        def mock_population_vector_decoder(activity, field_centers, method="weighted_average"):
+            # Return 1D predictions to trigger line 444
+            return np.random.rand(activity.shape[0])  # 1D array
+        
+        with patch("neural_analysis.learning.decoding.population_vector_decoder", mock_population_vector_decoder):
+            metrics = evaluate_decoder(
+                train_act,
+                train_pos_1d,
+                test_act,
+                test_pos_1d,
+                decoder="population_vector",
+                field_centers=field_centers_1d,
+                method="weighted_average",
+            )
+        
+        assert "r2_score" in metrics
+        assert "mse" in metrics
+        assert "mean_error" in metrics
 
     def test_evaluate_invalid_decoder(self) -> None:
         """Test evaluate_decoder with invalid decoder type."""

@@ -222,6 +222,42 @@ class TestPlotMultipleLines:
         assert "Line B" in legend_texts
         plt.close("all")
 
+    def test_multiple_lines_empty_dict(self) -> None:
+        """Test error when data_dict is empty (covers line 127)."""
+        with pytest.raises(ValueError, match="data_dict cannot be empty"):
+            plot_multiple_lines({}, backend="matplotlib")
+        plt.close("all")
+
+    def test_multiple_lines_no_x(self) -> None:
+        """Test multiple lines without x values (covers line 131)."""
+        data_dict = {
+            "line1": np.array([1, 2, 3, 4, 5]),
+            "line2": np.array([5, 4, 3, 2, 1]),
+        }
+        config = PlotConfig(show=False)
+        ax = plot_multiple_lines(data_dict, config=config, backend="matplotlib")
+
+        assert isinstance(ax, Axes)
+        assert len(ax.lines) == 2
+        plt.close("all")
+
+    def test_multiple_lines_colors_dict(self) -> None:
+        """Test multiple lines with colors as dict (covers line 143)."""
+        x = np.linspace(0, 10, 100)
+        data_dict = {
+            "line1": np.sin(x),
+            "line2": np.cos(x),
+        }
+        colors = {"line1": "red", "line2": "blue"}
+        config = PlotConfig(show=False)
+        ax = plot_multiple_lines(
+            data_dict, x=x, config=config, colors=colors, backend="matplotlib"
+        )
+
+        assert ax.lines[0].get_color() == "red"
+        assert ax.lines[1].get_color() == "blue"
+        plt.close("all")
+
 
 class TestPlotBooleanStates:
     """Tests for plot_boolean_states function."""
@@ -280,6 +316,32 @@ class TestPlotBooleanStates:
         assert isinstance(ax, Axes)
         plt.close("all")
 
+    def test_boolean_plot_config_ylim_none(self, sample_boolean_states: Any) -> None:
+        """Test boolean plot with config but ylim=None (covers elif branch 229->244)."""
+        # Create config with ylim=None to trigger the elif branch
+        config = PlotConfig(show=False, ylim=None, title="Test Boolean")
+        ax = plot_boolean_states(
+            sample_boolean_states, config=config, backend="matplotlib"
+        )
+
+        assert isinstance(ax, Axes)
+        # Verify ylim was set to (0, 1) by the elif branch
+        assert ax.get_ylim() == (0, 1)
+        plt.close("all")
+
+    def test_boolean_plot_config_ylim_set(self, sample_boolean_states: Any) -> None:
+        """Test boolean plot with config and ylim already set (covers branch 229->247 False path)."""
+        # Create config with ylim already set to skip the elif branch
+        config = PlotConfig(show=False, ylim=(0, 2), title="Test Boolean")
+        ax = plot_boolean_states(
+            sample_boolean_states, config=config, backend="matplotlib"
+        )
+
+        assert isinstance(ax, Axes)
+        # Verify ylim was preserved (not overridden)
+        assert ax.get_ylim() == (0, 2)
+        plt.close("all")
+
     def test_boolean_all_true(self) -> None:
         """Test with all True values."""
         states = np.ones(10, dtype=bool)
@@ -296,6 +358,28 @@ class TestPlotBooleanStates:
         ax = plot_boolean_states(states, config=config, backend="matplotlib")
 
         assert isinstance(ax, Axes)
+        plt.close("all")
+
+    def test_boolean_states_no_config(self) -> None:
+        """Test boolean states without config (covers line 228)."""
+        states = np.array([True, False, True, False])
+        ax = plot_boolean_states(states, backend="matplotlib")
+
+        assert isinstance(ax, Axes)
+        assert ax.get_ylim() == (0, 1)
+        plt.close("all")
+
+    def test_boolean_states_config_no_ylim(self) -> None:
+        """Test boolean states with config but no ylim (covers line 229->247)."""
+        states = np.array([True, False, True, False])
+        config = PlotConfig(show=False, title="Test", grid=True)
+        # config.ylim should be None
+        assert config.ylim is None
+        
+        ax = plot_boolean_states(states, config=config, backend="matplotlib")
+
+        assert isinstance(ax, Axes)
+        assert ax.get_ylim() == (0, 1)  # Should be set to (0, 1)
         plt.close("all")
 
 

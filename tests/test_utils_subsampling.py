@@ -11,6 +11,7 @@ class TestRunWithSubsampling:
 
     def test_basic_subsampling(self) -> None:
         """Test basic subsampling functionality."""
+
         def euclidean_dist(a: np.ndarray, b: np.ndarray) -> float:
             return float(np.linalg.norm(a - b))
 
@@ -34,6 +35,7 @@ class TestRunWithSubsampling:
 
     def test_different_array_sizes(self) -> None:
         """Test subsampling with arrays of different sizes."""
+
         def sum_diff(a: np.ndarray, b: np.ndarray) -> float:
             return float(np.sum(a) - np.sum(b))
 
@@ -53,15 +55,18 @@ class TestRunWithSubsampling:
         # Check that indices are valid
         for idx_list in meta["indices"]:
             assert len(idx_list) == 2  # One per array
-            for arr_idx, indexers in enumerate(idx_list):
+            for _arr_idx, indexers in enumerate(idx_list):
                 assert isinstance(indexers, dict)
                 assert 0 in indexers  # Axis 0
                 assert len(indexers[0]) == 70  # Subsample size
 
     def test_multiple_axes(self) -> None:
         """Test subsampling along multiple axes."""
+
         def matrix_norm(a: np.ndarray, b: np.ndarray) -> float:
-            return float(np.linalg.norm(a - b, ord="fro"))
+            # Use 2-norm (Euclidean norm) which works for any dimension
+            # This is equivalent to Frobenius norm for 2D arrays
+            return float(np.linalg.norm(a - b, ord=None))
 
         arr1 = np.random.randn(100, 50, 10)
         arr2 = np.random.randn(100, 50, 10)
@@ -77,7 +82,7 @@ class TestRunWithSubsampling:
 
         assert len(values) == 3
         for idx_list in meta["indices"]:
-            for arr_idx, indexers in enumerate(idx_list):
+            for _arr_idx, indexers in enumerate(idx_list):
                 assert 0 in indexers
                 assert 1 in indexers
                 assert len(indexers[0]) == 80
@@ -85,6 +90,7 @@ class TestRunWithSubsampling:
 
     def test_reproducibility(self) -> None:
         """Test that same seed produces same results."""
+
         def simple_sum(a: np.ndarray, b: np.ndarray) -> float:
             return float(np.sum(a) + np.sum(b))
 
@@ -113,6 +119,7 @@ class TestRunWithSubsampling:
 
     def test_empty_arrays_raises(self) -> None:
         """Test that empty arrays raise error."""
+
         def dummy_func(a: np.ndarray, b: np.ndarray) -> float:
             return 0.0
 
@@ -127,6 +134,7 @@ class TestRunWithSubsampling:
 
     def test_mismatched_dimensions_raises(self) -> None:
         """Test that arrays with different dimensions raise error."""
+
         def dummy_func(a: np.ndarray, b: np.ndarray) -> float:
             return 0.0
 
@@ -144,6 +152,7 @@ class TestRunWithSubsampling:
 
     def test_mismatched_subsample_params_raises(self) -> None:
         """Test that mismatched subsamples and axes raise error."""
+
         def dummy_func(a: np.ndarray, b: np.ndarray) -> float:
             return 0.0
 
@@ -161,6 +170,7 @@ class TestRunWithSubsampling:
 
     def test_subsample_size_larger_than_array(self) -> None:
         """Test that subsample size larger than array size is handled."""
+
         def simple_sum(a: np.ndarray, b: np.ndarray) -> float:
             return float(np.sum(a) + np.sum(b))
 
@@ -185,6 +195,7 @@ class TestRunWithSubsampling:
 
     def test_single_array(self) -> None:
         """Test subsampling with a single array."""
+
         def array_norm(a: np.ndarray) -> float:
             return float(np.linalg.norm(a))
 
@@ -204,6 +215,7 @@ class TestRunWithSubsampling:
 
     def test_three_arrays(self) -> None:
         """Test subsampling with three arrays."""
+
         def three_way_sum(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> float:
             return float(np.sum(a) + np.sum(b) + np.sum(c))
 
@@ -224,3 +236,25 @@ class TestRunWithSubsampling:
         for idx_list in meta["indices"]:
             assert len(idx_list) == 3  # One indexer per array
 
+    def test_empty_subsample_axes(self) -> None:
+        """Test with empty subsample_axes (covers line 118 when indexers is empty)."""
+
+        def simple_sum(a: np.ndarray) -> float:
+            return float(np.sum(a))
+
+        arr = np.random.randn(100, 50)
+
+        # When both subsamples and subsample_axes are empty lists,
+        # indexers will be empty, triggering line 118
+        values, meta = run_with_subsampling(
+            func=simple_sum,
+            arrays=(arr,),
+            subsamples=[],  # Empty - no subsampling
+            subsample_axes=[],  # Empty - no axes
+            repeats=3,
+            seed=42,
+        )
+
+        assert len(values) == 3
+        # All values should be the same since no subsampling occurred
+        assert all(v == values[0] for v in values)

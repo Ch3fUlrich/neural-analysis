@@ -15,6 +15,11 @@ from neural_analysis.utils.io import (
     save_hdf5,
     update_array,
 )
+# Import private functions for testing
+from neural_analysis.utils.io import (
+    _normalize_attr_value,
+    _attr_equals,
+)
 
 # ============================================================================
 # NumPy I/O Tests
@@ -399,3 +404,82 @@ class TestComparisonBatch:
         # Test with non-existent file
         empty_summary = get_hdf5_result_summary(tmp_path / "nonexistent.h5")
         assert len(empty_summary) == 0
+
+    def test_get_hdf5_result_summary_exception_handling(self, tmp_path: Any, monkeypatch) -> None:
+        """Test get_hdf5_result_summary exception handling (covers lines 924-925)."""
+        from neural_analysis.utils.io import get_hdf5_result_summary
+        import h5py
+
+        save_path = tmp_path / "test_exception.h5"
+        
+        # Create a file that exists but will fail when opened
+        save_path.write_bytes(b"not a valid hdf5 file")
+        
+        # Mock h5py.File.__init__ to raise an exception
+        original_init = h5py.File.__init__
+        def mock_init(self, name, mode="r", **kwargs):
+            if "exception" in str(name) or mode == "r":
+                raise IOError("Mocked file read error")
+            return original_init(self, name, mode, **kwargs)
+        
+        monkeypatch.setattr(h5py.File, "__init__", mock_init)
+
+        # This should catch the exception and return empty DataFrame
+        summary = get_hdf5_result_summary(save_path)
+        assert isinstance(summary, pd.DataFrame)
+        assert len(summary) == 0
+
+
+class TestNormalizeAttrValue:
+    """Tests for _normalize_attr_value function."""
+
+    def test_normalize_numpy_generic(self):
+        """Test normalizing numpy generic types (covers line 105)."""
+        assert _normalize_attr_value(np.int32(42)) == 42
+        assert _normalize_attr_value(np.float64(3.14)) == 3.14
+        assert _normalize_attr_value(np.bool_(True)) is True
+
+    def test_normalize_bytes(self):
+        """Test normalizing bytes (covers lines 106-110)."""
+        assert _normalize_attr_value(b"test") == "test"
+        assert _normalize_attr_value(bytearray(b"test")) == "test"
+        # Test with invalid UTF-8 (covers exception path)
+        invalid_bytes = b"\xff\xfe"
+        result = _normalize_attr_value(invalid_bytes)
+        assert result == invalid_bytes  # Should return original on decode error
+
+    def test_normalize_other_types(self):
+        """Test normalizing other types."""
+        assert _normalize_attr_value("string") == "string"
+        assert _normalize_attr_value(42) == 42
+
+
+class TestAttrEquals:
+    """Tests for _attr_equals function."""
+
+    def test_attr_equals_bool(self):
+        """Test _attr_equals with bool (covers lines 118-121)."""
+        assert _attr_equals(1, True) is True
+        assert _attr_equals(0, False) is True
+        assert _attr_equals("1", True) is True
+        assert _attr_equals("0", False) is True
+        # Test exception path (covers line 120-121)
+        # "invalid" can't be converted to int, so exception is caught
+        # and bool("invalid") is True (non-empty string)
+        result = _attr_equals("invalid", True)
+        # The result depends on how bool("invalid") compares to True
+        assert isinstance(result, bool)
+
+    def test_attr_equals_numeric_string(self):
+        """Test _attr_equals with numeric string (covers lines 122-124)."""
+        assert _attr_equals("42", 42) is True
+        assert _attr_equals("3.14", 3.14) is True
+        # Test with invalid conversion (covers suppress path)
+        assert _attr_equals("not_a_number", 42) is False
+
+    def test_attr_equals_string_conversion(self):
+        """Test _attr_equals with string conversion (covers line 125-126)."""
+        assert _attr_equals(42, "42") is True
+        assert _attr_equals(3.14, "3.14") is True
+
+

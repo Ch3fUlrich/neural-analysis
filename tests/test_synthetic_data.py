@@ -5,6 +5,7 @@ import pytest
 
 from neural_analysis.data.synthetic_data import (
     add_noise,
+    generate_data,
     generate_grid_cells,
     generate_head_direction,
     generate_head_direction_cells,
@@ -418,3 +419,191 @@ class TestReproducibility:
         hd1, _ = generate_head_direction_cells(10, 100, seed=42)
         hd2, _ = generate_head_direction_cells(10, 100, seed=42)
         np.testing.assert_array_equal(hd1, hd2)
+
+
+class TestGenerateData:
+    """Tests for the main generate_data() orchestrator function."""
+
+    def test_generate_data_swiss_roll(self) -> None:
+        """Test generate_data with swiss_roll (covers line 142-143)."""
+        data, labels = generate_data("swiss_roll", n_samples=100, seed=42)
+        assert data.shape == (100, 3)
+        assert labels.shape == (100,)
+
+    def test_generate_data_s_curve(self) -> None:
+        """Test generate_data with s_curve (covers line 145-146)."""
+        data, labels = generate_data("s_curve", n_samples=100, seed=42)
+        assert data.shape == (100, 3)
+        assert labels.shape == (100,)
+
+    def test_generate_data_blobs(self) -> None:
+        """Test generate_data with blobs (covers lines 148-154)."""
+        data, labels = generate_data(
+            "blobs", n_samples=100, n_features=5, n_classes=3, seed=42
+        )
+        assert data.shape == (100, 5)
+        assert labels.shape == (100,)
+        assert len(np.unique(labels)) == 3
+
+    def test_generate_data_blobs_defaults(self) -> None:
+        """Test generate_data with blobs using defaults (covers lines 149-150)."""
+        data, labels = generate_data("blobs", n_samples=100, seed=42)
+        assert data.shape == (100, 2)  # Default n_features=2
+        assert len(np.unique(labels)) == 3  # Default n_classes=3
+
+    def test_generate_data_moons(self) -> None:
+        """Test generate_data with moons (covers lines 156-158)."""
+        data, labels = generate_data("moons", n_samples=100, seed=42)
+        assert data.shape == (100, 2)
+        assert labels.shape == (100,)
+        assert len(np.unique(labels)) == 2
+
+    def test_generate_data_circles(self) -> None:
+        """Test generate_data with circles (covers lines 160-162)."""
+        data, labels = generate_data("circles", n_samples=100, seed=42)
+        assert data.shape == (100, 2)
+        assert labels.shape == (100,)
+        assert len(np.unique(labels)) == 2
+
+    def test_generate_data_classification(self) -> None:
+        """Test generate_data with classification (covers lines 164-170)."""
+        data, labels = generate_data(
+            "classification", n_samples=100, n_features=10, n_classes=3, seed=42
+        )
+        assert data.shape == (100, 10)
+        assert labels.shape == (100,)
+        assert len(np.unique(labels)) == 3
+
+    def test_generate_data_classification_defaults(self) -> None:
+        """Test generate_data with classification using defaults (covers lines 165-166)."""
+        data, labels = generate_data("classification", n_samples=100, seed=42)
+        assert data.shape == (100, 20)  # Default n_features=20
+        assert len(np.unique(labels)) == 2  # Default n_classes=2
+
+    def test_generate_data_regression(self) -> None:
+        """Test generate_data with regression (covers lines 172-174)."""
+        data, labels = generate_data("regression", n_samples=100, n_features=5, seed=42)
+        assert data.shape == (100, 5)
+        assert isinstance(labels, np.ndarray) or isinstance(labels, dict)
+
+    def test_generate_data_regression_defaults(self) -> None:
+        """Test generate_data with regression using defaults (covers line 173)."""
+        data, labels = generate_data("regression", n_samples=100, seed=42)
+        assert data.shape == (100, 10)  # Default n_features=10
+
+    def test_generate_data_place_cells(self) -> None:
+        """Test generate_data with place_cells (covers lines 176-178)."""
+        data, labels = generate_data(
+            "place_cells", n_samples=100, n_features=50, seed=42
+        )
+        assert data.shape == (100, 50)
+        assert isinstance(labels, dict)
+        assert "positions" in labels
+
+    def test_generate_data_place_cells_defaults(self) -> None:
+        """Test generate_data with place_cells using defaults (covers line 177)."""
+        data, labels = generate_data("place_cells", n_samples=100, seed=42)
+        assert data.shape == (100, 100)  # Default n_features=100
+
+    def test_generate_data_grid_cells(self) -> None:
+        """Test generate_data with grid_cells (covers lines 180-182)."""
+        data, labels = generate_data(
+            "grid_cells", n_samples=100, n_features=30, seed=42
+        )
+        assert data.shape == (100, 30)
+        assert isinstance(labels, dict)
+
+    def test_generate_data_grid_cells_defaults(self) -> None:
+        """Test generate_data with grid_cells using defaults (covers line 181)."""
+        data, labels = generate_data("grid_cells", n_samples=100, seed=42)
+        assert data.shape == (100, 50)  # Default n_features=50
+
+    def test_generate_data_random_cells(self) -> None:
+        """Test generate_data with random_cells (covers lines 184-186)."""
+        data, labels = generate_data(
+            "random_cells", n_samples=100, n_features=30, seed=42
+        )
+        assert data.shape == (100, 30)
+        assert isinstance(labels, dict)
+
+    def test_generate_data_head_direction_cells(self) -> None:
+        """Test generate_data with head_direction_cells (covers lines 188-192)."""
+        data, labels = generate_data(
+            "head_direction_cells", n_samples=100, n_features=60, seed=42
+        )
+        assert data.shape == (100, 60)
+        assert isinstance(labels, dict)
+
+    def test_generate_data_head_direction_cells_defaults(self) -> None:
+        """Test generate_data with head_direction_cells using defaults (covers line 189)."""
+        data, labels = generate_data("head_direction_cells", n_samples=100, seed=42)
+        assert data.shape == (100, 60)  # Default n_features=60
+
+    def test_generate_data_mixed_cells(self) -> None:
+        """Test generate_data with mixed_cells (covers lines 194-195)."""
+        data, labels = generate_data(
+            "mixed_cells",
+            n_samples=100,
+            n_place=20,
+            n_grid=15,
+            n_hd=10,
+            seed=42,
+        )
+        assert data.shape == (100, 45)  # 20 + 15 + 10
+        assert isinstance(labels, dict)
+        assert "cell_types" in labels
+
+    def test_generate_data_position_trajectory(self) -> None:
+        """Test generate_data with position_trajectory (covers lines 197-198)."""
+        data, labels = generate_data("position_trajectory", n_samples=100, seed=42)
+        assert data.shape == (100, 2)
+        assert isinstance(labels, dict) or isinstance(labels, np.ndarray)
+
+    def test_generate_data_head_direction(self) -> None:
+        """Test generate_data with head_direction (covers lines 200-201)."""
+        data, labels = generate_data("head_direction", n_samples=100, seed=42)
+        # head_direction returns (angles.reshape(-1, 1), angles)
+        assert isinstance(data, np.ndarray)
+        assert data.shape == (100, 1)  # Reshaped to column vector
+        assert isinstance(labels, np.ndarray)
+        assert labels.shape == (100,)
+
+    def test_generate_data_shape_distance_clusters(self) -> None:
+        """Test generate_data with shape_distance_clusters (covers lines 203-209)."""
+        data, labels = generate_data(
+            "shape_distance_clusters", n_samples=100, n_features=10, seed=42
+        )
+        # Returns first dataset which may have different size
+        assert isinstance(data, np.ndarray)
+        assert data.ndim == 2
+        assert isinstance(labels, np.ndarray)
+        # Labels are converted to float64 in generate_data (line 209)
+        assert labels.dtype == np.float64 or labels.dtype == np.int64
+        # Labels length should match number of datasets, not necessarily n_samples
+        assert len(labels) > 0
+
+    def test_generate_data_unknown_type(self) -> None:
+        """Test generate_data with unknown dataset type (covers lines 211-218)."""
+        with pytest.raises(ValueError, match="Unknown dataset type"):
+            generate_data("unknown_type", n_samples=100)
+
+    def test_generate_data_case_insensitive(self) -> None:
+        """Test generate_data is case insensitive (covers line 138)."""
+        data1, _ = generate_data("SWISS_ROLL", n_samples=100, seed=42)
+        data2, _ = generate_data("swiss_roll", n_samples=100, seed=42)
+        np.testing.assert_array_equal(data1, data2)
+
+    def test_generate_data_with_noise(self) -> None:
+        """Test generate_data passes noise parameter correctly."""
+        data_clean, _ = generate_data("swiss_roll", n_samples=100, noise=0.0, seed=42)
+        data_noisy, _ = generate_data("swiss_roll", n_samples=100, noise=0.1, seed=42)
+        assert not np.allclose(data_clean, data_noisy)
+
+    def test_generate_data_with_kwargs(self) -> None:
+        """Test generate_data passes kwargs correctly."""
+        # Test with cluster_std for blobs
+        data, labels = generate_data(
+            "blobs", n_samples=100, n_features=2, n_classes=2, cluster_std=0.5, seed=42
+        )
+        assert data.shape == (100, 2)
+        assert labels.shape == (100,)

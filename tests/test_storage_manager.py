@@ -5,7 +5,6 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 from neural_analysis.utils.storage.config import StorageConfig
@@ -110,6 +109,188 @@ class TestStorageManager:
         result = manager.query_data()
         assert len(result) == 0
         assert manager.invalidate_cache("*") == 0
+
+    def test_storage_manager_context_manager(self) -> None:
+        """Test StorageManager as context manager (covers lines 54-58)."""
+        config = StorageConfig(use_redis=False, use_sql=False)
+        with StorageManager(config) as manager:
+            assert manager is not None
+            assert manager.cache is not None
+        # Should be closed after context exit
+
+    def test_storage_manager_save_data_with_cache(self) -> None:
+        """Test save_data with cache enabled (covers lines 105-108)."""
+        config = StorageConfig(use_redis=False, use_sql=False)
+        manager = StorageManager(config)
+
+        # With cache disabled, should return False
+        result = manager.save_data("key", "data", use_cache=True)
+        assert isinstance(result, bool)
+
+    def test_storage_manager_save_data_index_comparison(self) -> None:
+        """Test save_data with comparison indexing (covers lines 111-132)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sql_path = Path(tmpdir) / "test_meta.db"
+            config = StorageConfig(use_redis=False, use_sql=True, sql_path=sql_path)
+            manager = StorageManager(config)
+
+            if manager.metadata.is_available():
+                # Save with comparison metadata
+                result = manager.save_data(
+                    key="test_key",
+                    data={"value": 0.5},
+                    file_path="results.h5",
+                    group_path="euclidean/A___B",
+                    metadata={
+                        "dataset_i": "A",
+                        "dataset_j": "B",
+                        "metric": "euclidean",
+                        "mode": "between",
+                        "value_type": "scalar",
+                    },
+                )
+                assert result is True
+
+    def test_storage_manager_save_data_index_dataset(self) -> None:
+        """Test save_data with dataset indexing (covers lines 133-138)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sql_path = Path(tmpdir) / "test_meta.db"
+            config = StorageConfig(use_redis=False, use_sql=True, sql_path=sql_path)
+            manager = StorageManager(config)
+
+            if manager.metadata.is_available():
+                # Save without group_path (indexes as dataset)
+                result = manager.save_data(
+                    key="test_key",
+                    data={"value": 0.5},
+                    file_path="data.h5",
+                    metadata={"n_samples": 100},
+                )
+                assert result is True
+
+    def test_storage_manager_load_data_from_cache(self) -> None:
+        """Test load_data from cache (covers lines 171-174)."""
+        config = StorageConfig(use_redis=False, use_sql=False)
+        manager = StorageManager(config)
+
+        # With cache disabled, should return None
+        result = manager.load_data("key", use_cache=True)
+        assert result is None
+
+    def test_storage_manager_load_data_hdf5_loader(self) -> None:
+        """Test load_data with HDF5 loader (covers lines 184-194)."""
+        config = StorageConfig(use_redis=False, use_sql=False)
+        manager = StorageManager(config)
+
+        # Test with successful loader
+        def loader() -> str:
+            return "loaded_data"
+
+        result = manager.load_data("key", hdf5_loader=loader)
+        assert result == "loaded_data"
+
+        # Test with failing loader (covers line 191-192)
+        def failing_loader() -> str:
+            raise ValueError("Load error")
+
+        result = manager.load_data("key", hdf5_loader=failing_loader)
+        assert result is None
+
+    def test_storage_manager_load_data_cache_result(self) -> None:
+        """Test load_data caching result (covers lines 188-190)."""
+        config = StorageConfig(use_redis=False, use_sql=False)
+        manager = StorageManager(config)
+
+        def loader() -> str:
+            return "cached_data"
+
+        # Should work even with cache disabled
+        result = manager.load_data("key", hdf5_loader=loader, use_cache=True)
+        assert result == "cached_data"
+
+    def test_storage_manager_query_data_with_sql(self) -> None:
+        """Test query_data with SQL (covers lines 200-204)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sql_path = Path(tmpdir) / "test_meta.db"
+            config = StorageConfig(use_redis=False, use_sql=True, sql_path=sql_path)
+            manager = StorageManager(config)
+
+            if manager.metadata.is_available():
+                result = manager.query_data(filters={"metric": "euclidean"}, use_sql=True)
+                assert isinstance(result, type(manager.query_data()))
+
+    def test_storage_manager_query_data_without_sql(self) -> None:
+        """Test query_data without SQL (covers lines 205-207)."""
+        config = StorageConfig(use_redis=False, use_sql=False)
+        manager = StorageManager(config)
+
+        result = manager.query_data(use_sql=False)
+        assert isinstance(result, type(manager.query_data()))
+        assert len(result) == 0
+
+    def test_storage_manager_cache_get(self) -> None:
+        """Test cache_get method (covers lines 242-246)."""
+        config = StorageConfig(use_redis=False, use_sql=False)
+        manager = StorageManager(config)
+
+        result = manager.cache_get("key")
+        assert result is None
+
+    def test_storage_manager_cache_set(self) -> None:
+        """Test cache_set method (covers lines 248-259)."""
+        config = StorageConfig(use_redis=False, use_sql=False)
+        manager = StorageManager(config)
+
+        result = manager.cache_set("key", "data", ttl=100, metadata={"key": "value"})
+        assert result is False  # Cache unavailable
+
+    def test_storage_manager_cache_delete(self) -> None:
+        """Test cache_delete method (covers lines 261-265)."""
+        config = StorageConfig(use_redis=False, use_sql=False)
+        manager = StorageManager(config)
+
+        result = manager.cache_delete("key")
+        assert result is False  # Cache unavailable
+
+    def test_storage_manager_index_comparison_unavailable(self) -> None:
+        """Test index_comparison when metadata unavailable (covers lines 263-265)."""
+        config = StorageConfig(use_redis=False, use_sql=False)
+        manager = StorageManager(config)
+
+        result = manager.index_comparison(
+            dataset_i="A",
+            dataset_j="B",
+            metric="euclidean",
+            file_path="results.h5",
+            group_path="group",
+        )
+        assert result == ""
+
+    def test_storage_manager_close(self) -> None:
+        """Test close method (covers lines 331-339)."""
+        config = StorageConfig(use_redis=False, use_sql=False)
+        manager = StorageManager(config)
+
+        # Should not raise
+        manager.close()
+
+        # Can close multiple times
+        manager.close()
+
+    def test_storage_manager_load_data_metadata_available(self) -> None:
+        """Test load_data when metadata available (covers lines 177-181)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sql_path = Path(tmpdir) / "test_meta.db"
+            config = StorageConfig(use_redis=False, use_sql=True, sql_path=sql_path)
+            manager = StorageManager(config)
+
+            if manager.metadata.is_available():
+                # Metadata-assisted loading not implemented, should fall back
+                def loader() -> str:
+                    return "fallback_data"
+
+                result = manager.load_data("key", hdf5_loader=loader)
+                assert result == "fallback_data"
 
 
 

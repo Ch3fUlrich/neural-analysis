@@ -69,3 +69,59 @@ class TestDoCritical:
 
         # Verify full message was logged
         assert any(message in record.message for record in caplog.records)
+
+    def test_import_fallback(self, monkeypatch):
+        """Test ImportError fallback for get_logger (covers lines 13-16)."""
+        import sys
+        import importlib
+
+        # Save original module references
+        original_validation = sys.modules.get("neural_analysis.utils.validation")
+        original_logging = sys.modules.get("neural_analysis.utils.logging")
+
+        # Remove both modules from cache to force re-import
+        if "neural_analysis.utils.validation" in sys.modules:
+            del sys.modules["neural_analysis.utils.validation"]
+        if "neural_analysis.utils.logging" in sys.modules:
+            del sys.modules["neural_analysis.utils.logging"]
+
+        # Temporarily remove the logging module from the path to simulate ImportError
+        import neural_analysis.utils
+
+        original_hasattr = hasattr(neural_analysis.utils, "logging")
+        if original_hasattr:
+            # Temporarily remove the logging attribute
+            original_logging_attr = getattr(neural_analysis.utils, "logging", None)
+            delattr(neural_analysis.utils, "logging")
+
+        # Mock __import__ to raise ImportError for the logging module
+        original_import = __import__
+
+        def mock_import(name, globals=None, locals=None, fromlist=(), level=0):
+            # Check if this is an import of neural_analysis.utils.logging
+            if name == "neural_analysis.utils.logging" or (
+                fromlist and "logging" in fromlist and name == "neural_analysis.utils"
+            ):
+                raise ImportError("Mocked import error for logging module")
+            return original_import(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr("builtins.__import__", mock_import)
+
+        # Re-import the module to trigger the fallback (covers lines 13-16)
+        importlib.invalidate_caches()
+        import neural_analysis.utils.validation as validation_module
+
+        # Verify the fallback logger works (lines 15-16)
+        logger = validation_module.get_logger("test_module")
+        assert logger is not None
+        assert isinstance(logger, logging.Logger)
+        # The logger name should be "test_module" (or end with it)
+        assert logger.name == "test_module" or logger.name.endswith("test_module")
+
+        # Restore original modules
+        if original_validation:
+            sys.modules["neural_analysis.utils.validation"] = original_validation
+        if original_logging:
+            sys.modules["neural_analysis.utils.logging"] = original_logging
+        if original_hasattr and original_logging_attr:
+            setattr(neural_analysis.utils, "logging", original_logging_attr)

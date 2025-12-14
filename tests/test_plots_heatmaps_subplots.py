@@ -79,6 +79,15 @@ class TestHeatmap:
         assert ax is not None
         plt.close("all")
 
+    def test_plot_heatmap_with_vmin_vmax(self) -> None:
+        """Test heatmap with vmin and vmax (covers lines 84, 86)."""
+        data = np.random.rand(5, 5)
+
+        ax = plot_heatmap(data, vmin=0.0, vmax=1.0, backend="matplotlib")
+
+        assert ax is not None
+        plt.close("all")
+
     def test_heatmap_invalid_method_raises(self) -> None:
         """Test that invalid method raises error."""
         # This test is for the old plot_correlation_matrix function

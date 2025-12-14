@@ -96,6 +96,14 @@ class TestPlotScatter2D:
         assert ax.get_ylabel() == "Y axis"
         plt.close()
 
+    def test_scatter_without_config(self, sample_data: Any) -> None:
+        """Test scatter without config (covers line 90)."""
+        set_backend("matplotlib")
+        x, y = sample_data
+        ax = plot_scatter_2d(x, y, backend="matplotlib")
+        assert isinstance(ax, Axes)
+        plt.close()
+
     def test_scatter_mismatched_lengths(self) -> None:
         """Test that mismatched x and y lengths raise error."""
         x = np.array([1, 2, 3])
@@ -192,6 +200,14 @@ class TestPlotTrajectory2D:
         y = np.array([1, 2])
         with pytest.raises(ValueError, match="x and y must have same length"):
             plot_trajectory_2d(x, y)
+
+    def test_trajectory_without_config(self, trajectory_data: Any) -> None:
+        """Test trajectory without config (covers line 160)."""
+        set_backend("matplotlib")
+        x, y = trajectory_data
+        ax = plot_trajectory_2d(x, y, backend="matplotlib")
+        assert isinstance(ax, Axes)
+        plt.close()
 
 
 class TestPlotGroupedScatter2D:
@@ -344,6 +360,14 @@ class TestPlotKDE2D:
         y = np.array([1])
         with pytest.raises(ValueError, match="Need at least 2 points for KDE"):
             plot_kde_2d(x, y)
+
+    def test_kde_without_config(self, kde_data: Any) -> None:
+        """Test KDE without config (covers line 295)."""
+        set_backend("matplotlib")
+        x, y = kde_data
+        ax = plot_kde_2d(x, y, backend="matplotlib")
+        assert isinstance(ax, Axes)
+        plt.close()
 
 
 class TestBackendSelection:
