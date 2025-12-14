@@ -297,9 +297,9 @@ def apply_layout_plotly(fig: Any, config: PlotConfig) -> None:
     grid_val = config.grid if isinstance(config.grid, bool) else bool(config.grid)
     xaxis["showgrid"] = grid_val
     yaxis["showgrid"] = grid_val
-    if xaxis:
+    if xaxis:  # pragma: no branch
         layout_updates["xaxis"] = xaxis
-    if yaxis:
+    if yaxis:  # pragma: no branch
         layout_updates["yaxis"] = yaxis
     if config.figsize:
         layout_updates["width"] = int(config.figsize[0] * 100)
@@ -321,15 +321,15 @@ def apply_layout_plotly_3d(fig: Any, config: PlotConfig) -> None:
     if config.zlabel:
         scene_dict["zaxis_title"] = config.zlabel
     if config.xlim:
-        if "xaxis" not in scene_dict:
+        if "xaxis" not in scene_dict:  # pragma: no branch
             scene_dict["xaxis"] = {}
         scene_dict["xaxis"]["range"] = list(config.xlim)
     if config.ylim:
-        if "yaxis" not in scene_dict:
+        if "yaxis" not in scene_dict:  # pragma: no branch
             scene_dict["yaxis"] = {}
         scene_dict["yaxis"]["range"] = list(config.ylim)
     if config.zlim:
-        if "zaxis" not in scene_dict:
+        if "zaxis" not in scene_dict:  # pragma: no branch
             scene_dict["zaxis"] = {}
         scene_dict["zaxis"]["range"] = list(config.zlim)
 

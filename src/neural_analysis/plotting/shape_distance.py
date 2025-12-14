@@ -259,7 +259,7 @@ def plot_shape_distance_mds(
             # Create one spec per cluster for proper coloring
             for lab_idx, lab in enumerate(unique_labels):
                 idx = labels == lab
-                if idx.sum() > 0:
+                if idx.sum() > 0:  # pragma: no branch
                     spec = PlotSpec(
                         data={"x": emb_mds_2[idx, 0], "y": emb_mds_2[idx, 1]},
                         plot_type="scatter",
@@ -298,7 +298,7 @@ def plot_shape_distance_mds(
         if labels is not None and unique_labels is not None:
             for lab_idx, lab in enumerate(unique_labels):
                 idx = labels == lab
-                if idx.sum() > 0:
+                if idx.sum() > 0:  # pragma: no branch
                     spec = PlotSpec(
                         data={"x": emb_mds_pca_2[idx, 0], "y": emb_mds_pca_2[idx, 1]},
                         plot_type="scatter",

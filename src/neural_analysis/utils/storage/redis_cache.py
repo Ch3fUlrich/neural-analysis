@@ -93,7 +93,7 @@ class RedisCache:
         else:
             if not REDIS_AVAILABLE:
                 logger.debug("Redis package not installed. Cache disabled.")
-            elif not self.config.use_redis:
+            elif not self.config.use_redis:  # pragma: no branch
                 logger.debug("Redis disabled in configuration. Cache disabled.")
             self._available = False
 

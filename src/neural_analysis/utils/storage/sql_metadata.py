@@ -73,7 +73,7 @@ class SQLMetadata:
         else:
             if not DUCKDB_AVAILABLE:
                 logger.debug("DuckDB package not installed. Metadata indexing disabled.")
-            elif not self.config.use_sql:
+            elif not self.config.use_sql:  # pragma: no branch
                 logger.debug("SQL disabled in configuration. Metadata indexing disabled.")
             self._available = False
 

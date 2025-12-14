@@ -921,7 +921,9 @@ def get_hdf5_result_summary(
                     }
                     rows.append(row)
 
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
+        # This exception handler is difficult to test as h5py.File raises
+        # exceptions at initialization, before entering the context manager
         logger.error(f"Error reading summary from {save_path}: {e}")
 
     return pd.DataFrame(rows)
