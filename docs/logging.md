@@ -1,61 +1,101 @@
+# `docs/logging.md` (restructured)
+
+```markdown
 # Logging Guidelines
 
-Robust logging is critical to understand, reproduce, and debug computations later. This project uses Python's standard `logging` module with lightweight helpers in `neural_analysis.utils.logging`.
+Logging provides traceable, structured information about what analyses are doing. This document shows how to use the shared logging utilities.
 
-## Table of Contents
-- [Logging Guidelines](#logging-guidelines)
-  - [Table of Contents](#table-of-contents)
-  - [Quick start](#quick-start)
-  - [Best practices](#best-practices)
-  - [Environment variables](#environment-variables)
-  - [API reference](#api-reference)
-  - [Example: file + console logging](#example-file--console-logging)
-  - [Migration notes](#migration-notes)
+---
 
+## 1. Do / Don’t
 
-## Quick start
+| Do                                          | Don’t                         |
+|--------------------------------------------|-------------------------------|
+| Use `get_logger(__name__)` per module      | Use `print()` in library code |
+| Use `log_kv` for structured metrics        | Log raw dicts without context |
+| Use `log_section` for major phases         | Scatter unrelated log lines   |
+| Configure logging once per script/notebook | Reconfigure loggers per call  |
 
-```python
-from neural_analysis.utils import configure_logging, get_logger, log_kv, log_section
+---
 
-# Configure once at app/notebook startup
-configure_logging(level="INFO")  # or pass file_path="logs/run.log"
-
-log = get_logger(__name__)
-log_section("Loading data")
-log.info("Reading dataset",)
-log_kv("config", {"subject": "S01", "session": 3})
-```
-
-## Best practices
-
-- Do not call `basicConfig()` in library modules; call `configure_logging()` from the entry script or notebook.
-- Use `get_logger(__name__)` per-module to get a namespaced logger under `neural_analysis.*`.
-- Prefer structured messages with `log_kv()` for key metrics or configuration snapshots.
-- For function tracing, decorate with `@log_calls(level=logging.DEBUG)` to log entry/exit and runtimes.
-- Keep messages concise; rely on levels (`DEBUG`, `INFO`, `WARNING`, `ERROR`).
-
-## Environment variables
-
-- `NEURAL_ANALYSIS_LOG_LEVEL` (e.g., `DEBUG`): default level if not passed explicitly.
-
-## API reference
-
-- `configure_logging(level="INFO", file_path=None, fmt=None, datefmt=None, stream=None, propagate=False)`
-- `get_logger(name=None)` → `Logger`
-- `log_section(title, level=INFO, char="=")`
-- `log_kv(prefix, mapping, level=INFO)`
-- `log_calls(level=DEBUG, timeit=True)` decorator to trace functions
-
-## Example: file + console logging
+## 2. Basic Logging in Code
 
 ```python
 from neural_analysis.utils import configure_logging, get_logger
-configure_logging(level="INFO", file_path="logs/experiment.log")
-log = get_logger("experiment")
-log.info("Experiment started")
+
+configure_logging(level="INFO")
+log = get_logger(__name__)
+
+def run_analysis(data):
+    log.info("Starting analysis", extra={"n_samples": len(data)})
+    ...
+    log.info("Finished analysis")
 ```
 
-## Migration notes
+Key points:
 
-Legacy code in `/todo` used ad-hoc `global_logger` patterns. The new centralized utilities replace those while remaining dependency-free and configurable. Convert `print()` to `log.info()` and adopt `log_kv()` for metrics to standardize outputs.
+- Call `configure_logging` once (usually in `if __name__ == "__main__":` or at notebook setup).
+- Use a module‑level logger.
+
+---
+
+## 3. Structured Metrics Logging
+
+Use `log_kv` to emit key‑value pairs in a consistent format.
+
+```python
+from neural_analysis.utils import log_kv
+
+log_kv("metrics", {"accuracy": 0.93, "n_trials": 120})
+```
+
+Typical uses:
+
+- Final performance metrics.
+- Per‑epoch or per‑iteration summaries.
+
+---
+
+## 4. Flow Logging
+
+Use `log_section` and decorators to mark phases and trace function calls.
+
+```python
+from neural_analysis.utils import log_section, log_calls
+import logging
+
+@log_calls(level=logging.DEBUG)
+def compute_scores(...):
+    ...
+
+log_section("Loading data")
+# load data
+log_section("Computing scores")
+compute_scores(...)
+```
+
+Benefits:
+
+- Clear high‑level phases in logs.
+- Debug‑level call traces when needed.
+
+---
+
+## 5. Recipes
+
+### 5.1 File logging
+
+```python
+configure_logging(
+    level="INFO",
+    file_path="logs/run.log",
+)
+```
+
+### 5.2 Verbose debugging for a single run
+
+```python
+configure_logging(level="DEBUG")
+```
+
+Use higher log level (`WARNING` or `ERROR`) for very quiet scripts, and `DEBUG` only when actively debugging.
