@@ -2,6 +2,8 @@
 Tests for embeddings module (dimensionality reduction).
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 import numpy as np
@@ -43,9 +45,32 @@ def sample_data_with_labels() -> Any:
 class TestComputeEmbedding:
     """Tests for compute_embedding function."""
 
-    def test_pca_2d(self, sample_data: Any) -> None:
-        """Test PCA with 2 components."""
-        embedding = compute_embedding(sample_data, method="pca", n_components=2)
+    @pytest.mark.parametrize(
+        "method,kwargs",
+        [
+            ("pca", {}),
+            ("tsne", {"random_state": 42}),
+            ("mds", {"random_state": 42}),
+            ("isomap", {"n_neighbors": 10}),
+            ("lle", {"n_neighbors": 10, "random_state": 42}),
+            ("spectral", {"n_neighbors": 10, "random_state": 42}),
+            pytest.param(
+                "umap",
+                {"n_neighbors": 15, "random_state": 42},
+                marks=pytest.mark.skipif(
+                    not UMAP_AVAILABLE, reason="UMAP not installed"
+                ),
+            ),
+        ],
+        ids=["pca", "tsne", "mds", "isomap", "lle", "spectral", "umap"],
+    )
+    def test_embedding_2d(
+        self, sample_data: Any, method: str, kwargs: dict[str, Any]
+    ) -> None:
+        """Test embedding method with 2 components."""
+        embedding = compute_embedding(
+            sample_data, method=method, n_components=2, **kwargs
+        )
         assert embedding.shape == (100, 2)
         assert not np.any(np.isnan(embedding))
 
@@ -53,70 +78,6 @@ class TestComputeEmbedding:
         """Test PCA with 3 components."""
         embedding = compute_embedding(sample_data, method="pca", n_components=3)
         assert embedding.shape == (100, 3)
-
-    def test_tsne_2d(self, sample_data: Any) -> None:
-        """Test t-SNE with 2 components."""
-        embedding = compute_embedding(
-            sample_data, method="tsne", n_components=2, random_state=42
-        )
-        assert embedding.shape == (100, 2)
-        assert not np.any(np.isnan(embedding))
-
-    def test_mds_2d(self, sample_data: Any) -> None:
-        """Test MDS with 2 components."""
-        embedding = compute_embedding(
-            sample_data, method="mds", n_components=2, random_state=42
-        )
-        assert embedding.shape == (100, 2)
-        assert not np.any(np.isnan(embedding))
-
-    def test_isomap_2d(self, sample_data: Any) -> None:
-        """Test Isomap with 2 components."""
-        embedding = compute_embedding(
-            sample_data, method="isomap", n_components=2, n_neighbors=10
-        )
-        assert embedding.shape == (100, 2)
-        assert not np.any(np.isnan(embedding))
-
-    def test_lle_2d(self, sample_data: Any) -> None:
-        """Test LLE with 2 components."""
-        embedding = compute_embedding(
-            sample_data, method="lle", n_components=2, n_neighbors=10, random_state=42
-        )
-        assert embedding.shape == (100, 2)
-
-    def test_spectral_2d(self, sample_data: Any) -> None:
-        """Test Spectral Embedding with 2 components."""
-        embedding = compute_embedding(
-            sample_data,
-            method="spectral",
-            n_components=2,
-            n_neighbors=10,
-            random_state=42,
-        )
-        assert embedding.shape == (100, 2)
-
-    @pytest.mark.skipif(
-        not hasattr(
-            __import__(
-                "neural_analysis.embeddings.dimensionality_reduction",
-                fromlist=["UMAP_AVAILABLE"],
-            ),
-            "UMAP_AVAILABLE",
-        )
-        or not __import__(
-            "neural_analysis.embeddings.dimensionality_reduction",
-            fromlist=["UMAP_AVAILABLE"],
-        ).UMAP_AVAILABLE,
-        reason="UMAP not installed",
-    )
-    def test_umap_2d(self, sample_data: Any) -> None:
-        """Test UMAP with 2 components (if available)."""
-        embedding = compute_embedding(
-            sample_data, method="umap", n_components=2, n_neighbors=15, random_state=42
-        )
-        assert embedding.shape == (100, 2)
-        assert not np.any(np.isnan(embedding))
 
     def test_invalid_method(self, sample_data: Any) -> None:
         """Test that invalid method raises ValueError."""
@@ -297,7 +258,9 @@ class TestIntegration:
             with pytest.raises(ImportError, match="UMAP is not installed"):
                 compute_embedding(sample_data, method="umap", n_components=2)
 
-    def test_compute_multiple_embeddings_with_import_error(self, sample_data: Any) -> None:
+    def test_compute_multiple_embeddings_with_import_error(
+        self, sample_data: Any
+    ) -> None:
         """Test compute_multiple_embeddings handles ImportError (covers lines 400-401)."""
         # Include a method that might not be available
         methods = ["pca", "invalid_method_if_exists"]
@@ -318,3 +281,89 @@ class TestIntegration:
         )
         # Should successfully compute available methods
         assert len(embeddings) >= 1
+
+
+class TestComputeEmbeddingEdgeCases:
+    """Tests for compute_embedding edge cases (covers lines 41-43, 228, 401)."""
+
+    def test_compute_embedding_umap_unavailable(self, monkeypatch: Any) -> None:
+        """Test compute_embedding when UMAP is unavailable (covers lines 41-43)."""
+        import importlib
+        import sys
+
+        # Mock umap import to fail
+        original_umap = sys.modules.get("umap")
+        if "umap" in sys.modules:
+            del sys.modules["umap"]
+
+        original_import = __import__
+
+        def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "umap" or name.startswith("umap"):
+                raise ImportError("Mocked umap import error")
+            return original_import(name, *args, **kwargs)
+
+        monkeypatch.setattr("builtins.__import__", mock_import)
+        importlib.invalidate_caches()
+
+        # Re-import module
+        import neural_analysis.embeddings.dimensionality_reduction as dimred_module
+
+        importlib.reload(dimred_module)
+
+        # Try to use UMAP - should raise ImportError
+        data = np.random.randn(100, 10)
+        with pytest.raises(ImportError, match="UMAP"):
+            dimred_module.compute_embedding(data, method="umap")
+
+        # Restore
+        if original_umap:
+            sys.modules["umap"] = original_umap
+
+    def test_compute_embedding_invalid_method(self) -> None:
+        """Test compute_embedding with invalid method (covers line 228)."""
+        data = np.random.randn(100, 10)
+        with pytest.raises(ValueError, match="Unknown method"):
+            compute_embedding(data, method="invalid")
+
+    def test_compute_multiple_embeddings_import_error(self, monkeypatch: Any) -> None:
+        """Test compute_multiple_embeddings with ImportError (covers line 401)."""
+        from unittest.mock import patch
+
+        from neural_analysis.embeddings.dimensionality_reduction import (
+            compute_embedding as _compute_embedding,
+        )
+        from neural_analysis.embeddings.dimensionality_reduction import (
+            compute_multiple_embeddings as _compute_multiple_embeddings,
+        )
+
+        data = np.random.randn(100, 10)
+
+        # Mock compute_embedding to raise ImportError for a specific method
+        original_compute_embedding = _compute_embedding
+
+        def mock_compute_embedding(
+            *args: Any, method: str | None = None, **kwargs: Any
+        ) -> Any:
+            if method == "tsne":
+                raise ImportError("Mocked tsne import error")
+            return original_compute_embedding(*args, method=method, **kwargs)
+
+        # Test with a method that will trigger ImportError
+        with (
+            patch(
+                "neural_analysis.embeddings.dimensionality_reduction.compute_embedding",
+                side_effect=mock_compute_embedding,
+            ),
+            patch(
+                "neural_analysis.embeddings.dimensionality_reduction.logger"
+            ) as mock_logger,
+        ):
+            result = _compute_multiple_embeddings(data, methods=["pca", "tsne"])
+            # Should have PCA but not t-SNE
+            assert "pca" in result
+            assert "tsne" not in result
+            # Verify warning was logged (line 401)
+            mock_logger.warning.assert_called()
+            call_args = str(mock_logger.warning.call_args)
+            assert "Skipping" in call_args and "tsne" in call_args

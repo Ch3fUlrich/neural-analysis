@@ -52,7 +52,9 @@ class TestPlotMultipleEmbeddings:
         mock_plot_grid.assert_called_once()
 
     @patch("neural_analysis.embeddings.visualization.PlotGrid")
-    def test_plot_multiple_embeddings_with_labels(self, mock_plot_grid: MagicMock) -> None:
+    def test_plot_multiple_embeddings_with_labels(
+        self, mock_plot_grid: MagicMock
+    ) -> None:
         """Test plot_multiple_embeddings with labels (covers lines 153-174)."""
         mock_fig = MagicMock()
         mock_grid_instance = MagicMock()
@@ -67,7 +69,9 @@ class TestPlotMultipleEmbeddings:
         mock_plot_grid.assert_called_once()
 
     @patch("neural_analysis.embeddings.visualization.PlotGrid")
-    def test_plot_multiple_embeddings_with_colors_list(self, mock_plot_grid: MagicMock) -> None:
+    def test_plot_multiple_embeddings_with_colors_list(
+        self, mock_plot_grid: MagicMock
+    ) -> None:
         """Test plot_multiple_embeddings with color list (covers line 168-169)."""
         mock_fig = MagicMock()
         mock_grid_instance = MagicMock()
@@ -82,7 +86,9 @@ class TestPlotMultipleEmbeddings:
         assert result == mock_fig
 
     @patch("neural_analysis.embeddings.visualization.PlotGrid")
-    def test_plot_multiple_embeddings_with_colors_str(self, mock_plot_grid: MagicMock) -> None:
+    def test_plot_multiple_embeddings_with_colors_str(
+        self, mock_plot_grid: MagicMock
+    ) -> None:
         """Test plot_multiple_embeddings with single color string (covers line 169)."""
         mock_fig = MagicMock()
         mock_grid_instance = MagicMock()
@@ -97,7 +103,9 @@ class TestPlotMultipleEmbeddings:
         assert result == mock_fig
 
     @patch("neural_analysis.embeddings.visualization.PlotGrid")
-    def test_plot_multiple_embeddings_no_labels_custom_colors(self, mock_plot_grid: MagicMock) -> None:
+    def test_plot_multiple_embeddings_no_labels_custom_colors(
+        self, mock_plot_grid: MagicMock
+    ) -> None:
         """Test plot_multiple_embeddings without labels but with custom colors (covers branch 172->174 False path)."""
         mock_fig = MagicMock()
         mock_grid_instance = MagicMock()
@@ -124,7 +132,9 @@ class TestPlotMultipleEmbeddings:
         assert result == mock_fig
 
     @patch("neural_analysis.embeddings.visualization.PlotGrid")
-    def test_plot_multiple_embeddings_grid_layout_1_2(self, mock_plot_grid: MagicMock) -> None:
+    def test_plot_multiple_embeddings_grid_layout_1_2(
+        self, mock_plot_grid: MagicMock
+    ) -> None:
         """Test grid layout for 1-2 embeddings (covers lines 143-144)."""
         mock_fig = MagicMock()
         mock_grid_instance = MagicMock()
@@ -143,7 +153,9 @@ class TestPlotMultipleEmbeddings:
         assert layout.cols == 1
 
     @patch("neural_analysis.embeddings.visualization.PlotGrid")
-    def test_plot_multiple_embeddings_grid_layout_3_4(self, mock_plot_grid: MagicMock) -> None:
+    def test_plot_multiple_embeddings_grid_layout_3_4(
+        self, mock_plot_grid: MagicMock
+    ) -> None:
         """Test grid layout for 3-4 embeddings (covers lines 145-146)."""
         mock_fig = MagicMock()
         mock_grid_instance = MagicMock()
@@ -165,16 +177,16 @@ class TestPlotMultipleEmbeddings:
         assert layout.cols == 2
 
     @patch("neural_analysis.embeddings.visualization.PlotGrid")
-    def test_plot_multiple_embeddings_grid_layout_5_6(self, mock_plot_grid: MagicMock) -> None:
+    def test_plot_multiple_embeddings_grid_layout_5_6(
+        self, mock_plot_grid: MagicMock
+    ) -> None:
         """Test grid layout for 5-6 embeddings (covers lines 147-148)."""
         mock_fig = MagicMock()
         mock_grid_instance = MagicMock()
         mock_grid_instance.plot.return_value = mock_fig
         mock_plot_grid.return_value = mock_grid_instance
 
-        embeddings = {
-            f"method_{i}": np.random.randn(50, 2) for i in range(5)
-        }
+        embeddings = {f"method_{i}": np.random.randn(50, 2) for i in range(5)}
         plot_multiple_embeddings(embeddings)
 
         call_args = mock_plot_grid.call_args
@@ -185,16 +197,16 @@ class TestPlotMultipleEmbeddings:
         assert layout.cols == 3
 
     @patch("neural_analysis.embeddings.visualization.PlotGrid")
-    def test_plot_multiple_embeddings_grid_layout_7plus(self, mock_plot_grid: MagicMock) -> None:
+    def test_plot_multiple_embeddings_grid_layout_7plus(
+        self, mock_plot_grid: MagicMock
+    ) -> None:
         """Test grid layout for 7+ embeddings (covers lines 149-150)."""
         mock_fig = MagicMock()
         mock_grid_instance = MagicMock()
         mock_grid_instance.plot.return_value = mock_fig
         mock_plot_grid.return_value = mock_grid_instance
 
-        embeddings = {
-            f"method_{i}": np.random.randn(50, 2) for i in range(7)
-        }
+        embeddings = {f"method_{i}": np.random.randn(50, 2) for i in range(7)}
         plot_multiple_embeddings(embeddings)
 
         call_args = mock_plot_grid.call_args
@@ -241,7 +253,9 @@ class TestPlotPCAVariance:
         assert result == mock_fig
 
     @patch("neural_analysis.embeddings.visualization.PlotGrid")
-    def test_plot_pca_variance_n_components_to_show(self, mock_plot_grid: MagicMock) -> None:
+    def test_plot_pca_variance_n_components_to_show(
+        self, mock_plot_grid: MagicMock
+    ) -> None:
         """Test plot_pca_variance with n_components_to_show (covers lines 352-354)."""
         mock_fig = MagicMock()
         mock_fig.axes = [MagicMock(), MagicMock()]
@@ -284,7 +298,9 @@ class TestPlotPCAVariance:
         assert mock_ax.legend.called
 
     @patch("neural_analysis.embeddings.visualization.PlotGrid")
-    def test_plot_pca_variance_threshold_lines_plotly(self, mock_plot_grid: MagicMock) -> None:
+    def test_plot_pca_variance_threshold_lines_plotly(
+        self, mock_plot_grid: MagicMock
+    ) -> None:
         """Test plot_pca_variance with threshold lines but plotly backend (covers line 431)."""
         mock_fig = MagicMock()
         mock_grid_instance = MagicMock()
@@ -340,7 +356,9 @@ class TestPlotPCAVariance:
         assert result == mock_fig
 
     @patch("neural_analysis.embeddings.visualization.PlotGrid")
-    def test_plot_pca_variance_default_threshold_lines(self, mock_plot_grid: MagicMock) -> None:
+    def test_plot_pca_variance_default_threshold_lines(
+        self, mock_plot_grid: MagicMock
+    ) -> None:
         """Test plot_pca_variance with default threshold lines (covers lines 345-346)."""
         mock_ax = MagicMock()
         mock_fig = MagicMock()
@@ -354,13 +372,17 @@ class TestPlotPCAVariance:
             "cumulative_variance_ratio": np.array([0.4, 0.7, 0.9, 1.0]),
         }
 
-        result = plot_pca_variance(variance_info, threshold_lines=None, backend="matplotlib")
+        result = plot_pca_variance(
+            variance_info, threshold_lines=None, backend="matplotlib"
+        )
         assert result == mock_fig
         # Default thresholds should be [0.90, 0.95]
         assert mock_ax.axhline.call_count == 2
 
     @patch("neural_analysis.embeddings.visualization.PlotGrid")
-    def test_plot_pca_variance_no_cumulative_in_dict(self, mock_plot_grid: MagicMock) -> None:
+    def test_plot_pca_variance_no_cumulative_in_dict(
+        self, mock_plot_grid: MagicMock
+    ) -> None:
         """Test plot_pca_variance when cumulative_variance_ratio not in dict (covers line 381)."""
         mock_fig = MagicMock()
         mock_grid_instance = MagicMock()
@@ -374,5 +396,3 @@ class TestPlotPCAVariance:
         result = plot_pca_variance(variance_info, cumulative=True)
         assert result == mock_fig
         # Should only create one plot (individual variance)
-
-

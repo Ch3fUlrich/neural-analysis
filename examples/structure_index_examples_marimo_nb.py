@@ -6,8 +6,8 @@ app = marimo.App(width="full", auto_download=["html"])
 
 @app.cell(hide_code=True)
 def _():
-
     import marimo as mo
+
     return (mo,)
 
 
@@ -37,31 +37,29 @@ def _(mo):
 @app.cell
 def _():
     # Imports
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import pandas as pd
-    from pathlib import Path
     import warnings
-    import sys
-    import importlib
+    from pathlib import Path
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
 
     warnings.filterwarnings("ignore")
 
-    # Clear cached module if exists
-    if "neural_analysis.data.synthetic_data" in sys.modules:
-        importlib.reload(sys.modules["neural_analysis.data.synthetic_data"])
-
     # Neural analysis imports
-    from neural_analysis.data.synthetic_data import generate_data
+    from neural_analysis import (
+        compute_embedding,
+        compute_structure_index,
+        generate_data,
+    )
     from neural_analysis.plotting.synthetic_plots import plot_synthetic_data
     from neural_analysis.topology import (
-        compute_structure_index,
         compute_structure_index_sweep,
         draw_overlap_graph,
     )
     from neural_analysis.utils.io import (
-        load_results_from_hdf5_dataset,
         get_hdf5_result_summary,
+        load_results_from_hdf5_dataset,
     )
 
     # Set random seed for reproducibility
@@ -71,12 +69,6 @@ def _():
     from neural_analysis.metrics.distributions import (
         pairwise_distribution_comparison_batch,
     )
-    from neural_analysis.utils.io import (
-        load_distribution_comparisons,
-        get_hdf5_result_summary,
-    )
-    from neural_analysis.embeddings.dimensionality_reduction import compute_embedding
-    from neural_analysis.plotting.embeddings import plot_embedding
 
     # Create output directory
     output_dir = Path("output")
@@ -90,14 +82,12 @@ def _():
         draw_overlap_graph,
         generate_data,
         get_hdf5_result_summary,
-        importlib,
         load_results_from_hdf5_dataset,
         np,
         pairwise_distribution_comparison_batch,
         pd,
         plot_synthetic_data,
         plt,
-        sys,
     )
 
 
@@ -115,11 +105,8 @@ def _(mo):
 
 
 @app.cell
-def _(importlib, sys):
-    # Force reload of synthetic_plots module to pick up changes
-    if "neural_analysis.plotting.synthetic_plots" in sys.modules:
-        importlib.reload(sys.modules["neural_analysis.plotting.synthetic_plots"])
-    print("✓ Reloaded synthetic_plots module")
+def _():
+    pass
     return
 
 
@@ -145,15 +132,8 @@ def _(plot_synthetic_data, random_data, random_labels):
 
 
 @app.cell
-def _(generate_data, sys):
+def _(generate_data):
     # Clear cached modules first
-    modules_to_reload = [
-        "neural_analysis.data.synthetic_data",
-        "neural_analysis.plotting.synthetic_plots",
-    ]
-    for mod in modules_to_reload:
-        if mod in sys.modules:
-            del sys.modules[mod]
     place_data, place_metadata = generate_data(
         "place_cells", n_samples=1000, n_features=50, noise=0.1, seed=42
     )
@@ -572,7 +552,7 @@ def _(compute_structure_index_sweep, place_data, place_position):
     n_neighbors_list = [10, 15, 20, 25]
     n_bins_list = [8, 10, 12, 15]
 
-    print(f"Running parameter sweep...")
+    print("Running parameter sweep...")
     print(f"  n_neighbors: {n_neighbors_list}")
     print(f"  n_bins: {n_bins_list}")
     print(f"  Total combinations: {len(n_neighbors_list) * len(n_bins_list)}")

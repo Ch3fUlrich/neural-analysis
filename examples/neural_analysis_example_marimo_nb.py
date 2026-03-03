@@ -7,6 +7,7 @@ app = marimo.App(width="full", auto_download=["html"])
 @app.cell(hide_code=True)
 def _():
     import marimo as mo
+
     return (mo,)
 
 
@@ -32,53 +33,39 @@ def _(mo):
 @app.cell
 def _():
     # Imports
+    import time
+    import warnings
+    from pathlib import Path
+
     import numpy as np
     import pandas as pd
-    import time
-    from pathlib import Path
-    import warnings
 
     warnings.filterwarnings("ignore")
 
     # Neural analysis imports
-    from neural_analysis.data.synthetic_data import (
-        generate_place_cells,
+    from neural_analysis import (
+        compare_classifiers,
+        compare_clusterers,
+        compute_embedding,
+        compute_structure_index,
+        evaluate_decoder,
+        extract_cell_features,
         generate_grid_cells,
         generate_head_direction_cells,
         generate_mixed_population_flexible,
-    )
-    from neural_analysis.learning.decoding import (
-        population_vector_decoder,
+        generate_place_cells,
         knn_decoder,
-        evaluate_decoder,
+        population_vector_decoder,
+        shape_distance,
     )
-    from neural_analysis.learning.classification import (
-        classify_cells,
-        cluster_cells,
-        extract_cell_features,
-        compare_classifiers,
-        compare_clusterers,
-    )
-    from neural_analysis.embeddings import (
-        compute_embedding,
-        compute_multiple_embeddings,
-    )
-    import importlib
-    import neural_analysis.topology.structure_index as si
-
-    importlib.reload(si)
-    compute_structure_index = si.compute_structure_index
-    from neural_analysis.metrics.distributions import shape_distance
     from neural_analysis.plotting import (
-        PlotGrid,
-        PlotSpec,
         GridLayoutConfig,
         PlotConfig,
+        PlotGrid,
+        PlotSpec,
     )
 
     # Set random seed
-    import neural_analysis.topology.structure_index as topo
-
     print("✓ Imports successful")
     return (
         GridLayoutConfig,
@@ -181,8 +168,8 @@ def _(Path):
         # Add examples directory to path for imports
         sys.path.insert(0, str(examples_dir))
     from test_shape_distance_validation import (
-        validate_shape_distance_ordering,
         print_validation_summary,
+        validate_shape_distance_ordering,
     )
 
     print("Running shape distance validation...")

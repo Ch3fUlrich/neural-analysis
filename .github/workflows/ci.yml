@@ -1,12 +1,11 @@
 name: CI
 
-# Workflow disabled - pipeline not finished, not in CI/CD state
 on:
-  # push:
-  #   branches: [ main, migration, develop ]
-  # pull_request:
-  #   branches: [ main, migration ]
-  workflow_dispatch:  # Keep manual trigger available if needed
+  push:
+    branches: [main, migration]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -30,29 +29,20 @@ jobs:
 
     - name: Verify lockfile is up-to-date
       run: uv lock --check
-      continue-on-error: true
     
     - name: Install dependencies
       run: |
         uv sync --all-extras
-        # Verify installation
         uv run python -c "import neural_analysis; print('Package installed successfully')"
     
-    - name: Run ruff lint (Python 3.12)
-      run: |
-        echo "Running ruff lint with Python 3.12"
-        uv run python --version
-        uv run ruff check src tests scripts --output-format=github
+    - name: Run ruff lint
+      run: uv run ruff check src tests scripts --output-format=github
     
-    - name: Run ruff format check (Python 3.12)
-      run: |
-        echo "Running ruff format check with Python 3.12"
-        uv run ruff format --check src tests scripts
-      continue-on-error: true
+    - name: Run ruff format check
+      run: uv run ruff format --check src tests scripts
     
     - name: Run mypy type check
       run: uv run mypy src/neural_analysis tests scripts --ignore-missing-imports
-      continue-on-error: true
     
     - name: Run tests with coverage
       run: |
@@ -65,6 +55,18 @@ jobs:
           --tb=short \
           --maxfail=5
     
+    - name: Validate example notebooks import
+      run: |
+        for nb in examples/*_marimo_nb.py; do
+          echo "Checking: $nb"
+          uv run python -c "
+        import importlib.util, sys
+        spec = importlib.util.spec_from_file_location('nb', '$nb')
+        mod = importlib.util.module_from_spec(spec)
+        "
+        done
+      continue-on-error: true
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       if: matrix.python-version == '3.12' && github.event_name == 'push'

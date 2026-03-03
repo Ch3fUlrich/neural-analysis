@@ -132,7 +132,9 @@ class StorageManager:
                     success = True
             else:
                 # Index as dataset
-                dataset_id = self.metadata.index_dataset(file_path, group_path, metadata)
+                dataset_id = self.metadata.index_dataset(
+                    file_path, group_path, metadata
+                )
                 if dataset_id:
                     success = True
                     logger.debug(f"Indexed in metadata: {key}")
@@ -337,4 +339,3 @@ class StorageManager:
         metadata_close = getattr(self.metadata, "close", None)
         if callable(metadata_close):
             metadata_close()
-

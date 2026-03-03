@@ -37,6 +37,7 @@ from .plotting import (
     plot_structure_index_comparison,
 )
 from .structure_index import (
+    StructureIndexConfig,
     compute_structure_index,
     compute_structure_index_sweep,
     draw_overlap_graph,
@@ -44,6 +45,7 @@ from .structure_index import (
 )
 
 __all__ = [
+    "StructureIndexConfig",
     "compute_structure_index",
     "compute_structure_index_sweep",
     "draw_overlap_graph",

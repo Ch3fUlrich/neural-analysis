@@ -1,6 +1,5 @@
 import marimo
 
-
 __generated_with = "0.18.3"
 
 app = marimo.App(width="full")
@@ -8,7 +7,6 @@ app = marimo.App(width="full")
 
 @app.cell(hide_code=True)
 def __():
-
     import marimo as mo
 
     return mo
@@ -53,42 +51,26 @@ def _(mo):
 
 @app.cell
 def _():
-    # Restart kernel if needed to clear imports
-    import sys
-
-    if "neural_analysis" in sys.modules:
-        import importlib
-
-        # Reload to get latest changes
-        for mod in list(sys.modules.keys()):
-            if mod.startswith("neural_analysis"):
-                del sys.modules[mod]
-
     import numpy as np
     import pandas as pd
+    import plotly.graph_objects as go
+
     from neural_analysis.metrics import (
-        euclidean_distance,
-        mahalanobis_distance,
-        cosine_similarity,
         compare_datasets,  # Replaces compare_distributions and compare_distribution_groups
+        cosine_similarity,
+        euclidean_distance,
         filter_outlier,
-        similarity_matrix,  # Use new unified function
+        mahalanobis_distance,  # Use new unified function
     )
     from neural_analysis.plotting import (
-        plot_scatter_2d,
-        plot_scatter_3d,
-        plot_heatmap,
-        create_subplot_grid,
-        add_trace_to_subplot,
+        GridLayoutConfig,  # Grid layout configuration
         PlotConfig,
         PlotGrid,  # New flexible grid system
         PlotSpec,
-        GridLayoutConfig,  # Grid layout configuration
-        ColorScheme,  # Color scheme configuration
+        add_trace_to_subplot,
         plot_comparison_grid,
+        plot_heatmap,
     )
-    import matplotlib.pyplot as plt
-    import plotly.graph_objects as go
 
     np.random.seed(42)
     print("Imports successful!")
@@ -155,13 +137,13 @@ def _(euclidean_distance, mahalanobis_distance, np):
         test_point_perpendicular, mean_elongated, cov_elongated_emp
     )
 
-    print(f"Test Point Aligned [1.5, 1.5]:")
+    print("Test Point Aligned [1.5, 1.5]:")
     print(f"  Euclidean: {euc_aligned:.3f}")
     print(f"  Mahalanobis: {maha_aligned:.3f}")
-    print(f"\nTest Point Perpendicular [1.5, -1.5]:")
+    print("\nTest Point Perpendicular [1.5, -1.5]:")
     print(f"  Euclidean: {euc_perp:.3f}")
     print(f"  Mahalanobis: {maha_perp:.3f}")
-    print(f"\nKey Insight:")
+    print("\nKey Insight:")
     print(f"  Euclidean distances are equal: {abs(euc_aligned - euc_perp) < 0.01}")
     print(
         f"  Mahalanobis correctly identifies perpendicular as farther: {maha_perp > maha_aligned}"
@@ -269,7 +251,7 @@ def _(cosine_similarity, euclidean_distance, np):
         f"v1 vs v4 (opposite): {cosine_similarity(v1, v4):.3f} → -1.0 (opposite direction)"
     )
 
-    print(f"\nEuclidean distances (NOT scale-invariant):")
+    print("\nEuclidean distances (NOT scale-invariant):")
     print(f"v1 vs v2: {euclidean_distance(v1, v2):.3f}")
     print(f"v1 vs v3: {euclidean_distance(v1, v3):.3f}")
     print(f"v1 vs v4: {euclidean_distance(v1, v4):.3f}")
@@ -492,7 +474,6 @@ def _(mo):
 @app.cell
 def _(sys):
     # Import shape distance function
-    from neural_analysis.metrics.distributions import shape_distance
     from pathlib import Path
 
     # Run validation using the test script
@@ -501,8 +482,8 @@ def _(sys):
         sys.path.insert(0, str(examples_dir))
     # Add examples directory to path for imports
     from test_shape_distance_validation import (
-        validate_shape_distance_ordering,
         print_validation_summary,
+        validate_shape_distance_ordering,
     )
 
     results_1 = validate_shape_distance_ordering(
@@ -562,7 +543,7 @@ def _(GridLayoutConfig, PlotConfig, PlotGrid, PlotSpec, np, results_1):
 @app.cell
 def _(np):
     # Generate datasets with distinct clusters and visualize using MDS
-    from neural_analysis.data.synthetic_data import generate_shape_distance_datasets
+    from neural_analysis import generate_shape_distance_datasets
     from neural_analysis.plotting.shape_distance import plot_shape_distance_mds
 
     print("Generating datasets with distinct clusters for MDS visualization...")

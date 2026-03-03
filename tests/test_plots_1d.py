@@ -375,7 +375,7 @@ class TestPlotBooleanStates:
         config = PlotConfig(show=False, title="Test", grid=True)
         # config.ylim should be None
         assert config.ylim is None
-        
+
         ax = plot_boolean_states(states, config=config, backend="matplotlib")
 
         assert isinstance(ax, Axes)

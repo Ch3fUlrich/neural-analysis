@@ -38,11 +38,13 @@ try:
 except ImportError:
     # Fallback no-op decorator if logging module unavailable
     from collections.abc import Callable
+
     def log_calls(
         *, level: int = logging.DEBUG, timeit: bool = True
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             return func
+
         return decorator
 
     def get_logger(name: str | None = None) -> logging.Logger:
@@ -116,7 +118,11 @@ def _attr_equals(attr_value: Any, expected: Any) -> bool:
     attr_value = _normalize_attr_value(attr_value)
     if isinstance(expected, bool):
         try:
-            attr_value = bool(int(attr_value)) if isinstance(attr_value, str) else bool(attr_value)
+            attr_value = (
+                bool(int(attr_value))
+                if isinstance(attr_value, str)
+                else bool(attr_value)
+            )
         except Exception:
             attr_value = bool(attr_value)
     elif isinstance(expected, (int, float)) and isinstance(attr_value, str):
@@ -604,7 +610,9 @@ def h5io(
         )
         return result
     else:  # pragma: no cover - defensive
-        raise ValueError("task must be either 'save' or 'load'")
+        raise ValueError(
+            f"Invalid task parameter. Expected: 'save' or 'load'. Got: {task!r}"
+        )
 
 
 def save_result_to_hdf5_dataset(

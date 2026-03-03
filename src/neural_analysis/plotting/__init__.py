@@ -28,8 +28,10 @@ from .core import PlotConfig
 from .grid_config import (
     ColorScheme,
     GridLayoutConfig,
-    PlotGrid,
     PlotSpec,
+)
+from .grid_dispatch import (
+    PlotGrid,
     add_trace_to_subplot,
     create_subplot_grid,
     plot_comparison_grid,

@@ -1,16 +1,16 @@
 import marimo
 
-
 __generated_with = "0.18.3"
 
 app = marimo.App(width="full")
 
+
 @app.cell(hide_code=True)
 def __():
-
     import marimo as mo
 
     return mo
+
 
 @app.cell()
 def _(mo):
@@ -32,14 +32,14 @@ def _(mo):
 @app.cell
 def _():
     # Import logging utilities
-    import sys
     import numpy as np
+
     from neural_analysis.utils import (
         configure_logging,
         get_logger,
+        log_calls,
         log_kv,
         log_section,
-        log_calls,
     )
 
     # Configure logging once at the start
@@ -87,19 +87,25 @@ def _(mo):
 @app.cell
 def _(log_kv):
     # Log structured metrics
-    log_kv("config", {
-        "dataset": "neural_recordings_01",
-        "n_neurons": 120,
-        "n_trials": 500,
-        "sampling_rate": 30000,
-    })
+    log_kv(
+        "config",
+        {
+            "dataset": "neural_recordings_01",
+            "n_neurons": 120,
+            "n_trials": 500,
+            "sampling_rate": 30000,
+        },
+    )
 
     # Log performance metrics
-    log_kv("metrics", {
-        "accuracy": 0.934,
-        "loss": 0.127,
-        "f1_score": 0.891,
-    })
+    log_kv(
+        "metrics",
+        {
+            "accuracy": 0.934,
+            "loss": 0.127,
+            "f1_score": 0.891,
+        },
+    )
 
     print("✓ Structured logging complete")
     return
@@ -188,26 +194,27 @@ def _(mo):
 def _(configure_logging, get_logger, log_kv):
     import tempfile
     from pathlib import Path
+
     tmpdir = tempfile.TemporaryDirectory()
     # Create temp directory for log file
-    log_file = Path(tmpdir.name) / 'analysis.log'
-    configure_logging(level='DEBUG', file_path=log_file)
-    log_1 = get_logger('example.file')
+    log_file = Path(tmpdir.name) / "analysis.log"
+    configure_logging(level="DEBUG", file_path=log_file)
+    log_1 = get_logger("example.file")
     # Reconfigure to add file output
-    log_1.debug('This debug message now appears (level=DEBUG)')
-    log_1.info('Performing analysis step 1')
-    log_1.info('Performing analysis step 2')
-    log_kv('timing', {'step1': 12.4, 'step2': 8.7})
-    print(f'\n📄 Log file written to: {log_file}')
+    log_1.debug("This debug message now appears (level=DEBUG)")
+    log_1.info("Performing analysis step 1")
+    log_1.info("Performing analysis step 2")
+    log_kv("timing", {"step1": 12.4, "step2": 8.7})
+    print(f"\n📄 Log file written to: {log_file}")
     if log_file.exists():
-        print('\nFile contents:')
-        print('=' * 60)
-    # Read back the log file
+        print("\nFile contents:")
+        print("=" * 60)
+        # Read back the log file
         print(log_file.read_text())
-        print('=' * 60)
+        print("=" * 60)
     else:
-        print('⚠️  Log file not found (handler may buffer writes)')
-        print('   In production, logs are typically flushed on close or periodically.')
+        print("⚠️  Log file not found (handler may buffer writes)")
+        print("   In production, logs are typically flushed on close or periodically.")
     return
 
 
@@ -259,5 +266,3 @@ def _(mo):
     See `docs/logging.md` for complete documentation and API reference.
     """)
     return
-
-

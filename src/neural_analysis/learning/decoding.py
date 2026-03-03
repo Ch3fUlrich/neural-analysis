@@ -435,7 +435,9 @@ def evaluate_decoder(
         )
 
     else:
-        raise ValueError(f"Unknown decoder: {decoder}")
+        raise ValueError(
+            f"Unknown decoder. Expected: 'knn' or 'population_vector'. Got: {decoder!r}"
+        )
 
     # Ensure 2D
     if test_labels.ndim == 1:

@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -41,6 +39,7 @@ class TestResolveStorageManager:
     def test_resolve_storage_manager_with_manager(self) -> None:
         """Test _resolve_storage_manager with provided manager (covers lines 69-84)."""
         from neural_analysis.utils.storage.manager import StorageManager
+
         manager = StorageManager()
         result = _resolve_storage_manager(manager, use_cache=True, use_sql=True)
         assert result is manager
@@ -276,7 +275,9 @@ class TestLoadHdf5:
             data = np.random.randn(10, 5)
             attrs = {"key1": "value1", "key2": 42}
             save_hdf5(path, data, attrs=attrs)
-            (loaded_data, loaded_labels), loaded_attrs = load_hdf5(path, return_attrs=True)
+            (loaded_data, loaded_labels), loaded_attrs = load_hdf5(
+                path, return_attrs=True
+            )
             assert loaded_data is not None
             assert "key1" in loaded_attrs
 
@@ -284,11 +285,13 @@ class TestLoadHdf5:
         """Test load_hdf5 with filter_pairs."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test.h5"
-            df = pd.DataFrame({
-                "item_i": ["A", "B", "C"],
-                "item_j": ["X", "Y", "Z"],
-                "value": [1, 2, 3],
-            })
+            df = pd.DataFrame(
+                {
+                    "item_i": ["A", "B", "C"],
+                    "item_j": ["X", "Y", "Z"],
+                    "value": [1, 2, 3],
+                }
+            )
             save_hdf5(path, df)
             filter_pairs = [("A", "X"), ("B", "Y")]
             loaded_data, loaded_labels = load_hdf5(path, filter_pairs=filter_pairs)
@@ -316,6 +319,7 @@ class TestLoadHdf5:
     def test_load_hdf5_with_bytes_attrs(self) -> None:
         """Test load_hdf5 with bytes attributes (covers lines 404-409)."""
         import h5py
+
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test.h5"
             with h5py.File(path, "w") as f:
@@ -327,6 +331,7 @@ class TestLoadHdf5:
     def test_load_hdf5_group_as_dict(self) -> None:
         """Test load_hdf5 with group as dict (covers lines 455-458)."""
         import h5py
+
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test.h5"
             with h5py.File(path, "w") as f:
@@ -344,6 +349,7 @@ class TestLoadDataframe:
     def test_load_dataframe_with_columns_data(self) -> None:
         """Test _load_dataframe with columns_data (covers lines 140-200)."""
         import h5py
+
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test.h5"
             df = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
@@ -356,6 +362,7 @@ class TestLoadDataframe:
     def test_load_dataframe_without_columns_data(self) -> None:
         """Test _load_dataframe without columns_data (covers lines 184-199)."""
         import h5py
+
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test.h5"
             with h5py.File(path, "w") as f:
@@ -376,8 +383,18 @@ class TestSaveComparisonBatch:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "results.h5"
             result_rows = [
-                {"dataset_i": "A", "dataset_j": "B", "metric": "euclidean", "distance": 1.5},
-                {"dataset_i": "A", "dataset_j": "C", "metric": "euclidean", "distance": 2.0},
+                {
+                    "dataset_i": "A",
+                    "dataset_j": "B",
+                    "metric": "euclidean",
+                    "distance": 1.5,
+                },
+                {
+                    "dataset_i": "A",
+                    "dataset_j": "C",
+                    "metric": "euclidean",
+                    "distance": 2.0,
+                },
             ]
             df = save_comparison_batch(result_rows, None, path)
             assert isinstance(df, pd.DataFrame)
@@ -389,11 +406,21 @@ class TestSaveComparisonBatch:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "results.h5"
             result_rows1 = [
-                {"dataset_i": "A", "dataset_j": "B", "metric": "euclidean", "distance": 1.5},
+                {
+                    "dataset_i": "A",
+                    "dataset_j": "B",
+                    "metric": "euclidean",
+                    "distance": 1.5,
+                },
             ]
             df1 = save_comparison_batch(result_rows1, None, path)
             result_rows2 = [
-                {"dataset_i": "A", "dataset_j": "C", "metric": "euclidean", "distance": 2.0},
+                {
+                    "dataset_i": "A",
+                    "dataset_j": "C",
+                    "metric": "euclidean",
+                    "distance": 2.0,
+                },
             ]
             df2 = save_comparison_batch(result_rows2, df1, path)
             assert len(df2) == 2
@@ -421,11 +448,13 @@ class TestGetMissingComparisons:
         """Test get_missing_comparisons with partial results."""
         item_pairs = [("A", "B"), ("A", "C")]
         metrics_dict = {"euclidean": {}}
-        df_results = pd.DataFrame({
-            "dataset_i": ["A"],
-            "dataset_j": ["B"],
-            "metric": ["euclidean"],
-        })
+        df_results = pd.DataFrame(
+            {
+                "dataset_i": ["A"],
+                "dataset_j": ["B"],
+                "metric": ["euclidean"],
+            }
+        )
         missing = get_missing_comparisons(item_pairs, metrics_dict, df_results)
         assert len(missing) == 1  # Only (A, C, euclidean) is missing
 
@@ -455,7 +484,7 @@ class TestH5io:
         """Test h5io with invalid task."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test.h5"
-            with pytest.raises(ValueError, match="task must be either"):
+            with pytest.raises(ValueError, match="Invalid task parameter"):
                 h5io(path, task="invalid")
 
 
@@ -548,7 +577,12 @@ class TestLoadDistributionComparisons:
         """Test load_distribution_comparisons (covers lines 930-1006)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "result.h5"
-            scalar_data = {"distance": 1.5, "metric": "euclidean", "dataset_i": "A", "dataset_j": "B"}
+            scalar_data = {
+                "distance": 1.5,
+                "metric": "euclidean",
+                "dataset_i": "A",
+                "dataset_j": "B",
+            }
             array_data = {"matrix": np.random.randn(10, 10)}
             try:
                 save_result_to_hdf5_dataset(
@@ -563,7 +597,12 @@ class TestLoadDistributionComparisons:
         """Test load_distribution_comparisons with filters."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "result.h5"
-            scalar_data = {"distance": 1.5, "metric": "euclidean", "dataset_i": "A", "dataset_j": "B"}
+            scalar_data = {
+                "distance": 1.5,
+                "metric": "euclidean",
+                "dataset_i": "A",
+                "dataset_j": "B",
+            }
             array_data = {"matrix": np.random.randn(10, 10)}
             try:
                 save_result_to_hdf5_dataset(
@@ -605,6 +644,7 @@ class TestWriteAttrs:
     def test_write_attrs_basic(self) -> None:
         """Test _write_attrs basic (covers lines 296-306)."""
         import h5py
+
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test.h5"
             with h5py.File(path, "w") as f:
@@ -616,6 +656,7 @@ class TestWriteAttrs:
     def test_write_attrs_with_dict(self) -> None:
         """Test _write_attrs with dict value."""
         import h5py
+
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test.h5"
             with h5py.File(path, "w") as f:
@@ -627,6 +668,7 @@ class TestWriteAttrs:
     def test_write_attrs_none(self) -> None:
         """Test _write_attrs with None."""
         import h5py
+
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test.h5"
             with h5py.File(path, "w") as f:
@@ -677,4 +719,3 @@ class TestLoadResultsFromHdf5Dataset:
             path = Path(tmpdir) / "nonexistent.h5"
             results = load_results_from_hdf5_dataset(path, "test_dataset")
             assert results == {}
-

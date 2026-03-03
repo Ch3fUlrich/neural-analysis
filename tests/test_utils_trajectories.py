@@ -3,7 +3,10 @@
 import numpy as np
 import pytest
 
-from neural_analysis.utils.trajectories import compute_colors, prepare_trajectory_segments
+from neural_analysis.utils.trajectories import (
+    compute_colors,
+    prepare_trajectory_segments,
+)
 
 
 class TestPrepareTrajectorySegments:
@@ -118,6 +121,3 @@ class TestComputeColors:
         colors = compute_colors(1, color_by="time")
         assert len(colors) == 1
         assert colors[0] == 0
-
-
-

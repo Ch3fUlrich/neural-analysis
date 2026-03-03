@@ -173,4 +173,3 @@ def set_config(config: StorageConfig) -> None:
     """
     global _config
     _config = config
-

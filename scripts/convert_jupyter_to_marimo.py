@@ -398,7 +398,7 @@ def convert_jupyter_to_marimo(
         ) from e
     except FileNotFoundError:
         raise RuntimeError(
-            "marimo command not found. " "Install marimo: pip install marimo"
+            "marimo command not found. Install marimo: pip install marimo"
         )
 
     # Step 3: Read the converted file

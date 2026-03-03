@@ -73,8 +73,8 @@ class TestCorrelationMatrix:
         """Test that invalid method raises error."""
         data = np.random.randn(50, 3)
 
-        with pytest.raises(ValueError, match="Unknown method"):
-            correlation_matrix(data, method="invalid")
+        with pytest.raises(ValueError, match="Unknown correlation method"):
+            correlation_matrix(data, method="invalid")  # type: ignore
 
     def test_non_2d_raises(self) -> None:
         """Test that non-2D data raises error."""

@@ -21,29 +21,29 @@ class TestBackendType:
 class TestSetBackend:
     """Tests for set_backend function."""
 
-    def test_set_backend_with_string_matplotlib(self):
-        """Test setting backend with string 'matplotlib'."""
-        set_backend("matplotlib")
-        assert get_backend() == BackendType.MATPLOTLIB
-
-    def test_set_backend_with_string_plotly(self):
-        """Test setting backend with string 'plotly'."""
-        set_backend("plotly")
-        assert get_backend() == BackendType.PLOTLY
-
-    def test_set_backend_with_string_case_insensitive(self):
-        """Test setting backend with string is case-insensitive."""
-        set_backend("MATPLOTLIB")
-        assert get_backend() == BackendType.MATPLOTLIB
-        set_backend("PLOTLY")
-        assert get_backend() == BackendType.PLOTLY
-
-    def test_set_backend_with_enum(self):
-        """Test setting backend with BackendType enum (covers line 57)."""
-        set_backend(BackendType.MATPLOTLIB)
-        assert get_backend() == BackendType.MATPLOTLIB
-        set_backend(BackendType.PLOTLY)
-        assert get_backend() == BackendType.PLOTLY
+    @pytest.mark.parametrize(
+        "input_val,expected",
+        [
+            ("matplotlib", BackendType.MATPLOTLIB),
+            ("plotly", BackendType.PLOTLY),
+            ("MATPLOTLIB", BackendType.MATPLOTLIB),
+            ("PLOTLY", BackendType.PLOTLY),
+            (BackendType.MATPLOTLIB, BackendType.MATPLOTLIB),
+            (BackendType.PLOTLY, BackendType.PLOTLY),
+        ],
+        ids=[
+            "str-matplotlib",
+            "str-plotly",
+            "str-MATPLOTLIB",
+            "str-PLOTLY",
+            "enum-matplotlib",
+            "enum-plotly",
+        ],
+    )
+    def test_set_backend_valid(self, input_val, expected):
+        """Test setting backend with valid values."""
+        set_backend(input_val)
+        assert get_backend() == expected
 
     def test_set_backend_invalid_string(self):
         """Test setting backend with invalid string (covers lines 61-67)."""
@@ -76,6 +76,3 @@ class TestGetBackend:
         set_backend("matplotlib")
         backend = get_backend()
         assert backend == BackendType.MATPLOTLIB
-
-
-

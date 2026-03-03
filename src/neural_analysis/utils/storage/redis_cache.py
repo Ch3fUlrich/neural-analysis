@@ -76,7 +76,9 @@ class RedisCache:
                     host=self.config.redis_host,
                     port=self.config.redis_port,
                     db=self.config.redis_db,
-                    password=self.config.redis_password if self.config.redis_password else None,
+                    password=self.config.redis_password
+                    if self.config.redis_password
+                    else None,
                     decode_responses=False,  # We handle binary data
                     socket_connect_timeout=5,
                 )
@@ -87,7 +89,9 @@ class RedisCache:
                     f"Redis cache connected: {self.config.redis_host}:{self.config.redis_port}"
                 )
             except Exception as e:
-                logger.warning(f"Redis cache unavailable: {e}. Continuing without cache.")
+                logger.warning(
+                    f"Redis cache unavailable: {e}. Continuing without cache."
+                )
                 self._client = None
                 self._available = False
         else:
@@ -146,7 +150,11 @@ class RedisCache:
             return None
 
     def set_cached(
-        self, key: str, value: Any, ttl: int | None = None, metadata: dict[str, Any] | None = None
+        self,
+        key: str,
+        value: Any,
+        ttl: int | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Cache data with optional TTL.
 
@@ -265,14 +273,20 @@ class RedisCache:
 
             deleted_raw = client.delete(*keys)
             deleted = cast("int", deleted_raw)
-            logger.info(f"Invalidated {deleted} cache entries matching pattern: {pattern}")
+            logger.info(
+                f"Invalidated {deleted} cache entries matching pattern: {pattern}"
+            )
             return deleted
         except Exception as e:
             logger.warning(f"Error invalidating cache pattern {pattern}: {e}")
             return 0
 
     def save(
-        self, key: str, data: Any, metadata: dict[str, Any] | None = None, ttl: int | None = None
+        self,
+        key: str,
+        data: Any,
+        metadata: dict[str, Any] | None = None,
+        ttl: int | None = None,
     ) -> bool:
         """Save data to cache (alias for set_cached for interface compatibility).
 
@@ -324,4 +338,3 @@ class RedisCache:
 
     def _namespaced_key(self, key: str) -> str:
         return f"{self._namespaced_prefix()}{key}"
-

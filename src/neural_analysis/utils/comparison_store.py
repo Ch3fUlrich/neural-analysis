@@ -459,7 +459,7 @@ def query_comparisons(
     rows = []
     for dataset_name, result_dict in all_results.items():
         for result_key, entry in result_dict.items():
-            scalars = entry.get("scalars", {})
+            scalars = entry.get("attributes", {})
             row = {
                 "comparison_name": dataset_name,
                 "result_key": result_key,

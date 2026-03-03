@@ -45,8 +45,14 @@ When you propose shell commands, use these instead of `python`, `pip`, or ad‑h
 
 - **Tech stack**
   - Python project managed with **UV** (no direct `python` or `pip` usage).
-  - Plotting must go through `neural_analysis.plotting` and the **PlotGrid** stack.
+  - Plotting must go through `neural_analysis.plotting` and the **PlotGrid** stack (renderer registry pattern).
   - Storage uses `StorageManager`, HDF5, DuckDB, and Redis with a defined priority and cache namespace.
+  - Result dataclasses in `core/results.py`: `AnalysisResult`, `MetricResult`, `EmbeddingResult`, `DecodingResult`.
+  - Config dataclasses: `PipelineConfig`, `MetricConfig`, `EmbeddingConfig`, `StructureIndexConfig`.
+  - Pipeline: `run_analysis()` in `pipeline.py` for generate → embed → decode → SI workflows.
+  - Reproducibility: `reproducible(seed)` context manager, `rng` parameter convention.
+  - Provenance: `get_provenance()` attaches version/platform info to saved results.
+  - Progress: `get_progress_bar()` replaces ad-hoc `tqdm` calls.
 
 - **File structure (high level)**
   - `src/` – Core library code, following a dependency flow like `utils → data → metrics/embeddings/topology/learning → plotting`.
@@ -54,8 +60,11 @@ When you propose shell commands, use these instead of `python`, `pip`, or ad‑h
   - `docs/` – Documentation including:
     - `docs/folder_structure.md` for module layout and legacy locations.
     - `docs/plotgrid.md`, `docs/testing_and_ci.md`, `docs/hdf5_structure.md`, `docs/logging.md`, and related documents as the primary references for project systems.
-  - `todo.md` – Task and follow‑up tracking.
+  - `TODO.md` – Task and follow‑up tracking.
+  - `CHANGELOG.md` – Release notes in Keep a Changelog format.
   - `docs/function_registry.md` – Registry of available functions; update when adding or changing functionality.
+  - `benchmarks/` – Performance benchmark results.
+  - `scripts/benchmark.py` – Benchmarking harness.
 
 Always consult `docs/folder_structure.md` before assuming how modules are organized.
 
@@ -87,6 +96,8 @@ Always consult `docs/folder_structure.md` before assuming how modules are organi
 
 - Do not use `print()` for runtime information in library code.
 - Use existing logging utilities such as `configure_logging`, `get_logger`, `log_kv`, `log_section`, and decorators like `@log_calls`.
+- Multi-file logging: `LogConfig` configures session directories with 4 log files (all, info, warnings, errors).
+- `LogFileReference` provides `error_log()`, `debug_log()`, `session_dir()` paths for error messages.
 - Ensure new code emits structured, searchable logs that match existing patterns.
 
 ## Git and CI workflow

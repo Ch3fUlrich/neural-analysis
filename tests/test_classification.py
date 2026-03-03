@@ -1,6 +1,7 @@
 """Tests for classification and clustering functions."""
 
 import numpy as np
+import pytest
 
 from neural_analysis.data.synthetic_data import generate_mixed_population_flexible
 from neural_analysis.learning.classification import (
@@ -107,14 +108,32 @@ class TestClassifyCells:
         test_labels = cell_types[n_train:]
 
         predictions = classify_cells(
-            train_features, train_labels, test_features, method="random_forest", random_state=42
+            train_features,
+            train_labels,
+            test_features,
+            method="random_forest",
+            random_state=42,
         )
 
         assert len(predictions) == len(test_labels)
         assert all(p in cell_types for p in predictions)
 
-    def test_multiple_methods(self) -> None:
-        """Test multiple classification methods."""
+    @pytest.mark.parametrize(
+        "method",
+        [
+            "random_forest",
+            "svc",
+            "svc_rbf",
+            "logistic_regression",
+            "knn",
+            "naive_bayes",
+            "mlp",
+            "gradient_boosting",
+            "adaboost",
+        ],
+    )
+    def test_multiple_methods(self, method: str) -> None:
+        """Test classification method produces valid predictions."""
         activity, meta = generate_mixed_population_flexible(
             n_samples=500, seed=42, plot=False
         )
@@ -126,16 +145,14 @@ class TestClassifyCells:
         train_labels = cell_types[:n_train]
         test_features = features[n_train:]
 
-        methods = ["random_forest", "svc", "svc_rbf", "logistic_regression", "knn", "naive_bayes", "mlp", "gradient_boosting", "adaboost"]
-        for method in methods:
-            predictions = classify_cells(
-                train_features,
-                train_labels,
-                test_features,
-                method=method,
-                random_state=42,
-            )
-            assert len(predictions) == len(test_features)
+        predictions = classify_cells(
+            train_features,
+            train_labels,
+            test_features,
+            method=method,
+            random_state=42,
+        )
+        assert len(predictions) == len(test_features)
 
     def test_return_proba(self) -> None:
         """Test returning probabilities."""
@@ -188,39 +205,47 @@ class TestClusterCells:
         features = extract_cell_features(activity, meta)
 
         labels = cluster_cells(features, method="dbscan", eps=0.5, min_samples=5)
+        assert len(labels) == features.shape[0]
 
-    def test_all_clustering_methods(self) -> None:
-        """Test all clustering methods (covers lines 360-381)."""
+    def test_mean_shift(self) -> None:
+        """Test MeanShift clustering."""
         activity, meta = generate_mixed_population_flexible(
             n_samples=500, seed=42, plot=False
         )
         features = extract_cell_features(activity, meta)
-
-        # Test methods that require n_clusters
-        methods_with_clusters = ["kmeans", "agglomerative", "gaussian_mixture", "spectral", "birch"]
-        for method in methods_with_clusters:
-            labels = cluster_cells(features, method=method, n_clusters=4, random_state=42)
-            assert len(labels) == features.shape[0]
-
-        # Test methods that don't require n_clusters
-        labels = cluster_cells(features, method="dbscan", eps=0.5, min_samples=5)
-        assert len(labels) == features.shape[0]
 
         labels = cluster_cells(features, method="mean_shift")
         assert len(labels) == features.shape[0]
 
-    def test_clustering_missing_n_clusters(self) -> None:
-        """Test clustering methods that require n_clusters (covers lines 360, 366, 370, 374, 378)."""
+    @pytest.mark.parametrize(
+        "method",
+        ["kmeans", "agglomerative", "gaussian_mixture", "spectral", "birch"],
+    )
+    def test_all_clustering_methods(self, method: str) -> None:
+        """Test clustering method with n_clusters produces valid labels."""
         activity, meta = generate_mixed_population_flexible(
             n_samples=500, seed=42, plot=False
         )
         features = extract_cell_features(activity, meta)
 
-        # Test that methods requiring n_clusters raise error when missing
-        import pytest
-        for method in ["kmeans", "agglomerative", "gaussian_mixture", "spectral", "birch"]:
-            with pytest.raises(ValueError, match="n_clusters required"):
-                cluster_cells(features, method=method)
+        labels = cluster_cells(
+            features, method=method, n_clusters=4, random_state=42
+        )
+        assert len(labels) == features.shape[0]
+
+    @pytest.mark.parametrize(
+        "method",
+        ["kmeans", "agglomerative", "gaussian_mixture", "spectral", "birch"],
+    )
+    def test_clustering_missing_n_clusters(self, method: str) -> None:
+        """Test that clustering method raises ValueError when n_clusters is missing."""
+        activity, meta = generate_mixed_population_flexible(
+            n_samples=500, seed=42, plot=False
+        )
+        features = extract_cell_features(activity, meta)
+
+        with pytest.raises(ValueError, match="n_clusters.*required"):
+            cluster_cells(features, method=method)
 
     def test_evaluate_classifier_with_confusion_matrix(self) -> None:
         """Test evaluate_classifier with confusion matrix (covers line 531-534)."""
@@ -237,10 +262,16 @@ class TestClusterCells:
         test_labels = cell_types[n_train:]
 
         predictions = classify_cells(
-            train_features, train_labels, test_features, method="random_forest", random_state=42
+            train_features,
+            train_labels,
+            test_features,
+            method="random_forest",
+            random_state=42,
         )
 
-        metrics = evaluate_classifier(test_labels, predictions, return_confusion_matrix=True)
+        metrics = evaluate_classifier(
+            test_labels, predictions, return_confusion_matrix=True
+        )
         assert "confusion_matrix" in metrics
         assert "classification_report" in metrics
 
@@ -291,8 +322,6 @@ class TestClusterCells:
         results = compare_clusterers(
             features,
             methods=["dbscan", "mean_shift"],
-            eps=0.5,
-            min_samples=5,
         )
 
         assert "dbscan" in results
@@ -317,6 +346,7 @@ class TestClusterCells:
         assert "invalid_method" in results
         assert "error" in results["invalid_method"]
 
+        labels = results["kmeans"]["labels"]
         assert len(labels) == len(features)
         # DBSCAN can have -1 for noise
         assert all(l >= -1 for l in labels)
@@ -486,4 +516,3 @@ class TestCompareClusterers:
             if "error" not in metrics:
                 assert "silhouette_score" in metrics
                 assert "time" in metrics
-

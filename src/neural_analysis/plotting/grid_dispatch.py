@@ -1,0 +1,2279 @@
+"""
+Dispatch logic, PlotGrid class, and rendering orchestration.
+
+This module contains the PlotGrid class and associated functions for
+creating multi-panel plots. It imports core dataclasses from grid_config.
+"""
+
+from __future__ import annotations
+
+import contextlib
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
+
+import matplotlib.pyplot as plt
+import numpy as np
+import numpy.typing as npt
+
+from neural_analysis.plotting.renderers import (
+    render_convex_hull_matplotlib,
+    render_convex_hull_plotly,
+    render_heatmap_walls_matplotlib,
+    render_kde_matplotlib,
+    render_kde_plotly,
+    render_trajectory3d_matplotlib,
+    render_trajectory3d_plotly,
+    render_trajectory_matplotlib,
+    render_trajectory_plotly,
+)
+from neural_analysis.utils.geometry import compute_convex_hull, compute_kde_2d
+from neural_analysis.utils.trajectories import compute_colors
+
+from . import renderers
+from .backend import get_backend
+from .core import PlotConfig, get_default_categorical_colors
+from .grid_config import (
+    ColorScheme,
+    GridLayoutConfig,
+    PlotSpec,
+    PlotType,
+    _convert_data_to_array,
+)
+from .renderers import extract_xy_from_data, extract_xyz_from_data
+
+plt.rcParams["figure.max_open_warning"] = 0
+
+try:
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+    go = None
+    make_subplots = None
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    import pandas as pd
+
+
+class PlotGrid:
+    """
+    Flexible grid-based plotting system with metadata-driven configuration.
+
+    This class provides a high-level interface for creating complex multi-panel
+    plots. Instead of manually managing subplot positions and styling, you
+    provide a structured configuration via a DataFrame or list of PlotSpec objects.
+
+    The system supports:
+    - Automatic grid layout based on data grouping
+    - Flexible plot types (scatter, line, histogram, heatmap, 3D)
+    - Color schemes applied to groups/categories
+    - Single entry point for all plotting needs
+
+    Parameters
+    ----------
+    config : PlotConfig, optional
+        Overall plot configuration (size, title, etc.)
+    layout : GridLayoutConfig, optional
+        Grid layout configuration
+    color_scheme : ColorScheme, optional
+        Color scheme for grouped data
+    backend : {'matplotlib', 'plotly'}, optional
+        Plotting backend to use
+
+    Examples
+    --------
+    >>> # Create from DataFrame
+    >>> df = pd.DataFrame({
+    ...     'data': [data1, data2, data3, data4],
+    ...     'plot_type': ['scatter', 'scatter', 'line', 'histogram'],
+    ...     'title': ['A', 'B', 'C', 'D'],
+    ...     'group': ['control', 'treatment', 'control', 'treatment']
+    ... })
+    >>> grid = PlotGrid.from_dataframe(df, group_by='group')
+    >>> fig = grid.plot()
+
+    >>> # Create from list of PlotSpecs
+    >>> specs = [
+    ...     PlotSpec(data=data1, plot_type='scatter', title='Scatter 1'),
+    ...     PlotSpec(data=data2, plot_type='line', title='Line 1', color='red'),
+    ... ]
+    >>> grid = PlotGrid(plot_specs=specs)
+    >>> fig = grid.plot()
+    """
+
+    _MPL_HANDLERS: ClassVar[dict[str, str]] = {
+        "scatter": "_handle_mpl_scatter",
+        "scatter3d": "_handle_mpl_scatter3d",
+        "line": "_handle_mpl_line",
+        "histogram": "_handle_mpl_histogram",
+        "heatmap": "_handle_mpl_heatmap",
+        "heatmap_walls": "_handle_mpl_heatmap_walls",
+        "violin": "_handle_mpl_violin",
+        "bar": "_handle_mpl_bar",
+        "box": "_handle_mpl_box",
+        "trajectory": "_handle_mpl_trajectory",
+        "trajectory3d": "_handle_mpl_trajectory3d",
+        "kde": "_handle_mpl_kde",
+        "grouped_scatter": "_handle_mpl_grouped_scatter",
+        "convex_hull": "_handle_mpl_convex_hull",
+        "boolean_states": "_handle_mpl_boolean_states",
+        "ellipse": "_handle_mpl_ellipse",
+    }
+
+    _PLOTLY_HANDLERS: ClassVar[dict[str, str]] = {
+        "scatter": "_handle_plotly_scatter",
+        "scatter3d": "_handle_plotly_scatter3d",
+        "line": "_handle_plotly_line",
+        "histogram": "_handle_plotly_histogram",
+        "heatmap": "_handle_plotly_heatmap",
+        "heatmap_walls": "_handle_plotly_heatmap_walls",
+        "bar": "_handle_plotly_bar",
+        "violin": "_handle_plotly_violin",
+        "box": "_handle_plotly_box",
+        "trajectory": "_handle_plotly_trajectory",
+        "trajectory3d": "_handle_plotly_trajectory3d",
+        "kde": "_handle_plotly_kde",
+        "grouped_scatter": "_handle_plotly_grouped_scatter",
+        "convex_hull": "_handle_plotly_convex_hull",
+        "boolean_states": "_handle_plotly_boolean_states",
+    }
+
+    def __init__(
+        self,
+        plot_specs: list[PlotSpec] | None = None,
+        config: PlotConfig | None = None,
+        layout: GridLayoutConfig | None = None,
+        color_scheme: ColorScheme | None = None,
+        backend: Literal["matplotlib", "plotly"] | None = None,
+    ):
+        self.plot_specs = plot_specs or []
+        self.config = config or PlotConfig()
+        self.layout = layout or GridLayoutConfig()
+        self.color_scheme = color_scheme or ColorScheme()
+        self.backend = backend
+
+    @classmethod
+    def from_dataframe(
+        cls,
+        df: pd.DataFrame,
+        data_col: str = "data",
+        plot_type_col: str = "plot_type",
+        title_col: str | None = "title",
+        label_col: str | None = "label",
+        color_col: str | None = "color",
+        group_by: str | None = None,
+        **kwargs: Any,
+    ) -> PlotGrid:
+        """
+        Create PlotGrid from a pandas DataFrame.
+
+        The DataFrame should have columns specifying what data to plot,
+        what type of plot, and styling information.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            DataFrame with plot specifications
+        data_col : str, default='data'
+            Column name containing data arrays
+        plot_type_col : str, default='plot_type'
+            Column name specifying plot type
+        title_col : str, optional
+            Column name for subplot titles
+        label_col : str, optional
+            Column name for legend labels
+        color_col : str, optional
+            Column name for colors
+        group_by : str, optional
+            Column name to group plots by
+        **kwargs
+            Additional arguments passed to PlotGrid constructor
+
+        Returns
+        -------
+        PlotGrid
+            Configured plot grid
+
+        Examples
+        --------
+        >>> df = pd.DataFrame({
+        ...     'data': [arr1, arr2, arr3],
+        ...     'plot_type': ['scatter', 'line', 'histogram'],
+        ...     'title': ['Plot A', 'Plot B', 'Plot C'],
+        ...     'group': ['control', 'treatment', 'control']
+        ... })
+        >>> grid = PlotGrid.from_dataframe(df, group_by='group')
+        """
+        plot_specs = []
+
+        for _idx, row in df.iterrows():
+            spec = PlotSpec(
+                data=row[data_col],
+                plot_type=row[plot_type_col],
+                title=row[title_col] if title_col and title_col in row else None,
+                label=row[label_col] if label_col and label_col in row else None,
+                color=row[color_col] if color_col and color_col in row else None,
+            )
+            plot_specs.append(spec)
+
+        # Auto-configure layout if group_by specified
+        if group_by and group_by in df.columns:
+            layout = GridLayoutConfig(group_by=group_by)
+            groups = df[group_by].unique()
+
+            # Auto-assign colors by group
+            color_scheme = kwargs.pop("color_scheme", ColorScheme())
+            group_colors = color_scheme.get_colors(groups)
+
+            # Apply colors to specs if not already specified
+            for spec, (_, row) in zip(plot_specs, df.iterrows()):
+                if spec.color is None and group_by in row:
+                    spec.color = group_colors[row[group_by]]
+
+            kwargs["layout"] = layout
+            kwargs["color_scheme"] = color_scheme
+
+        return cls(plot_specs=plot_specs, **kwargs)
+
+    @classmethod
+    def from_dict(
+        cls,
+        data_dict: dict[str, npt.NDArray[np.floating[Any]]],
+        plot_type: PlotType = "scatter",
+        **kwargs: Any,
+    ) -> PlotGrid:
+        """
+        Create PlotGrid from a dictionary of {label: data}.
+
+        Parameters
+        ----------
+        data_dict : dict
+            Dictionary mapping labels to data arrays
+        plot_type : PlotType, default='scatter'
+            Type of plot for all data ('scatter', 'line', 'histogram', etc.)
+        **kwargs
+            Additional arguments passed to PlotGrid constructor
+
+        Returns
+        -------
+        PlotGrid
+            Configured plot grid
+
+        Examples
+        --------
+        >>> data = {'Control': arr1, 'Treatment': arr2, 'Test': arr3}
+        >>> grid = PlotGrid.from_dict(data, plot_type='histogram')
+        """
+        plot_specs = [
+            PlotSpec(data=data, plot_type=plot_type, title=label, label=label)
+            for label, data in data_dict.items()
+        ]
+        return cls(plot_specs=plot_specs, **kwargs)
+
+    def add_plot(
+        self,
+        data: npt.NDArray[np.floating[Any]] | pd.DataFrame,
+        plot_type: PlotType,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Add a plot to the grid.
+
+        Parameters
+        ----------
+        data : array or DataFrame
+            Data to plot
+        plot_type : PlotType
+            Type of plot ('scatter', 'line', 'histogram', 'heatmap',
+            'scatter3d', 'violin', 'box', 'bar')
+        **kwargs
+            Additional PlotSpec parameters
+        """
+        spec = PlotSpec(data=data, plot_type=plot_type, **kwargs)
+        self.plot_specs.append(spec)
+
+    def _convert_linestyle_to_plotly(self, linestyle: str) -> str:
+        """Convert matplotlib linestyle to plotly dash style."""
+        style_map = {
+            "-": "solid",
+            "--": "dash",
+            "-.": "dashdot",
+            ":": "dot",
+            "solid": "solid",
+            "dashed": "dash",
+            "dashdot": "dashdot",
+            "dotted": "dot",
+        }
+        return style_map.get(linestyle, "dash")
+
+    def plot(self) -> Any:
+        """
+        Generate the plot grid.
+
+        This is the main entry point that creates the figure with all
+        subplots arranged according to the configuration.
+
+        Supports multiple traces per subplot when specs have the same
+        subplot_position value.
+
+        Returns
+        -------
+        matplotlib.figure.Figure or plotly.graph_objects.Figure
+            The generated figure
+        """
+        # Group specs by subplot position
+        if any(spec.subplot_position is not None for spec in self.plot_specs):
+            # Group by explicit positions
+            grouped_specs: dict[int, list[PlotSpec]] = {}
+            for spec in self.plot_specs:
+                pos = (
+                    spec.subplot_position
+                    if spec.subplot_position is not None
+                    else len(grouped_specs)
+                )
+                if pos not in grouped_specs:
+                    grouped_specs[pos] = []
+                grouped_specs[pos].append(spec)
+
+            # Sort by position
+            subplot_groups = [grouped_specs[i] for i in sorted(grouped_specs.keys())]
+        else:
+            # Each spec gets its own subplot
+            subplot_groups = [[spec] for spec in self.plot_specs]
+
+        # Auto-size grid based on number of subplot positions
+        n_subplots = len(subplot_groups)
+        rows, cols = self.layout.auto_size_grid(n_subplots)
+
+        # Get subplot titles (use first spec's title for each group)
+        subplot_titles: list[str] | None
+        if self.layout.subplot_titles is None:
+            titles_list: list[str] = [
+                group[0].title for group in subplot_groups if group[0].title is not None
+            ]
+            subplot_titles = titles_list if titles_list else None
+        else:
+            subplot_titles = self.layout.subplot_titles
+
+        # Create the grid - determine backend string for later comparison
+        backend_enum = get_backend() if self.backend is None else self.backend
+        # Convert to string value if it's an enum
+        if isinstance(backend_enum, str):
+            backend_str: Literal["matplotlib", "plotly"] | None = backend_enum
+        else:
+            backend_str = backend_enum.value
+
+        # Determine which subplots need 3D projection (per-subplot basis)
+        subplot_projections = []
+        for group in subplot_groups:
+            # Treat heatmap_walls as requiring a 3D projection as well
+            needs_3d_subplot = any(
+                spec.plot_type in ("scatter3d", "trajectory3d", "heatmap_walls")
+                for spec in group
+            )
+            subplot_projections.append("3d" if needs_3d_subplot else None)
+
+        # Check if ANY specs are 3D for plotly specs generation
+        needs_any_3d = any(p == "3d" for p in subplot_projections)
+
+        result = create_subplot_grid(
+            rows=rows,
+            cols=cols,
+            config=self.config,
+            subplot_titles=subplot_titles,
+            shared_xaxes=self.layout.shared_xaxes,
+            shared_yaxes=self.layout.shared_yaxes,
+            backend=backend_str,
+            projection=None,  # Will handle per-subplot projections separately
+            subplot_projections=subplot_projections
+            if backend_str == "matplotlib"
+            else None,
+            specs=[[{"type": "scene"}] * cols] * rows
+            if needs_any_3d and backend_str == "plotly"
+            else None,
+            width_ratios=self.layout.width_ratios,
+            height_ratios=self.layout.height_ratios,
+        )
+
+        if backend_str == "matplotlib":
+            fig, axes = result
+            # Flatten axes for easier indexing
+            axes_flat = (
+                [ax for row in axes for ax in row]
+                if isinstance(axes[0], list)
+                else axes
+            )
+
+            # Track which labels have been shown per subplot and which axes have titles
+            legend_tracker: dict[int, set[str]] = {}
+            axes_with_titles: set[int] = set()
+
+            # Track colormap usage for deduplication: (cmap, colorbar_label) -> first subplot index
+            colormap_tracker: dict[tuple[str | None, str | None], int] = {}
+            colormap_artists: dict[
+                int, Any
+            ] = {}  # Store the mappable object for each subplot
+
+            # Plot each group of specs
+            for i, spec_group in enumerate(subplot_groups):
+                if i >= len(axes_flat):
+                    break
+                ax = axes_flat[i]
+                legend_tracker[i] = set()
+
+                # Assign positions to violin/box plots within this subplot
+                position = 1
+                for spec in spec_group:
+                    if (
+                        spec.plot_type in ["violin", "box"]
+                        and "position" not in spec.kwargs
+                    ):
+                        spec.kwargs["position"] = position
+                        position += 1
+
+                    if spec.title:
+                        axes_with_titles.add(i)
+
+                    self._plot_spec_matplotlib(
+                        spec,
+                        ax,
+                        legend_tracker[i],
+                        colormap_tracker,
+                        colormap_artists,
+                        i,
+                    )
+
+                # Create legend from stored handles if we have any
+                handles = []
+                labels = []
+                for spec in spec_group:
+                    if (
+                        hasattr(spec, "_legend_handle")
+                        and spec._legend_handle is not None
+                    ):
+                        handles.append(spec._legend_handle)
+                        if spec.label:
+                            labels.append(spec.label)
+                        else:
+                            labels.append("")  # Empty label if spec.label is None
+                if handles:
+                    ax.legend(handles, labels)
+
+                # Set x-axis labels for violin/box plots
+                violin_box_specs = [
+                    s for s in spec_group if s.plot_type in ["violin", "box"]
+                ]
+                if violin_box_specs:
+                    positions = [s.kwargs.get("position", 1) for s in violin_box_specs]
+                    labels_list = [s.label for s in violin_box_specs]
+                    ax.set_xticks(positions)
+                    ax.set_xticklabels(labels_list)
+
+            # Apply PlotConfig settings to axes after plotting
+            if self.config:
+                for i, ax in enumerate(axes_flat):
+                    # Only set title if PlotConfig has one, this is a single subplot,
+                    # and no spec has already set a title
+                    if (
+                        self.config.title
+                        and n_subplots == 1
+                        and i not in axes_with_titles
+                    ):
+                        ax.set_title(self.config.title)
+                    if self.config.xlabel:
+                        ax.set_xlabel(self.config.xlabel)
+                    if self.config.ylabel:
+                        ax.set_ylabel(self.config.ylabel)
+                    if self.config.xlim:
+                        ax.set_xlim(self.config.xlim)
+                    if self.config.ylim:
+                        ax.set_ylim(self.config.ylim)
+                    if self.config.grid:
+                        ax.grid(self.config.grid)
+
+            # Apply overlap prevention: adjust spacing and label positions
+            self._prevent_overlaps(fig, axes_flat, rows, cols, n_subplots)
+
+            # For single subplot, return just the axes; for multiple return (fig, axes)
+            if n_subplots == 1:
+                return axes_flat[0]
+            return fig, axes
+        else:
+            fig = result
+            # Track which labels have been shown per subplot
+            legend_tracker = {}
+
+            # Plot each group of specs
+            for i, spec_group in enumerate(subplot_groups):
+                row = (i // cols) + 1
+                col = (i % cols) + 1
+                legend_tracker[i] = set()
+
+                for spec in spec_group:
+                    trace = self._plot_spec_plotly(spec, legend_tracker[i])
+                    if trace is not None:
+                        add_trace_to_subplot(fig, trace, row=row, col=col)
+
+                        # Add reference lines and annotations if present
+                        # These are added as shapes/annotations to the figure
+                        if hasattr(trace, "_hlines") and trace._hlines:
+                            for hline in trace._hlines:
+                                y_val = hline["y"]
+                                line_color = hline.get("color", "black")
+                                line_dash = self._convert_linestyle_to_plotly(
+                                    hline.get("linestyle", "--")
+                                )
+                                line_width = hline.get("linewidth", 1.5)
+                                line_opacity = hline.get("alpha", 0.7)
+
+                                # Determine xref based on subplot position
+                                xref = f"x{i + 1}" if i > 0 else "x"
+                                yref = f"y{i + 1}" if i > 0 else "y"
+
+                                fig.add_shape(
+                                    type="line",
+                                    x0=0,
+                                    x1=1,
+                                    y0=y_val,
+                                    y1=y_val,
+                                    xref=f"{xref} domain",
+                                    yref=yref,
+                                    line=dict(
+                                        color=line_color,
+                                        dash=line_dash,
+                                        width=line_width,
+                                    ),
+                                    opacity=line_opacity,
+                                )
+
+                                # Add label to legend if provided
+                                if hline.get("label"):
+                                    fig.add_trace(
+                                        go.Scatter(
+                                            x=[None],
+                                            y=[None],
+                                            mode="lines",
+                                            line=dict(
+                                                color=line_color,
+                                                dash=line_dash,
+                                                width=line_width,
+                                            ),
+                                            name=hline["label"],
+                                            showlegend=True,
+                                        ),
+                                        row=row,
+                                        col=col,
+                                    )
+
+                        if hasattr(trace, "_vlines") and trace._vlines:
+                            for vline in trace._vlines:
+                                x_val = vline["x"]
+                                line_color = vline.get("color", "black")
+                                line_dash = self._convert_linestyle_to_plotly(
+                                    vline.get("linestyle", "--")
+                                )
+                                line_width = vline.get("linewidth", 1.5)
+                                line_opacity = vline.get("alpha", 0.7)
+
+                                # Determine xref based on subplot position
+                                xref = f"x{i + 1}" if i > 0 else "x"
+                                yref = f"y{i + 1}" if i > 0 else "y"
+
+                                fig.add_shape(
+                                    type="line",
+                                    x0=x_val,
+                                    x1=x_val,
+                                    y0=0,
+                                    y1=1,
+                                    xref=xref,
+                                    yref=f"{yref} domain",
+                                    line=dict(
+                                        color=line_color,
+                                        dash=line_dash,
+                                        width=line_width,
+                                    ),
+                                    opacity=line_opacity,
+                                )
+
+                                # Add label to legend if provided
+                                if vline.get("label"):
+                                    fig.add_trace(
+                                        go.Scatter(
+                                            x=[None],
+                                            y=[None],
+                                            mode="lines",
+                                            line=dict(
+                                                color=line_color,
+                                                dash=line_dash,
+                                                width=line_width,
+                                            ),
+                                            name=vline["label"],
+                                            showlegend=True,
+                                        ),
+                                        row=row,
+                                        col=col,
+                                    )
+
+                        if hasattr(trace, "_annotations") and trace._annotations:
+                            for annot in trace._annotations:
+                                text = annot["text"]
+                                xy = annot["xy"]
+                                xytext = annot.get("xytext", xy)
+                                fontsize = annot.get("fontsize", 10)
+
+                                # Determine xref/yref based on subplot position
+                                xref = f"x{i + 1}" if i > 0 else "x"
+                                yref = f"y{i + 1}" if i > 0 else "y"
+
+                                # Convert bbox to plotly style
+                                bgcolor = "rgba(255, 255, 255, 0.8)"
+                                bordercolor = "black"
+                                if "bbox" in annot and annot["bbox"]:
+                                    bbox = annot["bbox"]
+                                    if "facecolor" in bbox:
+                                        # Convert matplotlib color to rgba
+                                        fc = bbox["facecolor"]
+                                        alpha = bbox.get("alpha", 0.7)
+                                        if fc == "yellow":
+                                            bgcolor = f"rgba(255, 255, 0, {alpha})"
+                                        elif fc == "lightyellow":
+                                            bgcolor = f"rgba(255, 255, 224, {alpha})"
+                                        # Add more color mappings as needed
+
+                                fig.add_annotation(
+                                    x=xytext[0],
+                                    y=xytext[1],
+                                    text=text,
+                                    xref=xref,
+                                    yref=yref,
+                                    showarrow="arrowprops" in annot,
+                                    arrowhead=2,
+                                    arrowsize=1,
+                                    arrowwidth=2,
+                                    arrowcolor=annot.get("arrowprops", {}).get(
+                                        "color", "black"
+                                    )
+                                    if "arrowprops" in annot
+                                    else "black",
+                                    ax=xy[0] if "arrowprops" in annot else xytext[0],
+                                    ay=xy[1] if "arrowprops" in annot else xytext[1],
+                                    axref=xref,
+                                    ayref=yref,
+                                    font=dict(size=fontsize),
+                                    bgcolor=bgcolor,
+                                    bordercolor=bordercolor,
+                                    borderwidth=1,
+                                    borderpad=4,
+                                )
+            return fig
+
+    def _plot_spec_matplotlib(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        legend_tracker: set[str],
+        colormap_tracker: dict[tuple[str | None, str | None], int] | None = None,
+        colormap_artists: dict[int, Any] | None = None,
+        subplot_idx: int | None = None,
+    ) -> None:
+        """Plot a PlotSpec using matplotlib with renderer functions.
+
+        Args:
+            spec: Plot specification
+            ax: Matplotlib axes
+            legend_tracker: Set of labels already shown
+            colormap_tracker: Dict mapping (cmap, label) to first subplot index
+            colormap_artists: Dict storing mappable objects for colorbars
+            subplot_idx: Index of current subplot
+        """
+        if ax is None:
+            ax = plt.gca()
+
+        # Determine if we should show this label
+        show_label = spec.label and spec.label not in legend_tracker
+        if show_label and spec.label:
+            legend_tracker.add(spec.label)
+        label_to_use = spec.label if show_label else None
+
+        # Determine if we should show colorbar (deduplicate by cmap+label)
+        # Allow override via force_colorbar parameter
+        should_show_colorbar = spec.colorbar
+        if (
+            colormap_tracker is not None
+            and subplot_idx is not None
+            and spec.colorbar
+            and not spec.force_colorbar
+        ):
+            cmap_key = (spec.cmap, spec.colorbar_label)
+            if cmap_key in colormap_tracker:
+                # Only show colorbar on first occurrence
+                should_show_colorbar = colormap_tracker[cmap_key] == subplot_idx
+            else:
+                # First time seeing this cmap+label combination - register it
+                colormap_tracker[cmap_key] = subplot_idx
+
+        handler_name = self._MPL_HANDLERS.get(spec.plot_type)
+        if handler_name is None:
+            raise ValueError(
+                f"Unsupported plot type: {spec.plot_type!r}. "
+                f"Available: {sorted(self._MPL_HANDLERS)}"
+            )
+        handler = getattr(self, handler_name)
+        handler(
+            spec, ax, label_to_use, should_show_colorbar, colormap_artists, subplot_idx
+        )
+
+        if spec.title:
+            ax.set_title(spec.title)
+
+        # Apply per-subplot settings from kwargs if provided
+        if "x_label" in spec.kwargs:
+            ax.set_xlabel(spec.kwargs["x_label"])
+        if "y_label" in spec.kwargs:
+            ax.set_ylabel(spec.kwargs["y_label"])
+        if "grid" in spec.kwargs:
+            grid_val = spec.kwargs["grid"]
+            if isinstance(grid_val, bool):
+                ax.grid(grid_val, alpha=0.3)
+            elif isinstance(grid_val, dict):
+                ax.grid(**grid_val)
+
+        # Note: Legend is now handled in the plotting loop for violin/box plots
+        # For other plot types that use standard matplotlib labels, legend is still needed
+        # but we skip it for violin/box since we handle those separately
+        if legend_tracker is not None and spec.plot_type not in ["violin", "box"]:
+            # Check if there are actually any legend entries before calling legend()
+            handles, labels = ax.get_legend_handles_labels()
+            if handles:
+                ax.legend()
+
+    # ---- Matplotlib per-type handlers ----
+
+    def _handle_mpl_scatter(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        data_array: Any
+        colors: Any
+        if isinstance(spec.data, dict):
+            x = spec.data["x"]
+            y = spec.data["y"]
+            if spec.data.get("z") is not None:
+                data_array = np.column_stack([x, y, spec.data["z"]])
+            else:
+                data_array = np.column_stack([x, y])
+            if spec.color_by is not None and spec.colors is None:
+                colors = compute_colors(len(x), color_by=spec.color_by)
+            else:
+                colors = spec.colors
+        else:
+            data_array = spec.data
+            colors = spec.colors
+
+        scatter = renderers.render_scatter_matplotlib(
+            ax=ax,
+            data=data_array,
+            color=spec.color,
+            colors=colors,
+            cmap=spec.cmap,
+            marker=spec.marker or "o",
+            marker_size=spec.marker_size,
+            alpha=spec.alpha,
+            label=label_to_use,
+            **spec.kwargs,
+        )
+
+        if should_show_colorbar and scatter is not None and spec.colors is not None:
+            fig = ax.get_figure()
+            if fig is not None:
+                cbar = fig.colorbar(scatter, ax=ax)
+                if spec.colorbar_label:
+                    cbar.set_label(spec.colorbar_label)
+                if colormap_artists is not None and subplot_idx is not None:
+                    colormap_artists[subplot_idx] = scatter
+
+    def _handle_mpl_scatter3d(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        data_array: Any
+        colors: Any
+        if isinstance(spec.data, dict):
+            x = spec.data["x"]
+            y = spec.data["y"]
+            z = spec.data["z"]
+            data_array = np.column_stack([x, y, z])
+            if spec.color_by is not None and spec.colors is None:
+                colors = compute_colors(len(x), color_by=spec.color_by)
+            else:
+                colors = spec.colors
+        else:
+            data_array = spec.data
+            colors = spec.colors
+
+        scatter = renderers.render_scatter_matplotlib(
+            ax=ax,
+            data=data_array,
+            color=spec.color,
+            colors=colors,
+            cmap=spec.cmap,
+            marker=spec.marker or "o",
+            marker_size=spec.marker_size,
+            alpha=spec.alpha,
+            label=label_to_use,
+            **spec.kwargs,
+        )
+        if should_show_colorbar and scatter is not None and spec.colors is not None:
+            fig = ax.get_figure()
+            if fig is not None:
+                cbar = fig.colorbar(scatter, ax=ax)
+                if spec.colorbar_label:
+                    cbar.set_label(spec.colorbar_label)
+                if colormap_artists is not None and subplot_idx is not None:
+                    colormap_artists[subplot_idx] = scatter
+
+    def _handle_mpl_line(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        x_label = spec.kwargs.pop("x_label", None)
+        y_label = spec.kwargs.pop("y_label", None)
+        grid_config = spec.kwargs.pop("grid", None)
+
+        lines = renderers.render_line_matplotlib(
+            ax=ax,
+            data=_convert_data_to_array(spec.data),
+            color=spec.color,
+            line_width=spec.line_width or 1.5,
+            linestyle=spec.linestyle or "-",
+            marker=spec.marker,
+            marker_size=spec.marker_size,
+            error_y=spec.error_y,
+            alpha=spec.alpha,
+            label=label_to_use,
+            show_values=spec.kwargs.pop("show_values", False),
+            value_format=spec.kwargs.pop("value_format", ".3f"),
+            x_labels=spec.kwargs.pop("x_labels", None),
+            **spec.kwargs,
+        )
+        if lines and len(lines) > 0 and label_to_use:
+            spec._legend_handle = lines[0]
+
+        if spec.vlines:
+            for vline in spec.vlines:
+                x_val = vline["x"]
+                vline_color = vline.get("color", "black")
+                vline_style = vline.get("linestyle", "--")
+                vline_width = vline.get("linewidth", 1.5)
+                vline_alpha = vline.get("alpha", 0.7)
+                vline_label = vline.get("label", None)
+                ax.axvline(
+                    x=x_val,
+                    color=vline_color,
+                    linestyle=vline_style,
+                    linewidth=vline_width,
+                    alpha=vline_alpha,
+                    label=vline_label,
+                )
+
+        if spec.hlines:
+            for hline in spec.hlines:
+                y_val = hline["y"]
+                hline_color = hline.get("color", "black")
+                hline_style = hline.get("linestyle", "--")
+                hline_width = hline.get("linewidth", 1.5)
+                hline_alpha = hline.get("alpha", 0.7)
+                hline_label = hline.get("label", None)
+                ax.axhline(
+                    y=y_val,
+                    color=hline_color,
+                    linestyle=hline_style,
+                    linewidth=hline_width,
+                    alpha=hline_alpha,
+                    label=hline_label,
+                )
+
+        if spec.annotations:
+            for annot in spec.annotations:
+                text = annot["text"]
+                xy = annot["xy"]
+                xytext = annot.get("xytext", None)
+                fontsize = annot.get("fontsize", 10)
+                bbox = annot.get("bbox", None)
+                arrowprops = annot.get("arrowprops", None)
+
+                ax.annotate(
+                    text,
+                    xy=xy,
+                    xytext=xytext,
+                    fontsize=fontsize,
+                    bbox=bbox,
+                    arrowprops=arrowprops,
+                )
+
+        if x_label:
+            ax.set_xlabel(x_label)
+        if y_label:
+            ax.set_ylabel(y_label)
+        if grid_config:
+            if isinstance(grid_config, dict):
+                ax.grid(True, **grid_config)
+            else:
+                ax.grid(grid_config)
+
+    def _handle_mpl_histogram(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        renderers.render_histogram_matplotlib(
+            ax=ax,
+            data=_convert_data_to_array(spec.data),
+            color=spec.color,
+            alpha=spec.alpha,
+            bins=spec.kwargs.pop("bins", 30),
+            label=label_to_use,
+            **spec.kwargs,
+        )
+
+    def _handle_mpl_heatmap(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        heatmap_kwargs = dict(spec.kwargs)
+        cmap_value = heatmap_kwargs.pop("cmap", spec.cmap or "viridis")
+        heatmap_kwargs["colorbar"] = should_show_colorbar if spec.colorbar else False
+        im = renderers.render_heatmap_matplotlib(
+            ax=ax,
+            data=_convert_data_to_array(spec.data),
+            cmap=cmap_value,
+            colorbar_label=spec.colorbar_label,
+            alpha=spec.alpha,
+            **heatmap_kwargs,
+        )
+        if (
+            colormap_artists is not None
+            and subplot_idx is not None
+            and should_show_colorbar
+        ):
+            colormap_artists[subplot_idx] = im
+
+    def _handle_mpl_heatmap_walls(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        with contextlib.suppress(Exception):
+            data_dict = (
+                spec.data
+                if isinstance(spec.data, dict)
+                else {"xy": spec.data, "xz": spec.data, "yz": spec.data}
+            )
+            artists = render_heatmap_walls_matplotlib(
+                ax=ax,
+                data=data_dict,
+                cmap=spec.kwargs.pop("cmap", spec.cmap or "viridis"),
+                colorbar=should_show_colorbar if spec.colorbar else False,
+                colorbar_label=spec.colorbar_label,
+                alpha=spec.alpha,
+                **spec.kwargs,
+            )
+            if (
+                colormap_artists is not None
+                and subplot_idx is not None
+                and should_show_colorbar
+                and artists
+            ):
+                for artist in artists:
+                    if hasattr(artist, "get_array") or hasattr(artist, "get_clim"):
+                        colormap_artists[subplot_idx] = artist
+                        break
+
+    def _handle_mpl_violin(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        spec.kwargs.pop("meanline", None)
+        result = renderers.render_violin_matplotlib(
+            ax=ax,
+            data=_convert_data_to_array(spec.data),
+            position=spec.kwargs.pop("position", 1),
+            color=spec.color,
+            alpha=spec.alpha,
+            showmeans=spec.kwargs.pop("showmeans", True),
+            showmedians=spec.kwargs.pop("showmedians", True),
+            showbox=spec.kwargs.pop("showbox", True),
+            showpoints=spec.kwargs.pop("showpoints", True),
+            label=label_to_use,
+            **spec.kwargs,
+        )
+        if "legend_handle" in result:
+            spec._legend_handle = result["legend_handle"]
+
+    def _handle_mpl_bar(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        x_label = spec.kwargs.pop("x_label", None)
+        y_label = spec.kwargs.pop("y_label", None)
+        grid_config = spec.kwargs.pop("grid", None)
+        set_xticks = spec.kwargs.pop("set_xticks", None)
+        set_xticklabels = spec.kwargs.pop("set_xticklabels", None)
+
+        renderers.render_bar_matplotlib(
+            ax=ax,
+            data=_convert_data_to_array(spec.data),
+            x=spec.kwargs.pop("x", None),
+            color=spec.color,
+            colors=spec.kwargs.pop("colors", None),
+            alpha=spec.alpha,
+            label=label_to_use,
+            orientation=spec.kwargs.pop("orientation", "v"),
+            error_y=spec.kwargs.pop("error_y", None),
+            error_x=spec.kwargs.pop("error_x", None),
+            show_values=spec.kwargs.pop("show_values", False),
+            value_format=spec.kwargs.pop("value_format", ".3f"),
+            x_labels=spec.kwargs.pop("x_labels", None),
+            **spec.kwargs,
+        )
+
+        if x_label:
+            ax.set_xlabel(x_label)
+        if y_label:
+            ax.set_ylabel(y_label)
+        if grid_config:
+            if isinstance(grid_config, dict):
+                ax.grid(True, **grid_config)
+            else:
+                ax.grid(grid_config)
+        if set_xticks is not None and set_xticklabels is not None:
+            ax.set_xticks(set_xticks)
+            ax.set_xticklabels(set_xticklabels)
+
+    def _handle_mpl_box(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        result = renderers.render_box_matplotlib(
+            ax=ax,
+            data=_convert_data_to_array(spec.data),
+            position=spec.kwargs.pop("position", 1),
+            color=spec.color,
+            alpha=spec.alpha,
+            label=label_to_use,
+            notch=spec.kwargs.pop("notch", False),
+            showpoints=spec.kwargs.pop("showpoints", True),
+            **spec.kwargs,
+        )
+        if "legend_handle" in result:
+            spec._legend_handle = result["legend_handle"]
+
+    def _handle_mpl_trajectory(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        x, y = extract_xy_from_data(spec.data)
+
+        colors = (
+            compute_colors(len(x), color_by=spec.color_by)
+            if spec.color_by is not None
+            else None
+        )
+
+        cbar_label = (
+            spec.colorbar_label or "Time" if spec.color_by is not None else None
+        )
+        lc = render_trajectory_matplotlib(
+            ax=ax,
+            x=x,
+            y=y,
+            colors=colors,
+            cmap=spec.cmap or "viridis",
+            linewidth=spec.line_width or 1.0,
+            alpha=spec.alpha,
+            show_points=spec.show_points,
+            point_color=spec.color or "black",
+            point_size=spec.marker_size or 10,
+            colorbar=should_show_colorbar if spec.colorbar else False,
+            colorbar_label=cbar_label,
+            label=label_to_use,
+        )
+        if (
+            colormap_artists is not None
+            and subplot_idx is not None
+            and should_show_colorbar
+            and colors is not None
+        ):
+            colormap_artists[subplot_idx] = lc
+
+        if spec.equal_aspect:
+            ax.set_aspect("equal", adjustable="box")
+
+    def _handle_mpl_trajectory3d(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        x, y, z = extract_xyz_from_data(spec.data)
+
+        colors = (
+            compute_colors(len(x), color_by=spec.color_by)
+            if spec.color_by is not None
+            else None
+        )
+
+        cbar_label = (
+            spec.colorbar_label or "Time" if spec.color_by is not None else None
+        )
+        lc = render_trajectory3d_matplotlib(
+            ax=ax,
+            x=x,
+            y=y,
+            z=z,
+            colors=colors,
+            cmap=spec.cmap or "viridis",
+            linewidth=spec.line_width or 2.0,
+            alpha=spec.alpha,
+            show_points=spec.show_points,
+            point_size=spec.marker_size or 10,
+            colorbar=should_show_colorbar if spec.colorbar else False,
+            colorbar_label=cbar_label,
+            label=label_to_use,
+        )
+        if (
+            colormap_artists is not None
+            and subplot_idx is not None
+            and should_show_colorbar
+            and colors is not None
+        ):
+            colormap_artists[subplot_idx] = lc
+
+    def _handle_mpl_kde(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        x, y = extract_xy_from_data(spec.data)
+
+        xi, yi, zi = compute_kde_2d(
+            x, y, bandwidth=spec.bandwidth, grid_size=100, expand_fraction=0.1
+        )
+
+        cs = render_kde_matplotlib(
+            ax=ax,
+            xi=xi,
+            yi=yi,
+            zi=zi,
+            fill=spec.fill,
+            n_levels=spec.n_levels,
+            cmap=spec.cmap or "Blues",
+            alpha=spec.alpha,
+            colorbar=should_show_colorbar if spec.colorbar else False,
+            colorbar_label=spec.colorbar_label,
+            label=label_to_use,
+        )
+        if (
+            colormap_artists is not None
+            and subplot_idx is not None
+            and should_show_colorbar
+        ):
+            colormap_artists[subplot_idx] = cs
+
+        if spec.show_points:
+            ax.scatter(x, y, c="black", s=spec.marker_size or 5, alpha=0.3, zorder=3)
+
+    def _handle_mpl_grouped_scatter(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        if not isinstance(spec.data, dict):
+            raise ValueError(
+                "grouped_scatter data must be dict mapping group names to (x,y) tuples"
+            )
+
+        colors = spec.colors or get_default_categorical_colors(len(spec.data))
+
+        for idx, (name, (x, y)) in enumerate(spec.data.items()):
+            color = colors[idx % len(colors)]
+            ax.scatter(
+                x,
+                y,
+                s=spec.marker_size or 20,
+                alpha=spec.alpha,
+                label=name,
+                color=color,
+            )
+
+            if spec.show_hulls and len(x) >= 3:
+                result = compute_convex_hull(x, y)
+                if result is not None:
+                    hull_x, hull_y = result
+                    render_convex_hull_matplotlib(
+                        ax=ax,
+                        hull_x=hull_x,
+                        hull_y=hull_y,
+                        color=color,
+                        linewidth=1,
+                        alpha=spec.hull_alpha or 0.2,
+                        fill=True,
+                        fill_alpha=spec.hull_alpha or 0.2,
+                    )
+
+    def _handle_mpl_convex_hull(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        x, y = extract_xy_from_data(spec.data)
+
+        if len(x) >= 3:
+            result = compute_convex_hull(x, y)
+            if result is not None:
+                hull_x, hull_y = result
+                render_convex_hull_matplotlib(
+                    ax=ax,
+                    hull_x=hull_x,
+                    hull_y=hull_y,
+                    color=spec.color or "blue",
+                    linewidth=spec.line_width or 1,
+                    alpha=spec.alpha,
+                    fill=spec.fill,
+                    fill_alpha=0.2,
+                    label=label_to_use,
+                )
+
+    def _handle_mpl_boolean_states(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        x, states = extract_xy_from_data(spec.data)
+        states = states.astype(bool)
+
+        result = renderers.render_boolean_states_matplotlib(
+            ax=ax,
+            x=x,
+            states=states,
+            true_color=spec.true_color or "#2ca02c",
+            false_color=spec.false_color or "#d62728",
+            true_label=spec.true_label or "True",
+            false_label=spec.false_label or "False",
+            alpha=spec.alpha,
+        )
+        if isinstance(result, dict) and "legend_handle" in result:
+            spec._legend_handle = result["legend_handle"]
+
+    def _handle_mpl_ellipse(
+        self,
+        spec: PlotSpec,
+        ax: Any,
+        label_to_use: str | None,
+        should_show_colorbar: bool,
+        colormap_artists: dict[int, Any] | None,
+        subplot_idx: int | None,
+    ) -> None:
+        centers = _convert_data_to_array(spec.data).astype(np.float64)
+        widths_arr = (
+            np.asarray(spec.ellipse_widths, dtype=np.float64)
+            if spec.ellipse_widths is not None
+            else np.array([1.0], dtype=np.float64)
+        )
+        heights_arr = (
+            np.asarray(spec.ellipse_heights, dtype=np.float64)
+            if spec.ellipse_heights is not None
+            else np.array([1.0], dtype=np.float64)
+        )
+        angles_arr = (
+            np.asarray(spec.ellipse_angles, dtype=np.float64)
+            if spec.ellipse_angles is not None
+            else None
+        )
+        renderers.render_ellipse_matplotlib(
+            ax=ax,
+            centers=centers,
+            widths=widths_arr,
+            heights=heights_arr,
+            angles=angles_arr,
+            color=spec.color or "red",
+            alpha=spec.alpha,
+            edgecolor=spec.kwargs.get("edgecolor", None),
+            linewidth=spec.kwargs.get("linewidth", 0),
+        )
+
+    def _plot_spec_plotly(self, spec: PlotSpec, legend_tracker: set[str]) -> Any:
+        """Plot a PlotSpec using plotly with renderer functions (returns trace)."""
+        if not PLOTLY_AVAILABLE:
+            raise ValueError("Plotly backend requested but plotly is not installed")
+
+        # Determine if we should show this label in legend
+        show_legend = spec.label and spec.label not in legend_tracker
+        if show_legend and spec.label:
+            legend_tracker.add(spec.label)
+
+        handler_name = self._PLOTLY_HANDLERS.get(spec.plot_type)
+        if handler_name is None:
+            raise ValueError(
+                f"Unsupported plot type: {spec.plot_type!r}. "
+                f"Available: {sorted(self._PLOTLY_HANDLERS)}"
+            )
+        handler = getattr(self, handler_name)
+        return handler(spec, show_legend)
+
+    # ---- Plotly per-type handlers ----
+
+    def _handle_plotly_scatter(self, spec: PlotSpec, show_legend: bool | None) -> Any:
+        data_array = _convert_data_to_array(spec.data)
+        colors_array = (
+            np.asarray(spec.colors) if isinstance(spec.colors, list) else spec.colors
+        )
+        sizes_array = (
+            np.asarray([spec.sizes], dtype=np.float64)
+            if isinstance(spec.sizes, (int, float))
+            else spec.sizes
+        )
+        return renderers.render_scatter_plotly(
+            data=data_array,
+            color=spec.color,
+            colors=colors_array,
+            cmap=spec.cmap,
+            marker=spec.marker or "circle",
+            marker_size=spec.marker_size,
+            sizes=sizes_array,
+            alpha=spec.alpha,
+            label=spec.label,
+            showlegend=bool(show_legend) if show_legend is not None else True,
+            colorbar=spec.colorbar,
+            colorbar_label=spec.colorbar_label,
+            **spec.kwargs,
+        )
+
+    def _handle_plotly_scatter3d(self, spec: PlotSpec, show_legend: bool | None) -> Any:
+        data_array = _convert_data_to_array(spec.data)
+        colors_array = (
+            np.asarray(spec.colors) if isinstance(spec.colors, list) else spec.colors
+        )
+        return renderers.render_scatter3d_plotly(
+            data=data_array,
+            color=spec.color,
+            colors=colors_array,
+            cmap=spec.cmap,
+            marker_size=spec.marker_size,
+            sizes=np.asarray([spec.sizes], dtype=np.float64)
+            if isinstance(spec.sizes, (int, float))
+            else spec.sizes,
+            alpha=spec.alpha,
+            label=spec.label,
+            showlegend=bool(show_legend) if show_legend is not None else True,
+            colorbar=spec.colorbar,
+            colorbar_label=spec.colorbar_label,
+            **spec.kwargs,
+        )
+
+    def _handle_plotly_line(self, spec: PlotSpec, show_legend: bool | None) -> Any:
+        trace = renderers.render_line_plotly(
+            data=_convert_data_to_array(spec.data),
+            color=spec.color,
+            line_width=spec.line_width or 2.0,
+            linestyle=spec.linestyle,
+            error_y=spec.error_y,
+            alpha=spec.alpha,
+            label=spec.label,
+            showlegend=bool(show_legend) if show_legend is not None else True,
+            **spec.kwargs,
+        )
+
+        if hasattr(spec, "hlines") and spec.hlines:
+            if not hasattr(trace, "_hlines"):
+                trace._hlines = []
+            trace._hlines = spec.hlines
+
+        if hasattr(spec, "vlines") and spec.vlines:
+            if not hasattr(trace, "_vlines"):
+                trace._vlines = []
+            trace._vlines = spec.vlines
+
+        if hasattr(spec, "annotations") and spec.annotations:
+            if not hasattr(trace, "_annotations"):
+                trace._annotations = []
+            trace._annotations = spec.annotations
+
+        return trace
+
+    def _handle_plotly_histogram(self, spec: PlotSpec, show_legend: bool | None) -> Any:
+        return renderers.render_histogram_plotly(
+            data=_convert_data_to_array(spec.data),
+            color=spec.color,
+            alpha=spec.alpha,
+            bins=spec.kwargs.pop("bins", 30),
+            label=spec.label,
+            showlegend=bool(show_legend) if show_legend is not None else True,
+            **spec.kwargs,
+        )
+
+    def _handle_plotly_heatmap(self, spec: PlotSpec, show_legend: bool | None) -> Any:
+        return renderers.render_heatmap_plotly(
+            data=_convert_data_to_array(spec.data),
+            cmap=spec.kwargs.pop("cmap", None),
+            colorscale=spec.kwargs.pop("colorscale", None),
+            colorbar_label=spec.colorbar_label,
+            **spec.kwargs,
+        )
+
+    def _handle_plotly_heatmap_walls(
+        self, spec: PlotSpec, show_legend: bool | None
+    ) -> Any:
+        print(
+            "Warning: heatmap_walls plot type is not supported for Plotly backend; skipping."
+        )
+        return None
+
+    def _handle_plotly_bar(self, spec: PlotSpec, show_legend: bool | None) -> Any:
+        return renderers.render_bar_plotly(
+            data=_convert_data_to_array(spec.data),
+            x=spec.kwargs.pop("x", None),
+            color=spec.color,
+            colors=spec.kwargs.pop("colors", None),
+            alpha=spec.alpha,
+            label=spec.label,
+            showlegend=bool(show_legend) if show_legend is not None else True,
+            error_y=spec.kwargs.pop("error_y", None),
+            error_x=spec.kwargs.pop("error_x", None),
+            **spec.kwargs,
+        )
+
+    def _handle_plotly_violin(self, spec: PlotSpec, show_legend: bool | None) -> Any:
+        plot_kwargs = dict(spec.kwargs)
+        showmeans = plot_kwargs.pop("showmeans", None)
+        meanline = plot_kwargs.pop("meanline", {})
+
+        if showmeans is not None:
+            meanline = {"visible": showmeans}
+        elif isinstance(meanline, bool):
+            meanline = {"visible": meanline}
+        elif not isinstance(meanline, dict):
+            meanline = {"visible": True}
+
+        return renderers.render_violin_plotly(
+            data=_convert_data_to_array(spec.data),
+            color=spec.color,
+            alpha=spec.alpha,
+            meanline=meanline,
+            showbox=plot_kwargs.pop("showbox", True),
+            showpoints=plot_kwargs.pop("showpoints", True),
+            label=spec.label,
+            showlegend=bool(show_legend) if show_legend is not None else True,
+            **plot_kwargs,
+        )
+
+    def _handle_plotly_box(self, spec: PlotSpec, show_legend: bool | None) -> Any:
+        plot_kwargs = dict(spec.kwargs)
+        notched = plot_kwargs.pop("notch", plot_kwargs.pop("notched", False))
+
+        return renderers.render_box_plotly(
+            data=_convert_data_to_array(spec.data),
+            color=spec.color,
+            alpha=spec.alpha,
+            label=spec.label,
+            showlegend=bool(show_legend) if show_legend is not None else True,
+            notched=notched,
+            **plot_kwargs,
+        )
+
+    def _handle_plotly_trajectory(
+        self, spec: PlotSpec, show_legend: bool | None
+    ) -> Any:
+        x, y = extract_xy_from_data(spec.data)
+
+        colors = (
+            compute_colors(len(x), color_by=spec.color_by)
+            if spec.color_by is not None
+            else None
+        )
+
+        cbar_label = (
+            spec.colorbar_label or "Time" if spec.color_by is not None else None
+        )
+        return render_trajectory_plotly(
+            x=x,
+            y=y,
+            colors=colors,
+            cmap=spec.cmap or "Viridis",
+            linewidth=spec.line_width or 1.0,
+            alpha=spec.alpha,
+            show_points=spec.show_points,
+            point_size=spec.marker_size or 10,
+            colorbar=spec.colorbar,
+            colorbar_label=cbar_label,
+            label=spec.label,
+            showlegend=bool(show_legend) if show_legend is not None else True,
+        )
+
+    def _handle_plotly_trajectory3d(
+        self, spec: PlotSpec, show_legend: bool | None
+    ) -> Any:
+        x, y, z = extract_xyz_from_data(spec.data)
+
+        colors = (
+            compute_colors(len(x), color_by=spec.color_by)
+            if spec.color_by is not None
+            else None
+        )
+
+        cbar_label = (
+            spec.colorbar_label or "Time" if spec.color_by is not None else None
+        )
+        return render_trajectory3d_plotly(
+            x=x,
+            y=y,
+            z=z,
+            colors=colors,
+            cmap=spec.cmap or "Viridis",
+            linewidth=spec.line_width or 2.0,
+            alpha=spec.alpha,
+            show_points=spec.show_points,
+            point_size=spec.marker_size or 10,
+            colorbar=spec.colorbar,
+            colorbar_label=cbar_label,
+            label=spec.label,
+            showlegend=bool(show_legend) if show_legend is not None else True,
+        )
+
+    def _handle_plotly_kde(self, spec: PlotSpec, show_legend: bool | None) -> Any:
+        x, y = extract_xy_from_data(spec.data)
+
+        xi, yi, zi = compute_kde_2d(
+            x, y, bandwidth=spec.bandwidth, grid_size=100, expand_fraction=0.1
+        )
+
+        return render_kde_plotly(
+            xi=xi,
+            yi=yi,
+            zi=zi,
+            fill=spec.fill,
+            n_levels=spec.n_levels,
+            cmap=spec.cmap or "Blues",
+            alpha=spec.alpha,
+            colorbar=spec.colorbar,
+            colorbar_label=spec.colorbar_label,
+            label=spec.label,
+            showlegend=bool(show_legend) if show_legend is not None else True,
+        )
+
+    def _handle_plotly_grouped_scatter(
+        self, spec: PlotSpec, show_legend: bool | None
+    ) -> Any:
+        if not isinstance(spec.data, dict):
+            raise ValueError(
+                "grouped_scatter data must be dict mapping group names to (x,y) tuples"
+            )
+
+        colors_list = spec.colors or get_default_categorical_colors(len(spec.data))
+        if isinstance(colors_list, list):
+            np.array(colors_list) if all(
+                isinstance(c, (int, float)) for c in colors_list
+            ) else None
+
+        traces = []
+        colors_for_groups = (
+            colors_list
+            if isinstance(colors_list, list)
+            else get_default_categorical_colors(len(spec.data))
+        )
+        for idx, (name, (x, y)) in enumerate(spec.data.items()):
+            color = colors_for_groups[idx % len(colors_for_groups)]
+            trace = go.Scatter(
+                x=x,
+                y=y,
+                mode="markers",
+                marker=dict(
+                    size=spec.marker_size or 20, color=color, opacity=spec.alpha
+                ),
+                name=name,
+                showlegend=True,
+            )
+            traces.append(trace)
+
+            if spec.show_hulls and len(x) >= 3:
+                result = compute_convex_hull(x, y)
+                if result is not None:
+                    hull_x, hull_y = result
+                    hull_trace = render_convex_hull_plotly(
+                        hull_x=hull_x,
+                        hull_y=hull_y,
+                        color=color,
+                        linewidth=1,
+                        alpha=0.3,
+                        fill=spec.fill if hasattr(spec, "fill") else False,
+                        fill_alpha=0.1,
+                        showlegend=False,
+                    )
+                    traces.append(hull_trace)
+
+        return traces[0] if traces else None
+
+    def _handle_plotly_convex_hull(
+        self, spec: PlotSpec, show_legend: bool | None
+    ) -> Any:
+        x, y = extract_xy_from_data(spec.data)
+
+        if len(x) >= 3:
+            result = compute_convex_hull(x, y)
+            if result is not None:
+                hull_x, hull_y = result
+                return render_convex_hull_plotly(
+                    hull_x=hull_x,
+                    hull_y=hull_y,
+                    color=spec.color or "blue",
+                    linewidth=spec.line_width or 1,
+                    alpha=spec.alpha,
+                    fill=spec.fill,
+                    fill_alpha=0.2,
+                    label=spec.label,
+                    showlegend=bool(show_legend) if show_legend is not None else True,
+                )
+            else:
+                print("Warning: Could not compute convex hull")
+                return None
+        else:
+            return None
+
+    def _handle_plotly_boolean_states(
+        self, spec: PlotSpec, show_legend: bool | None
+    ) -> Any:
+        x, states = extract_xy_from_data(spec.data)
+        states = states.astype(bool)
+
+        traces = renderers.render_boolean_states_plotly(
+            x=x,
+            states=states,
+            true_color=spec.true_color or "#2ca02c",
+            false_color=spec.false_color or "#d62728",
+            true_label=spec.true_label or "True",
+            false_label=spec.false_label or "False",
+            alpha=spec.alpha,
+        )
+        return traces[0] if traces else None
+
+    def _prevent_overlaps(
+        self, fig: Any, axes_flat: list[Any], rows: int, cols: int, n_subplots: int
+    ) -> None:
+        """Prevent overlapping labels, ticks, and titles in matplotlib figures.
+
+        Adjusts spacing and label positions to prevent overlaps.
+        """
+        if n_subplots <= 1:
+            return
+
+        # Adjust tight_layout with padding to prevent overlaps
+        # Increase padding for more subplots
+        pad = max(3.0, 1.5 + 0.5 * (rows + cols))
+
+        # Adjust for colorbars - if we have colorbars, need more horizontal space
+        has_colorbars = any(
+            ax.get_images() or any(hasattr(c, "colorbar") for c in ax.collections)
+            for ax in axes_flat
+        )
+        if has_colorbars:
+            pad += 1.0
+
+        # Use tight_layout with padding
+        try:
+            fig.tight_layout(pad=pad, h_pad=0.4 + 0.1 * rows, w_pad=0.4 + 0.1 * cols)
+        except Exception:
+            # Fallback if tight_layout fails
+            fig.subplots_adjust(
+                left=0.1,
+                right=0.95,
+                top=0.95,
+                bottom=0.1,
+                hspace=0.3 + 0.1 * rows,
+                wspace=0.3 + 0.1 * cols,
+            )
+
+        # Adjust title positions to prevent overlap with subplot titles
+        for _i, ax in enumerate(axes_flat):
+            title = ax.get_title()
+            if title:
+                # Get title position
+                title_obj = ax.title
+                pos = title_obj.get_position()
+                # Adjust if needed (reduce y position slightly)
+                title_obj.set_position((pos[0], pos[1] * 0.98))
+
+        # Rotate x-axis labels if they're long or many subplots
+        if cols > 3:
+            for ax in axes_flat:
+                labels = ax.get_xticklabels()
+                if labels:
+                    # Check if labels might overlap
+                    label_texts = [l.get_text() for l in labels]
+                    max_len = max(len(t) for t in label_texts if t)
+                    if max_len > 5 or len(labels) > 5:
+                        ax.tick_params(axis="x", rotation=45)
+
+        # Adjust y-axis label positions for leftmost subplots
+        for i in range(0, n_subplots, cols):
+            if i < len(axes_flat):
+                ax = axes_flat[i]
+                ylabel = ax.get_ylabel()
+                if ylabel:
+                    ax.yaxis.label.set_x(-0.15)  # Move slightly left
+
+        # Adjust x-axis label positions for bottom subplots
+        bottom_start = (rows - 1) * cols
+        for i in range(bottom_start, min(bottom_start + cols, n_subplots)):
+            if i < len(axes_flat):
+                ax = axes_flat[i]
+                xlabel = ax.get_xlabel()
+                if xlabel:
+                    ax.xaxis.label.set_y(-0.15)  # Move slightly down
+
+
+# Convenience functions for common patterns
+
+
+def plot_comparison_grid(
+    data_dict: dict[str, npt.NDArray[np.floating[Any]]],
+    plot_type: PlotType = "scatter",
+    rows: int | None = None,
+    cols: int | None = None,
+    **kwargs: Any,
+) -> Any:
+    """
+    Create a grid comparing multiple datasets with the same plot type.
+
+    Parameters
+    ----------
+    data_dict : dict
+        Dictionary mapping labels to data arrays
+    plot_type : PlotType, default='scatter'
+        Type of plot for all comparisons ('scatter', 'line', 'histogram', etc.)
+    rows : int, optional
+        Number of rows (auto-calculated if not specified)
+    cols : int, optional
+        Number of columns (auto-calculated if not specified)
+    **kwargs
+        Additional arguments passed to PlotGrid
+
+    Returns
+    -------
+    figure
+        The generated figure
+
+    Examples
+    --------
+    >>> data = {
+    ...     'Method A': result_a,
+    ...     'Method B': result_b,
+    ...     'Method C': result_c,
+    ... }
+    >>> fig = plot_comparison_grid(data, plot_type='histogram', cols=3)
+    """
+    layout = GridLayoutConfig(rows=rows, cols=cols)
+    grid = PlotGrid.from_dict(data_dict, plot_type=plot_type, layout=layout, **kwargs)
+    return grid.plot()
+
+
+def plot_grouped_comparison(
+    data: pd.DataFrame,
+    x_col: str,
+    y_col: str,
+    group_col: str,
+    plot_type: PlotType = "scatter",
+    **kwargs: Any,
+) -> Any:
+    """
+    Create overlaid plots grouped by a category.
+
+    All groups are plotted in the same subplot with different colors.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        DataFrame with data to plot
+    x_col : str
+        Column name for x-axis
+    y_col : str
+        Column name for y-axis
+    group_col : str
+        Column name for grouping (different colors)
+    plot_type : PlotType, default='scatter'
+        Type of plot ('scatter', 'line', 'histogram', etc.)
+    **kwargs
+        Additional arguments passed to PlotGrid
+
+    Returns
+    -------
+    figure
+        The generated figure
+
+    Examples
+    --------
+    >>> df = pd.DataFrame({
+    ...     'x': [...],
+    ...     'y': [...],
+    ...     'condition': ['A', 'A', 'B', 'B', ...]
+    ... })
+    >>> fig = plot_grouped_comparison(df, 'x', 'y', 'condition')
+    """
+    # Create one plot spec per group, all in position (1, 1)
+    groups = data[group_col].unique()
+    color_scheme = ColorScheme()
+    groups_list = (
+        list(groups) if hasattr(groups, "__iter__") else [str(g) for g in groups]
+    )
+    colors = color_scheme.get_colors(groups_list)
+
+    plot_specs = []
+    for group in groups:
+        group_data = data[data[group_col] == group]
+        if plot_type == "scatter":
+            arr = group_data[[x_col, y_col]].values
+        elif plot_type == "line":
+            arr = group_data[y_col].values
+        else:
+            arr = group_data[y_col].values
+
+        spec = PlotSpec(
+            data=arr,
+            plot_type=plot_type,
+            label=str(group),
+            color=colors[group],
+        )
+        plot_specs.append(spec)
+
+    # All in single subplot
+    layout = GridLayoutConfig(rows=1, cols=1)
+    grid = PlotGrid(
+        plot_specs=plot_specs, layout=layout, color_scheme=color_scheme, **kwargs
+    )
+
+    return grid.plot()
+
+
+# ==============================================================================
+# Subplot Utility Functions (Used internally by PlotGrid)
+# ==============================================================================
+
+
+def create_subplot_grid(
+    rows: int,
+    cols: int,
+    config: PlotConfig | None = None,
+    subplot_titles: Sequence[str] | None = None,
+    shared_xaxes: bool | str = False,
+    shared_yaxes: bool | str = False,
+    vertical_spacing: float | None = None,
+    horizontal_spacing: float | None = None,
+    specs: list[list[dict[str, Any]]] | None = None,
+    backend: Literal["matplotlib", "plotly"] | None = None,
+    projection: str | None = None,
+    subplot_projections: list[str | None] | None = None,
+    width_ratios: list[float] | None = None,
+    height_ratios: list[float] | None = None,
+) -> Any:
+    """
+    Create a multi-panel subplot grid.
+
+    Internal utility function used by PlotGrid for creating subplot layouts.
+    Supports uneven grids via width_ratios and height_ratios.
+
+    Parameters
+    ----------
+    rows : int
+        Number of rows.
+    cols : int
+        Number of columns.
+    config : PlotConfig, optional
+        Overall plot configuration.
+    subplot_titles : sequence of str, optional
+        Titles for each subplot (length should be rows * cols).
+    shared_xaxes : bool or str, default=False
+        Share x-axes. Can be True, False, 'all', 'rows', or 'columns'.
+    shared_yaxes : bool or str, default=False
+        Share y-axes. Can be True, False, 'all', 'rows', or 'columns'.
+    vertical_spacing : float, optional
+        Vertical spacing between subplots (0 to 1).
+    horizontal_spacing : float, optional
+        Horizontal spacing between subplots (0 to 1).
+    specs : list of list of dict, optional
+        Specifications for each subplot (plotly only).
+        Each dict can contain 'type' (e.g., 'xy', 'scene', etc.).
+    backend : {"matplotlib", "plotly"}, optional
+        Backend to use.
+    projection : str, optional
+        Default projection for all subplots (deprecated, use subplot_projections).
+    subplot_projections : list of str or None, optional
+        Per-subplot projections. If provided, each subplot gets its own projection.
+    width_ratios : list of float, optional
+        Relative widths of columns. Length must equal cols.
+        For uneven grids: e.g., [1, 2, 2] makes first column half width of others.
+    height_ratios : list of float, optional
+        Relative heights of rows. Length must equal rows.
+        For uneven grids: e.g., [1, 2] makes first row half height of second.
+
+    Returns
+    -------
+    matplotlib.figure.Figure and list of Axes, or plotly.graph_objects.Figure
+        For matplotlib: tuple of (figure, list of axes).
+        For plotly: figure object with subplot structure.
+    """
+    if config is None:
+        config = PlotConfig()
+
+    # Get backend - just use string directly, don't try to instantiate Literal type
+    backend_str = get_backend() if backend is None else backend
+
+    if backend_str == "matplotlib":
+        return _create_subplot_grid_matplotlib(
+            rows,
+            cols,
+            config,
+            subplot_titles,
+            shared_xaxes,
+            shared_yaxes,
+            plt,
+            projection,
+            subplot_projections,
+            width_ratios,
+            height_ratios,
+        )
+    else:
+        if not PLOTLY_AVAILABLE:
+            raise ValueError("Plotly backend requested but plotly is not installed")
+        return _create_subplot_grid_plotly(
+            rows,
+            cols,
+            config,
+            subplot_titles,
+            shared_xaxes,
+            shared_yaxes,
+            vertical_spacing,
+            horizontal_spacing,
+            specs,
+            go,
+            make_subplots,
+            width_ratios,
+            height_ratios,
+        )
+
+
+def _create_subplot_grid_matplotlib(
+    rows: int,
+    cols: int,
+    config: PlotConfig,
+    subplot_titles: Sequence[str] | None,
+    shared_xaxes: bool | str,
+    shared_yaxes: bool | str,
+    plt: Any,
+    projection: str | None = None,
+    subplot_projections: list[str | None] | None = None,
+    width_ratios: list[float] | None = None,
+    height_ratios: list[float] | None = None,
+) -> tuple[Any, Any]:
+    """Matplotlib implementation of subplot grid with per-subplot projection support and uneven grids."""
+    # Convert shared axes parameters
+    sharex = (
+        "all"
+        if shared_xaxes is True
+        else (shared_xaxes if isinstance(shared_xaxes, str) else False)
+    )
+    sharey = (
+        "all"
+        if shared_yaxes is True
+        else (shared_yaxes if isinstance(shared_yaxes, str) else False)
+    )
+
+    # Validate ratios
+    if width_ratios is not None and len(width_ratios) != cols:
+        raise ValueError(
+            f"width_ratios length ({len(width_ratios)}) must equal cols ({cols})"
+        )
+    if height_ratios is not None and len(height_ratios) != rows:
+        raise ValueError(
+            f"height_ratios length ({len(height_ratios)}) must equal rows ({rows})"
+        )
+
+    # If we have uneven grids or per-subplot projections, use GridSpec
+    use_gridspec = (
+        width_ratios is not None
+        or height_ratios is not None
+        or (
+            subplot_projections is not None
+            and any(p is not None for p in subplot_projections)
+        )
+    )
+
+    if use_gridspec:
+        from matplotlib.gridspec import GridSpec
+
+        # Create figure
+        fig = plt.figure(figsize=config.figsize, dpi=config.dpi)
+
+        # Create GridSpec with optional ratios
+        gs_kwargs: dict[str, Any] = {}
+        if width_ratios is not None:
+            gs_kwargs["width_ratios"] = width_ratios
+        if height_ratios is not None:
+            gs_kwargs["height_ratios"] = height_ratios
+
+        gs = GridSpec(rows, cols, figure=fig, **gs_kwargs)
+
+        # Create axes with individual projections
+        axes_flat = []
+        for idx in range(rows * cols):
+            row = idx // cols
+            col = idx % cols
+            proj = (
+                subplot_projections[idx]
+                if subplot_projections and idx < len(subplot_projections)
+                else None
+            )
+
+            # Add subplot with specific projection
+            if proj:
+                ax = fig.add_subplot(gs[row, col], projection=proj)
+            else:
+                ax = fig.add_subplot(gs[row, col])
+
+            axes_flat.append(ax)
+    else:
+        # Original behavior: all subplots have same projection, uniform grid
+        subplot_kw = {}
+        if projection:
+            subplot_kw["projection"] = projection
+
+        fig, axes = plt.subplots(
+            rows,
+            cols,
+            figsize=config.figsize,
+            dpi=config.dpi,
+            sharex=sharex if sharex != "rows" and sharex != "columns" else False,
+            sharey=sharey if sharey != "rows" and sharey != "columns" else False,
+            squeeze=False,
+            subplot_kw=subplot_kw,
+            gridspec_kw={"width_ratios": width_ratios, "height_ratios": height_ratios}
+            if width_ratios is not None or height_ratios is not None
+            else {},
+        )
+
+        # Flatten axes array for easier indexing
+        axes_flat = axes.flatten().tolist()
+
+    # Add subplot titles
+    if subplot_titles is not None:
+        for _i, (ax, title) in enumerate(zip(axes_flat, subplot_titles)):
+            ax.set_title(title, fontsize=12)
+
+    # Apply overall title - only use suptitle for multiple subplots
+    # For single subplot, title will be set on the axis itself
+    if config.title and (rows * cols > 1):
+        fig.suptitle(config.title, fontsize=14)
+
+    plt.tight_layout()
+
+    return fig, axes_flat
+
+
+def _create_subplot_grid_plotly(
+    rows: int,
+    cols: int,
+    config: PlotConfig,
+    subplot_titles: Sequence[str] | None,
+    shared_xaxes: bool | str,
+    shared_yaxes: bool | str,
+    vertical_spacing: float | None,
+    horizontal_spacing: float | None,
+    specs: list[list[dict[str, Any]]] | None,
+    go: Any,
+    make_subplots: Any,
+    width_ratios: list[float] | None = None,
+    height_ratios: list[float] | None = None,
+) -> Any:
+    """Plotly implementation of subplot grid with uneven grid support."""
+    # Convert subplot_titles to list if provided
+    titles = list(subplot_titles) if subplot_titles is not None else None
+
+    # Validate ratios
+    if width_ratios is not None and len(width_ratios) != cols:
+        raise ValueError(
+            f"width_ratios length ({len(width_ratios)}) must equal cols ({cols})"
+        )
+    if height_ratios is not None and len(height_ratios) != rows:
+        raise ValueError(
+            f"height_ratios length ({len(height_ratios)}) must equal rows ({rows})"
+        )
+
+    # Set default spacing if not provided
+    if vertical_spacing is None:
+        vertical_spacing = 0.1 if rows > 1 else 0.0
+    if horizontal_spacing is None:
+        horizontal_spacing = 0.1 if cols > 1 else 0.0
+
+    fig = make_subplots(
+        rows=rows,
+        cols=cols,
+        subplot_titles=titles,
+        shared_xaxes=shared_xaxes,
+        shared_yaxes=shared_yaxes,
+        vertical_spacing=vertical_spacing,
+        horizontal_spacing=horizontal_spacing,
+        specs=specs,
+    )
+
+    # Apply overall layout
+    width, height = config.figsize
+    layout_updates = {
+        "title": config.title if config.title else None,
+        "width": width * config.dpi,
+        "height": height * config.dpi,
+        "showlegend": config.legend,
+    }
+
+    # Apply uneven grid ratios if provided
+    # Plotly requires manual domain calculation for uneven grids
+    if width_ratios is not None or height_ratios is not None:
+        # Normalize ratios
+        if width_ratios is not None:
+            total_width = sum(width_ratios)
+            width_ratios_norm = [w / total_width for w in width_ratios]
+        else:
+            width_ratios_norm = [1.0 / cols] * cols
+
+        if height_ratios is not None:
+            total_height = sum(height_ratios)
+            height_ratios_norm = [h / total_height for h in height_ratios]
+        else:
+            height_ratios_norm = [1.0 / rows] * rows
+
+        # Calculate cumulative positions for domains
+        x_domains = []
+        y_domains = []
+        x_cumsum = 0.0
+        y_cumsum = 1.0  # Start from top
+
+        for w in width_ratios_norm:
+            x_domains.append((x_cumsum, x_cumsum + w))
+            x_cumsum += w
+
+        for h in height_ratios_norm:
+            y_domains.append((y_cumsum - h, y_cumsum))
+            y_cumsum -= h
+
+        # Update each subplot's domain
+        for row in range(1, rows + 1):
+            for col in range(1, cols + 1):
+                x_domain = x_domains[col - 1]
+                y_domain = y_domains[row - 1]
+                # Plotly uses 1-based indexing for subplots
+                # Use update_xaxes and update_yaxes for domain updates
+                fig.update_xaxes(domain=x_domain, row=row, col=col)
+                fig.update_yaxes(domain=y_domain, row=row, col=col)
+
+    fig.update_layout(**layout_updates)
+
+    return fig
+
+
+def add_trace_to_subplot(fig: Any, trace: Any, row: int, col: int) -> Any:
+    """
+    Add a trace to a specific subplot in a plotly figure.
+
+    Internal utility function used by PlotGrid for adding traces to subplots.
+
+    Parameters
+    ----------
+    fig : plotly.graph_objects.Figure
+        Figure created by create_subplot_grid with plotly backend.
+    trace : plotly trace object
+        Trace to add (e.g., go.Scatter, go.Scatter3d, go.Bar).
+    row : int
+        Row position (1-indexed).
+    col : int
+        Column position (1-indexed).
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        Updated figure with trace added.
+    """
+    if not PLOTLY_AVAILABLE:
+        raise ValueError("Plotly is not installed")
+
+    if not isinstance(fig, go.Figure):
+        raise TypeError("fig must be a plotly.graph_objects.Figure")
+
+    fig.add_trace(trace, row=row, col=col)
+    return fig

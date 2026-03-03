@@ -243,7 +243,15 @@ class TestApplyLayout:
             fig.add_trace(go.Scatter(x=[1, 2, 3], y=[1, 4, 9]))
             # Config with no xlim, ylim, or figsize to trigger False paths
             # This means xaxis and yaxis dicts will be empty, and figsize is None
-            config = PlotConfig(title="Test", xlabel="X", ylabel="Y", grid=False, xlim=None, ylim=None, figsize=None)
+            config = PlotConfig(
+                title="Test",
+                xlabel="X",
+                ylabel="Y",
+                grid=False,
+                xlim=None,
+                ylim=None,
+                figsize=None,
+            )
             apply_layout_plotly(fig, config)
             # Should not error - xaxis and yaxis will be empty dicts, so the if checks fail
         except ImportError:
@@ -347,7 +355,7 @@ class TestApplyLayout:
             # Test with all three limits together (covers False paths: when xaxis exists, check ylim; when yaxis exists, check zlim)
             # When processing xlim, ylim, zlim together:
             # - xlim: "xaxis" not in scene_dict -> True path (creates xaxis)
-            # - ylim: "yaxis" not in scene_dict -> True path (creates yaxis)  
+            # - ylim: "yaxis" not in scene_dict -> True path (creates yaxis)
             # - zlim: "zaxis" not in scene_dict -> True path (creates zaxis)
             # To trigger False paths, we need to ensure axis dicts already exist
             fig5 = go.Figure()
@@ -363,7 +371,7 @@ class TestApplyLayout:
             assert list(fig5.layout.scene.xaxis.range) == [0, 10]
             assert list(fig5.layout.scene.yaxis.range) == [0, 20]
             assert list(fig5.layout.scene.zaxis.range) == [0, 30]
-            
+
             # Test False paths: when axis dicts already exist in scene_dict
             # This happens when we process limits in a way that creates nested structure
             # Actually, the code always creates fresh scene_dict, so False paths are hard to trigger
@@ -586,9 +594,10 @@ class TestFinalizePlot:
     def test_finalize_plot_plotly_save_html(self):
         """Test finalizing plotly plot with HTML save format (line 387-388)."""
         try:
-            import plotly.graph_objects as go
             import tempfile
             from pathlib import Path
+
+            import plotly.graph_objects as go
 
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=[1, 2, 3], y=[1, 4, 9]))
@@ -606,9 +615,10 @@ class TestFinalizePlot:
     def test_finalize_plot_plotly_save_image_with_html(self):
         """Test finalizing plotly plot with image save and HTML (line 390->405)."""
         try:
-            import plotly.graph_objects as go
             import tempfile
             from pathlib import Path
+
+            import plotly.graph_objects as go
 
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=[1, 2, 3], y=[1, 4, 9]))
@@ -634,9 +644,10 @@ class TestFinalizePlot:
     def test_finalize_plot_plotly_save_image_no_html(self):
         """Test finalizing plotly plot with image save but save_html=False (line 403)."""
         try:
-            import plotly.graph_objects as go
             import tempfile
             from pathlib import Path
+
+            import plotly.graph_objects as go
 
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=[1, 2, 3], y=[1, 4, 9]))

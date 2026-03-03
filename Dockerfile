@@ -24,8 +24,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy source code
 COPY . .
 
-# Expose ports
-EXPOSE 6379  # Redis
+# Expose ports Redis
+EXPOSE 6379 
 
 # Start Redis in background and keep container running
 CMD ["sh", "-c", "redis-server --daemonize yes && tail -f /dev/null"]

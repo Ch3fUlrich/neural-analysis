@@ -114,8 +114,8 @@ def filter_outlier(
         mask = _mask_outliers_elliptic(points_arr, contamination=contamination)  # type: ignore[assignment]
     else:
         raise ValueError(
-            f"Unknown method '{method}'."
-            + "Choose from: iqr, zscore, isolation, lof, elliptic."
+            f"Unknown outlier detection method. Expected: 'iqr', 'zscore', "
+            f"'isolation', 'lof', or 'elliptic'. Got: {method!r}"
         )
 
     filtered_points = points_arr[mask]

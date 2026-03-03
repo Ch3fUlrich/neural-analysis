@@ -65,16 +65,24 @@ class SQLMetadata:
                 self._conn = duckdb.connect(str(self.config.sql_path))
                 self._available = True
                 self._initialize_schema()
-                logger.info(f"SQL metadata database initialized: {self.config.sql_path}")
+                logger.info(
+                    f"SQL metadata database initialized: {self.config.sql_path}"
+                )
             except Exception as e:
-                logger.warning(f"SQL metadata unavailable: {e}. Continuing without indexing.")
+                logger.warning(
+                    f"SQL metadata unavailable: {e}. Continuing without indexing."
+                )
                 self._conn = None
                 self._available = False
         else:
             if not DUCKDB_AVAILABLE:
-                logger.debug("DuckDB package not installed. Metadata indexing disabled.")
+                logger.debug(
+                    "DuckDB package not installed. Metadata indexing disabled."
+                )
             elif not self.config.use_sql:  # pragma: no branch
-                logger.debug("SQL disabled in configuration. Metadata indexing disabled.")
+                logger.debug(
+                    "SQL disabled in configuration. Metadata indexing disabled."
+                )
             self._available = False
 
     def _connection(self) -> duckdb.DuckDBPyConnection | None:
@@ -143,11 +151,15 @@ class SQLMetadata:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_comparisons_metric ON comparisons(metric)"
         )
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_comparisons_mode ON comparisons(mode)")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_comparisons_mode ON comparisons(mode)"
+        )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_comparisons_datasets ON comparisons(dataset_i, dataset_j)"
         )
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_datasets_path ON datasets(file_path)")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_datasets_path ON datasets(file_path)"
+        )
 
         logger.debug("Database schema initialized")
 
@@ -199,7 +211,13 @@ class SQLMetadata:
                 INSERT OR REPLACE INTO datasets (id, file_path, group_path, metadata_json, created_at)
                 VALUES (?, ?, ?, ?, ?)
                 """,
-                [dataset_id, file_path_str, group_path_str, metadata_json, datetime.now(UTC)],
+                [
+                    dataset_id,
+                    file_path_str,
+                    group_path_str,
+                    metadata_json,
+                    datetime.now(UTC),
+                ],
             )
 
             logger.debug(f"Indexed dataset: {dataset_id}")
@@ -531,4 +549,3 @@ class SQLMetadata:
                 logger.debug("Failed to close DuckDB connection", exc_info=True)
         self._conn = None
         self._available = False
-

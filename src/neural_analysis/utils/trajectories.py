@@ -5,13 +5,10 @@ This module provides functions for processing and analyzing trajectory data,
 including time-based segmentation and color mapping for visualization.
 """
 
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import numpy as np
 import numpy.typing as npt
-
-if TYPE_CHECKING:
-    from numpy.typing import NDArray
 
 
 def prepare_trajectory_segments(
@@ -61,7 +58,9 @@ def prepare_trajectory_segments(
             raise ValueError("Need at least 2 points for trajectory")
 
         points2d: npt.NDArray[np.floating] = np.array([x, y]).T.reshape(-1, 1, 2)
-        segments2d: npt.NDArray[np.floating] = np.concatenate([points2d[:-1], points2d[1:]], axis=1)
+        segments2d: npt.NDArray[np.floating] = np.concatenate(
+            [points2d[:-1], points2d[1:]], axis=1
+        )
         return segments2d
     else:
         # 3D trajectory
@@ -74,13 +73,14 @@ def prepare_trajectory_segments(
             raise ValueError("Need at least 2 points for trajectory")
 
         points3d: npt.NDArray[np.floating] = np.array([x, y, z]).T.reshape(-1, 1, 3)
-        segments3d: npt.NDArray[np.floating] = np.concatenate([points3d[:-1], points3d[1:]], axis=1)
+        segments3d: npt.NDArray[np.floating] = np.concatenate(
+            [points3d[:-1], points3d[1:]], axis=1
+        )
         return segments3d
 
 
 def compute_colors(
-    n_points: int,
-    color_by: Literal["time"] | npt.NDArray[np.floating] = "time"
+    n_points: int, color_by: Literal["time"] | npt.NDArray[np.floating] = "time"
 ) -> npt.NDArray[np.floating]:
     """
     Compute color values based on specified method.

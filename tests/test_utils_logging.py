@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import tempfile
 from pathlib import Path
 
@@ -22,6 +21,7 @@ from neural_analysis.utils.logging import (
 def reset_logging_config() -> None:
     """Reset the global _CONFIGURED flag to allow reconfiguration."""
     import neural_analysis.utils.logging as logging_module
+
     logging_module._CONFIGURED = False
     # Also clear the logger handlers
     logger = logging.getLogger("neural_analysis")
@@ -69,11 +69,12 @@ class TestLevelFromEnv:
         # Non-integer attribute (covers line 62)
         # Mock getattr to return a non-int value to ensure line 62 is covered
         original_getattr = getattr
+
         def mock_getattr(obj, name, default=None):
             if obj == logging and name == "FORMATTER":
                 return "not_an_int"  # Return a string, not an int
             return original_getattr(obj, name, default)
-        
+
         monkeypatch.setenv("NEURAL_ANALYSIS_LOG_LEVEL", "Formatter")
         monkeypatch.setattr("builtins.getattr", mock_getattr)
         result = _level_from_env(logging.INFO)
@@ -109,7 +110,9 @@ class TestConfigureLogging:
         # Check that logger is configured
         assert logger is not None
 
-    def test_configure_logging_none_level(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_configure_logging_none_level(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test configure_logging with None level (covers lines 105-106)."""
         monkeypatch.delenv("NEURAL_ANALYSIS_LOG_LEVEL", raising=False)
         configure_logging(level=None)
@@ -125,15 +128,19 @@ class TestConfigureLogging:
 
             logger = get_logger("test")
             logger.info("Test message")
-            
-            # Force flush handlers
+
             for handler in logger.handlers:
                 handler.flush()
 
-            # Check file was created and has content
             assert log_file.exists()
             content = log_file.read_text()
             assert "Test message" in content
+
+            root_logger = logging.getLogger("neural_analysis")
+            for handler in list(root_logger.handlers):
+                if isinstance(handler, logging.FileHandler):
+                    handler.close()
+                    root_logger.removeHandler(handler)
 
     def test_configure_logging_already_configured(self) -> None:
         """Test configure_logging when already configured (covers lines 96-97)."""
@@ -162,11 +169,11 @@ class TestConfigureLogging:
         configure_logging(level=logging.INFO, stream=stream)
         logger = get_logger("test")
         logger.info("Test message")
-        
+
         # Force flush handlers
         for handler in logger.handlers:
             handler.flush()
-        
+
         # Check stream has content
         stream_value = stream.getvalue()
         assert "Test message" in stream_value or len(stream_value) > 0
@@ -317,4 +324,3 @@ class TestLogCalls:
         result = test_func(5)
         assert result == 10
         # Should use default level=DEBUG, timeit=True
-

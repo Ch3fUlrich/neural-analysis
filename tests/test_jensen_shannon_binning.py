@@ -142,8 +142,12 @@ class TestJensenShannonAdaptiveBinning:
             except (ValueError, MemoryError) as e:
                 # For very high dimensions, memory issues are expected
                 # This is acceptable - the adaptive binning helps but can't solve exponential growth
-                if "larger than the maximum possible size" in str(e) or isinstance(e, MemoryError):
-                    pytest.skip(f"Memory limit reached for {n_dims}D (expected for very high dimensions)")
+                if "larger than the maximum possible size" in str(e) or isinstance(
+                    e, MemoryError
+                ):
+                    pytest.skip(
+                        f"Memory limit reached for {n_dims}D (expected for very high dimensions)"
+                    )
                 raise
 
     def test_minimum_bins_guarantee(self) -> None:
@@ -164,8 +168,12 @@ class TestJensenShannonAdaptiveBinning:
                 assert 0.0 <= js <= 1.0
             except (ValueError, MemoryError) as e:
                 # For extremely high dimensions, memory issues are expected
-                if "larger than the maximum possible size" in str(e) or isinstance(e, MemoryError):
-                    pytest.skip(f"Memory limit reached for {n_dims}D (expected for very high dimensions)")
+                if "larger than the maximum possible size" in str(e) or isinstance(
+                    e, MemoryError
+                ):
+                    pytest.skip(
+                        f"Memory limit reached for {n_dims}D (expected for very high dimensions)"
+                    )
                 raise
 
     def test_relative_accuracy_preservation(self) -> None:
@@ -205,4 +213,3 @@ class TestJensenShannonAdaptiveBinning:
         # The result should still be meaningful despite bin reduction
         # (We can't directly compare to non-adaptive version due to memory constraints,
         # but we verify the result is reasonable)
-

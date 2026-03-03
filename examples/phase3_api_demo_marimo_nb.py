@@ -1,6 +1,5 @@
 import marimo
 
-
 __generated_with = "0.18.3"
 
 app = marimo.App(width="full")
@@ -8,7 +7,6 @@ app = marimo.App(width="full")
 
 @app.cell(hide_code=True)
 def __():
-
     import marimo as mo
 
     return mo
@@ -16,36 +14,18 @@ def __():
 
 @app.cell
 def _():
-    # Reload modules to pick up bug fixes
-    import importlib
-    import sys
-
-    # Remove cached modules - including ALL plotting modules
-    modules_to_remove = []
-    for mod_name in list(sys.modules.keys()):
-        if (
-            "neural_analysis.metrics" in mod_name
-            or "neural_analysis.plotting" in mod_name
-        ):
-            modules_to_remove.append(mod_name)
-
-    for mod in modules_to_remove:
-        del sys.modules[mod]
-
-    # Reimport
+    # Import metrics modules
     from neural_analysis.metrics.pairwise_metrics import (
-        compute_within_distances,
-        compute_between_distances,
         compute_all_pairs,
+        compute_between_distances,
+        compute_within_distances,
     )
-    from neural_analysis.plotting import plot_bar
 
-    print(f"✓ Reloaded {len(modules_to_remove)} modules with bug fixes!")
+    print("✓ Imports loaded!")
     return (
         compute_all_pairs,
         compute_between_distances,
         compute_within_distances,
-        sys,
     )
 
 
@@ -84,26 +64,26 @@ def _(mo):
 @app.cell
 def _():
     # Setup: Import all required modules
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from pathlib import Path
     import tempfile
     import time
-    from neural_analysis.metrics.pairwise_metrics import (
-        compare_datasets,
-        POINT_TO_POINT_METRICS,
-        DISTRIBUTION_METRICS,
-        SHAPE_METRICS,
-        ALL_METRICS,
-    )
+
+    import matplotlib.pyplot as plt
+    import numpy as np
 
     # Core metrics API
-    from neural_analysis.data.synthetic_data import generate_data
-    from neural_analysis.plotting.grid_config import (
-        PlotGrid,
-        PlotSpec,
+    from neural_analysis import generate_data
+    from neural_analysis.metrics.pairwise_metrics import (
+        ALL_METRICS,
+        DISTRIBUTION_METRICS,
+        POINT_TO_POINT_METRICS,
+        SHAPE_METRICS,
+        compare_datasets,
+    )
+    from neural_analysis.plotting import (
         GridLayoutConfig,
         PlotConfig,
+        PlotGrid,
+        PlotSpec,
     )
     from neural_analysis.utils.logging import configure_logging, get_logger
 
@@ -268,7 +248,9 @@ def _(compute_within_distances, datasets):
 
     print(f"\n✓ Tightest cluster: {tightest} ({within_results[tightest]:.4f})")
     print(f"✓ Loosest cluster: {loosest} ({within_results[loosest]:.4f})")
-    print(f"  Tightness ratio: {within_results[loosest]/within_results[tightest]:.2f}x")
+    print(
+        f"  Tightness ratio: {within_results[loosest] / within_results[tightest]:.2f}x"
+    )
     return (within_results,)
 
 
@@ -528,7 +510,9 @@ def _(
         ax_1 = (
             axes_1[0]
             if isinstance(axes_1, (list, np.ndarray))
-            else axes_1.flat[0] if hasattr(axes_1, "flat") else axes_1
+            else axes_1.flat[0]
+            if hasattr(axes_1, "flat")
+            else axes_1
         )
     elif hasattr(result_2, "gca"):
         ax_1 = result_2
@@ -702,7 +686,7 @@ def _(compute_all_pairs, generate_data, log_section, np):
     # Find most and least similar session pairs
     # Create mask to exclude diagonal (self-comparisons, which are 0.0)
     print(
-        f"Note: Diagonal elements (self-comparisons) are 0.0 and excluded from analysis"
+        "Note: Diagonal elements (self-comparisons) are 0.0 and excluded from analysis"
     )
     return
 
@@ -751,13 +735,13 @@ def _(compare_datasets, generate_data, log_section, np):
         ks_val = hypothesis_results["kolmogorov-smirnov"]
         if ks_val == 1.0:
             print(
-                f"\n  Note: KS distance = 1.0 indicates perfect separation in at least one feature."
+                "\n  Note: KS distance = 1.0 indicates perfect separation in at least one feature."
             )
             print(
-                f"        This is valid and means the distributions are completely separated"
+                "        This is valid and means the distributions are completely separated"
             )
             print(
-                f"        in at least one dimension, which is expected for different random datasets."
+                "        in at least one dimension, which is expected for different random datasets."
             )
     avg_distance = np.mean(list(hypothesis_results.values()))
     # Note about Kolmogorov-Smirnov distance
@@ -957,9 +941,8 @@ def _(mo):
 
 
 @app.cell
-def _(compute_between_distances, np, sys):
+def _(compute_between_distances, np):
     # Test shape distance property: soft-matching ≤ one-to-one ≤ procrustes
-    del sys.modules["neural_analysis.metrics"]
     np.random.seed(42)
     test_cases = {
         "Random": (np.random.randn(50, 10), np.random.randn(50, 10)),
@@ -998,10 +981,10 @@ def _(compute_between_distances, np, sys):
         )
         if not satisfies_oto_proc:
             print(
-                f"  ⚠️  One-to-One > Procrustes (should be ≤)"
+                "  ⚠️  One-to-One > Procrustes (should be ≤)"
             )  # Compute all three distances
         if not satisfies_soft_oto:
-            print(f"  ⚠️  Soft-Matching > One-to-One (should be ≤)")
+            print("  ⚠️  Soft-Matching > One-to-One (should be ≤)")
         if not satisfies_all:
             violations.append(
                 (name_2, dist_procrustes, dist_one_to_one, dist_soft_matching)
@@ -1019,17 +1002,7 @@ def _(compute_between_distances, np, sys):
 
 
 @app.cell
-def _(compute_between_distances, np, sys):
-    # Reload the module after code changes
-    modules_to_reload = [
-        "neural_analysis.metrics.distributions",
-        "neural_analysis.metrics.pairwise_metrics",
-        "neural_analysis.metrics",
-    ]
-    for mod_name_1 in modules_to_reload:
-        # Remove cached modules
-        if mod_name_1 in sys.modules:
-            del sys.modules[mod_name_1]
+def _(compute_between_distances, np):
     np.random.seed(42)
     test_cases_1 = {
         "Random": (np.random.randn(30, 5), np.random.randn(30, 5)),
@@ -1061,9 +1034,9 @@ def _(compute_between_distances, np, sys):
             f"  Soft-Matching: {soft_1:.6f}  (ratio to one-to-one: {ratio_soft_oto_1:.4f})"
         )
         if not passes_oto_proc:
-            print(f"  ⚠️  One-to-One > Procrustes")
+            print("  ⚠️  One-to-One > Procrustes")
         if not passes_soft_oto:
-            print(f"  ⚠️  Soft-Matching > One-to-One")
+            print("  ⚠️  Soft-Matching > One-to-One")
     print("\n" + "=" * 70)
     print(f"{('✅ All tests PASSED!' if all_pass else '❌ Some tests FAILED')}")
     return
@@ -1104,19 +1077,11 @@ def _(np):
 
 
 @app.cell
-def _(compare_datasets, np, sys):
+def _(compare_datasets, np):
     # Final test: One-to-One ≤ Procrustes with rotation
     import logging
 
     logging.getLogger("neural_analysis").setLevel(logging.WARNING)
-    for mod_1 in [
-        "neural_analysis.metrics.distributions",
-        "neural_analysis.metrics.pairwise_metrics",
-        "neural_analysis.metrics",
-    ]:
-        # Temporarily reduce logging
-        if mod_1 in sys.modules:
-            del sys.modules[mod_1]
     np.random.seed(123)
     n_tests = 5
     passes = 0
@@ -1146,8 +1111,8 @@ def _(compare_datasets, np, sys):
 @app.cell
 def _(compute_between_distances, np, procrustes):
     # Debug: Check the actual implementation being used
-    from scipy.spatial.distance import cdist
     from scipy.optimize import linear_sum_assignment
+    from scipy.spatial.distance import cdist
 
     d1_1 = np.random.randn(10, 3)
     d2_1 = np.random.randn(10, 3)
@@ -1191,13 +1156,13 @@ def _(cdist, linear_sum_assignment, np, procrustes):
     # Manual normalization (what one-to-one does)
     row_ind_1, col_ind_1 = linear_sum_assignment(cost_matrix_1)
     oto_distance = cost_matrix_1[row_ind_1, col_ind_1].sum()
-    print(f"\nOne-to-One (sqeuclidean, sum):")
+    print("\nOne-to-One (sqeuclidean, sum):")
     print(f"  Total distance: {oto_distance:.6f}")
     identity_distance = np.sum((m1_manual - m2_manual) ** 2)
-    print(f"\nIdentity matching (i→i):")
+    print("\nIdentity matching (i→i):")
     print(f"  Total squared distance: {identity_distance:.6f}")
     # Compute one-to-one matching on manually normalized
-    print(f"\nComparison:")
+    print("\nComparison:")
     print(f"  One-to-One / Identity: {oto_distance / identity_distance:.4f}")
     # Identity matching (what procrustes uses)
     print(
@@ -1303,12 +1268,12 @@ def _(log_section):
     print("=" * 60)
     print("PHASE 3 API DEMO - COMPLETION SUMMARY")
     print("=" * 60)
-    print(f"✓ Synthetic datasets generated: 5")
-    print(f"✓ Comparison modes demonstrated: 3 (within, between, all-pairs)")
-    print(f"✓ Metrics tested: 10+ (point-to-point, distribution, shape)")
-    print(f"✓ Real-world scenarios: 3 (treatment, sessions, hypothesis)")
-    print(f"✓ Visualizations created: 5 (PlotGrid)")
-    print(f"✓ Performance benchmarks: 5 dataset sizes")
+    print("✓ Synthetic datasets generated: 5")
+    print("✓ Comparison modes demonstrated: 3 (within, between, all-pairs)")
+    print("✓ Metrics tested: 10+ (point-to-point, distribution, shape)")
+    print("✓ Real-world scenarios: 3 (treatment, sessions, hypothesis)")
+    print("✓ Visualizations created: 5 (PlotGrid)")
+    print("✓ Performance benchmarks: 5 dataset sizes")
     print("=" * 60)
     print("\n🎉 All examples executed successfully!")
     print("📚 Next: Explore docs/COMPLETE_REFACTORING_PLAN.md for Phase 4B features")

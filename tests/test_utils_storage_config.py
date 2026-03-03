@@ -4,8 +4,6 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from neural_analysis.utils.storage.config import (
     StorageConfig,
     get_config,
@@ -119,7 +117,7 @@ class TestStorageConfig:
         """Test sql_path from environment."""
         with patch.dict(os.environ, {"NEURAL_ANALYSIS_SQL_PATH": "/tmp/test.db"}):
             config = StorageConfig()
-            assert str(config.sql_path) == "/tmp/test.db"
+            assert config.sql_path == Path("/tmp/test.db")
 
     def test_custom_sql_path(self):
         """Test custom sql_path."""
@@ -129,7 +127,9 @@ class TestStorageConfig:
 
     def test_custom_cache_settings(self):
         """Test custom cache settings."""
-        config = StorageConfig(cache_ttl=7200, cache_max_size_mb=200, cache_namespace="test")
+        config = StorageConfig(
+            cache_ttl=7200, cache_max_size_mb=200, cache_namespace="test"
+        )
         assert config.cache_ttl == 7200
         assert config.cache_max_size_mb == 200
         assert config.cache_namespace == "test"
@@ -189,6 +189,3 @@ class TestSetConfig:
         config = get_config()
         # Should create new default config
         assert config.use_redis is True
-
-
-

@@ -1,7 +1,5 @@
 """Tests for 3D plotting functions."""
 
-from unittest.mock import patch
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
@@ -190,21 +188,21 @@ class TestEdgeCases:
         # Since plotly is likely installed in the test environment,
         # we test that the module can handle both cases
         import neural_analysis.plotting.plots_3d as plots_3d_module
-        
+
         # The module should have PLOTLY_AVAILABLE set (either True or False)
         assert hasattr(plots_3d_module, "PLOTLY_AVAILABLE")
-        
+
         # If plotly is available, test that it works
         # If not available, the module should still work with matplotlib
         x = np.random.randn(20)
         y = np.random.randn(20)
         z = np.random.randn(20)
-        
+
         # Test with matplotlib backend (works regardless of plotly availability)
         ax = plots_3d_module.plot_scatter_3d(x, y, z, backend="matplotlib")
         assert ax is not None
         plt.close("all")
-        
+
         # To actually test the ImportError branch (lines 32-33), we'd need to
         # mock the import at module load time, which is complex. The branch
         # is defensive code that handles environments without plotly installed.

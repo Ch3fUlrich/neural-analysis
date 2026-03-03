@@ -45,7 +45,7 @@ class TestComputeConvexHull:
         # May return None or valid hull depending on scipy version
         # Just check it doesn't crash
         assert result is None or (isinstance(result, tuple) and len(result) == 2)
-        
+
     def test_convex_hull_exception_handling(self):
         """Test convex hull exception handling (covers lines 66-68)."""
         # Try to trigger the exception handler by using points that might cause scipy to fail
@@ -128,4 +128,3 @@ class TestComputeKDE2D:
         assert xi.max() > x.max()
         assert yi.min() < y.min()
         assert yi.max() > y.max()
-

@@ -6,31 +6,33 @@ app = marimo.App(width="full")
 
 @app.cell(hide_code=True)
 def _():
-
     import marimo as mo
+
     return mo
 
 
 @app.cell
 def _():
     # Imports
-    import numpy as np
     import matplotlib.pyplot as plt
+    import numpy as np
     from matplotlib.gridspec import GridSpec
     from sklearn.decomposition import PCA
     from sklearn.manifold import Isomap
     from umap import UMAP
 
-    from neural_analysis.data.synthetic_data import (
-        generate_place_cells,
+    from neural_analysis import (
+        generate_data,
         generate_grid_cells,
         generate_head_direction_cells,
         generate_mixed_population_flexible,
-        generate_data,
-        generate_swiss_roll,
-        generate_s_curve,
+        generate_place_cells,
         map_to_ring,
         map_to_torus,
+    )
+    from neural_analysis.data.synthetic_data import (
+        generate_s_curve,
+        generate_swiss_roll,
     )
 
     # Set random seed for reproducibility
@@ -211,14 +213,8 @@ def _(mo):
 
 @app.cell
 def _():
-    import importlib
-    import neural_analysis.data.synthetic_data as _synthetic_data_module
-    import neural_analysis.plotting.synthetic_plots as _synthetic_plots_module
-
-    importlib.reload(_synthetic_data_module)
-    importlib.reload(_synthetic_plots_module)
-    print("✅ Modules reloaded - now testing with fixed subplot order and noise")
-    return (importlib,)
+    pass
+    return ()
 
 
 @app.cell
@@ -246,7 +242,7 @@ def _(SEED_1, generate_grid_cells):
         noise_level=1,
         seed=SEED_1,
     )
-    print(f"2D Grid Cells:")
+    print("2D Grid Cells:")
     print(f"  Activity shape: {grid_2d.shape}")
     print(f"  Dimensionality: {grid_meta_2d['n_dims']}D")
     print(f"  Grid spacing: {grid_meta_2d['grid_spacing']}m")
@@ -257,10 +253,8 @@ def _(SEED_1, generate_grid_cells):
 
 
 @app.cell
-def _(importlib):
-    import neural_analysis.plotting.synthetic_plots as _synthetic_plots_module
-
-    importlib.reload(_synthetic_plots_module)
+def _():
+    pass
     return
 
 
@@ -286,7 +280,7 @@ def _(SEED_1, generate_grid_cells):
         noise_level=0.05,
         seed=SEED_1,
     )
-    print(f"3D Grid Cells:")
+    print("3D Grid Cells:")
     print(f"  Activity shape: {grid_3d.shape}")
     print(f"  Dimensionality: {grid_meta_3d['n_dims']}D")
     print(f"  Grid spacing: {grid_meta_3d['grid_spacing']}m")
@@ -315,7 +309,7 @@ def _(SEED_1, generate_head_direction_cells, np):
         seed=SEED_1,
         plot=True,
     )
-    print(f"Head Direction Cells:")
+    print("Head Direction Cells:")
     print(f"  Activity shape: {hd_activity.shape}")
     print(f"  Head direction shape: {hd_meta['head_directions'].shape}")  # 30 degrees
     print(
@@ -349,7 +343,7 @@ def _(activity_1d, map_to_ring, meta_1d):
     # Map 1D place cells to ring
     ring_coords = map_to_ring(activity_1d, meta_1d["positions"], plot=True)
 
-    print(f"Ring mapping:")
+    print("Ring mapping:")
     print(f"  Input positions: {meta_1d['positions'].shape}")
     print(f"  Ring coordinates: {ring_coords.shape}")
     print("✅ The 1D position perfectly maps to a ring (circle)!")
@@ -369,7 +363,7 @@ def _(hd_activity, hd_meta, map_to_ring):
     # Map head direction to ring
     hd_ring = map_to_ring(hd_activity, hd_meta["head_directions"], plot=True)
 
-    print(f"HD Ring mapping:")
+    print("HD Ring mapping:")
     print(f"  Input angles: {hd_meta['head_directions'].shape}")
     print(f"  Ring coordinates: {hd_ring.shape}")
     print("✅ Head direction perfectly maps to a ring (circle)!")
@@ -395,7 +389,7 @@ def _(grid_2d, grid_meta_2d, map_to_torus):
         plot=True,
     )
 
-    print(f"Torus mapping:")
+    print("Torus mapping:")
     print(f"  Input positions: {grid_meta_2d['positions'].shape}")
     print(f"  Torus coordinates: {torus_coords.shape}")
     print("✅ The 2D periodic space perfectly maps to a torus!")
@@ -521,11 +515,11 @@ def _(Isomap, PCA, SEED_1, UMAP, generate_data, np):
     _swiss_isomap = _isomap.fit_transform(swiss_roll)
     _umap = UMAP(n_components=2, n_neighbors=15, min_dist=0.1, random_state=SEED_1)
     _swiss_umap = _umap.fit_transform(swiss_roll)
-    from neural_analysis.plotting.grid_config import (
-        PlotGrid,
-        PlotSpec,
+    from neural_analysis.plotting import (
         GridLayoutConfig,
         PlotConfig,
+        PlotGrid,
+        PlotSpec,
     )
 
     _plot_specs = []
@@ -621,7 +615,6 @@ def _(
     PlotSpec,
     SEED_1,
     UMAP,
-    importlib,
     mixed_activity,
     mixed_meta,
     np,
@@ -638,9 +631,7 @@ def _(
         n_components=2, n_neighbors=15, min_dist=0.1, random_state=SEED_1
     )
     place_only_embedding = umap_place_only.fit_transform(place_only_activity)
-    import neural_analysis.plotting.grid_config as _grid_config_module
 
-    importlib.reload(_grid_config_module)
     _plot_specs = []
     trajectory_spec = PlotSpec(
         data={"x": mixed_meta["positions"][:, 0], "y": mixed_meta["positions"][:, 1]},

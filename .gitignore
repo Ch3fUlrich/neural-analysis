@@ -57,6 +57,8 @@ Thumbs.db
 # Project specific
 *.log
 *.db
+logs/
+benchmarks/latest.json
 
 # Output folders (generated files)
 output/

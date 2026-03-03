@@ -3,17 +3,25 @@
 This module centralizes logging configuration and helper utilities to reduce
 print statements and provide consistent, informative logs across the project.
 
+Supports two modes:
+
+1. **Simple mode** (default): one console handler + optional single log file.
+   Activated by calling ``configure_logging()`` or ``configure_logging(file_path=...)``
+2. **Multi-file mode**: session-scoped directory with severity-split log files.
+   Activated by calling ``configure_logging(log_root="logs")``
+
 Usage (quick start):
     from neural_analysis.utils.logging import configure_logging, get_logger
     configure_logging(level="INFO")
     log = get_logger(__name__)
     log.info("Hello logging")
 
-Best practices:
-- Do not configure the global logging in library imports. Call
-  ``configure_logging`` from your app, notebook, or tests.
-- Use ``get_logger(__name__)`` inside modules to get a namespaced logger.
-- Prefer structured key=value messages for important metrics.
+Multi-file usage:
+    from neural_analysis.utils.logging import configure_logging, get_logger, LogFileReference
+    log_dir = configure_logging(log_root="logs", capture_warnings=True)
+    print(f"Logs -> {log_dir}")
+    # Error messages can reference log files:
+    # f"See: {LogFileReference.error_log()}"
 """
 
 from __future__ import annotations
@@ -24,30 +32,70 @@ import sys
 import time
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
 
 __all__ = [
+    "LogFileReference",
     "configure_logging",
+    "get_log_dir",
     "get_logger",
-    "log_section",
-    "log_kv",
     "log_calls",
+    "log_kv",
+    "log_section",
 ]
 
 
 _CONFIGURED = False
 _LOGGER_NAME = "neural_analysis"
+_LOG_DIR: Path | None = None
+_SESSION_ID: str = ""
 
 
 @dataclass
 class LogConfig:
     level: int = logging.INFO
-    fmt: str = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+    fmt: str = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
     datefmt: str = "%Y-%m-%d %H:%M:%S"
     propagate: bool = False
     stream: Any = sys.stdout
     file_path: Path | None = None
+    console_level: int = logging.INFO
+    max_bytes_per_file: int = 10 * 1024 * 1024  # 10 MB
+    backup_count: int = 5
+
+
+class LogFileReference:
+    """Helper to generate log file references for error messages."""
+
+    @staticmethod
+    def error_log() -> str:
+        if _LOG_DIR is None:
+            return "(logging not configured — call configure_logging(log_root=...))"
+        return str(_LOG_DIR / "errors.log")
+
+    @staticmethod
+    def debug_log() -> str:
+        if _LOG_DIR is None:
+            return "(logging not configured — call configure_logging(log_root=...))"
+        return str(_LOG_DIR / "all.log")
+
+    @staticmethod
+    def session_dir() -> str:
+        if _LOG_DIR is None:
+            return "(logging not configured)"
+        return str(_LOG_DIR)
+
+
+def get_log_dir() -> Path | None:
+    """Return the current session log directory, or ``None`` if not configured."""
+    return _LOG_DIR
+
+
+def _make_session_id() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%d_%H-%M-%S")
 
 
 def _level_from_env(default: int) -> int:
@@ -72,31 +120,36 @@ def configure_logging(
     stream: Any | None = None,
     file_path: str | Path | None = None,
     propagate: bool | None = None,
-) -> None:
+    log_root: str | Path | None = None,
+    session_id: str | None = None,
+    capture_warnings: bool = False,
+    capture_print: bool = False,
+    console_level: int | str | None = None,
+    max_bytes_per_file: int = 10 * 1024 * 1024,
+    backup_count: int = 5,
+) -> Path | None:
     """Configure project-wide logging for the "neural_analysis" logger.
 
-    Parameters
-    ----------
-    level : int | str | None
-        Log level (e.g., logging.INFO or "INFO"). If None, uses env var
-        NEURAL_ANALYSIS_LOG_LEVEL or INFO.
-    fmt : str | None
-        Log message format string.
-    datefmt : str | None
-        Datetime format string.
-    stream : IO | None
-        Stream handler target (default stdout).
-    file_path : str | Path | None
-        Optional path to a log file to also write logs.
-    propagate : bool | None
-        Whether child loggers propagate to root. Default False to avoid
-        duplicate messages when used in notebooks.
+    Two modes:
+
+    * **Simple mode** — ``configure_logging()`` or
+      ``configure_logging(file_path="app.log")``
+      One console handler plus an optional single log file.
+
+    * **Multi-file mode** — ``configure_logging(log_root="logs")``.
+      Creates a session sub-directory with ``all.log``, ``info.log``,
+      ``warnings.log``, and ``errors.log``, each with rotating file
+      handlers.
+
+    Returns the session log directory (multi-file mode) or ``None``
+    (simple mode).
     """
-    global _CONFIGURED
+    global _CONFIGURED, _LOG_DIR, _SESSION_ID
     if _CONFIGURED:
-        return
+        return _LOG_DIR
 
     cfg = LogConfig()
+
     # Resolve level
     if isinstance(level, str):
         level_val = getattr(logging, level.upper(), logging.INFO)
@@ -104,6 +157,14 @@ def configure_logging(
         level_val = level
     else:
         level_val = _level_from_env(cfg.level)
+
+    # Resolve console level
+    if isinstance(console_level, str):
+        console_level_val: int = getattr(logging, console_level.upper(), logging.INFO)
+    elif isinstance(console_level, int):
+        console_level_val = console_level
+    else:
+        console_level_val = cfg.console_level
 
     fmt_val = fmt or cfg.fmt
     datefmt_val = datefmt or cfg.datefmt
@@ -113,24 +174,85 @@ def configure_logging(
     logger = logging.getLogger(_LOGGER_NAME)
     logger.setLevel(level_val)
     logger.propagate = propagate_val
-
-    # Clear existing handlers only on our named logger
     logger.handlers.clear()
 
-    stream_handler = logging.StreamHandler(stream_val)
-    stream_handler.setLevel(level_val)
-    stream_handler.setFormatter(logging.Formatter(fmt_val, datefmt=datefmt_val))
-    logger.addHandler(stream_handler)
+    formatter = logging.Formatter(fmt_val, datefmt=datefmt_val)
 
-    if file_path is not None:
+    # Console handler
+    console = logging.StreamHandler(stream_val)
+    console.setLevel(console_level_val)
+    console.setFormatter(formatter)
+    logger.addHandler(console)
+
+    # --- Multi-file mode ---
+    if log_root is not None:
+        _SESSION_ID = session_id or _make_session_id()
+        _LOG_DIR = Path(log_root) / _SESSION_ID
+        _LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+        file_configs = [
+            ("all.log", logging.DEBUG),
+            ("info.log", logging.INFO),
+            ("warnings.log", logging.WARNING),
+            ("errors.log", logging.ERROR),
+        ]
+        for filename, file_level in file_configs:
+            handler = RotatingFileHandler(
+                _LOG_DIR / filename,
+                maxBytes=max_bytes_per_file,
+                backupCount=backup_count,
+                encoding="utf-8",
+            )
+            handler.setLevel(file_level)
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+
+    # --- Simple file mode (legacy) ---
+    elif file_path is not None:
         path = Path(file_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         file_handler = logging.FileHandler(path, encoding="utf-8")
         file_handler.setLevel(level_val)
-        file_handler.setFormatter(logging.Formatter(fmt_val, datefmt=datefmt_val))
+        file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 
+    # Capture Python warnings into logging
+    if capture_warnings:
+        logging.captureWarnings(True)
+        warnings_logger = logging.getLogger("py.warnings")
+        warnings_logger.handlers = logger.handlers.copy()
+
+    # Optional: capture print() to info log
+    if capture_print:
+        sys.stdout = _PrintCapture(logger, logging.INFO, sys.stdout)
+        sys.stderr = _PrintCapture(logger, logging.ERROR, sys.stderr)
+
     _CONFIGURED = True
+    if _LOG_DIR is not None:
+        logger.info("Logging session started: %s | Logs: %s", _SESSION_ID, _LOG_DIR)
+    return _LOG_DIR
+
+
+class _PrintCapture:
+    """Stream wrapper that tees ``print()`` output to a logger."""
+
+    def __init__(
+        self, logger: logging.Logger, level_val: int, original_stream: Any
+    ) -> None:
+        self._logger = logger
+        self._level = level_val
+        self._original = original_stream
+
+    def write(self, msg: str) -> int:
+        if msg and msg.strip():
+            self._logger.log(self._level, msg.rstrip())
+        return self._original.write(msg)  # type: ignore[no-any-return]
+
+    def flush(self) -> None:
+        self._original.flush()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._original, name)
 
 
 def get_logger(name: str | None = None) -> logging.Logger:
@@ -190,6 +312,7 @@ def log_calls(
     """
 
     from functools import wraps
+
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         log = get_logger(func.__module__)
 

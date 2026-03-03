@@ -132,7 +132,9 @@ def run_with_subsampling(
                 for axis in sorted_axes:
                     idx = indexers[axis]
                     # Create indexing tuple: use idx for this axis, : for others
-                    idx_tuple: list[slice | npt.NDArray[np.int_]] = [slice(None)] * sub_arr.ndim
+                    idx_tuple: list[slice | npt.NDArray[np.int_]] = [
+                        slice(None)
+                    ] * sub_arr.ndim
                     idx_tuple[axis] = idx
                     sub_arr = sub_arr[tuple(idx_tuple)]
             sub_arrays.append(sub_arr)
@@ -145,4 +147,3 @@ def run_with_subsampling(
     values_array = np.asarray(values, dtype=float)
     metadata: dict[str, Any] = {"indices": all_indices}
     return values_array, metadata
-

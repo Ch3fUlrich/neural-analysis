@@ -220,8 +220,14 @@ def extract_cell_features(
             activity_binned = np.zeros_like(pos_binned)
             for j in range(n_samples):
                 bin_idx = tuple(
-                    int(min(n_bins - 1, (positions[j, d] - positions[:, d].min()) /
-                        (positions[:, d].max() - positions[:, d].min() + 1e-10) * n_bins))
+                    int(
+                        min(
+                            n_bins - 1,
+                            (positions[j, d] - positions[:, d].min())
+                            / (positions[:, d].max() - positions[:, d].min() + 1e-10)
+                            * n_bins,
+                        )
+                    )
                     for d in range(positions.shape[1])
                 )
                 if len(bin_idx) == 1:
@@ -252,7 +258,9 @@ def extract_cell_features(
             else:
                 # 2D+: use distance from origin
                 pos_norm = np.linalg.norm(positions - positions.mean(axis=0), axis=1)
-                pos_norm = (pos_norm - pos_norm.min()) / (pos_norm.max() - pos_norm.min() + 1e-10)
+                pos_norm = (pos_norm - pos_norm.min()) / (
+                    pos_norm.max() - pos_norm.min() + 1e-10
+                )
                 activity_proj = activity[:, i]
 
             # Compute FFT and find dominant frequency
@@ -275,7 +283,9 @@ def extract_cell_features(
             # Weight angles by activity
             weights = activity[:, i]
             if weights.sum() > 0:
-                complex_mean = np.sum(weights * np.exp(1j * head_directions)) / weights.sum()
+                complex_mean = (
+                    np.sum(weights * np.exp(1j * head_directions)) / weights.sum()
+                )
                 directional_tuning[i] = 1 - np.abs(complex_mean)
             else:
                 directional_tuning[i] = 1.0
@@ -317,15 +327,21 @@ def _get_supervised_classifier(
         case "logistic_regression":
             return LogisticRegression(max_iter=1000, **common_params)
         case "knn":
-            return KNeighborsClassifier(**{k: v for k, v in common_params.items() if k != "random_state"})
+            return KNeighborsClassifier(
+                **{k: v for k, v in common_params.items() if k != "random_state"}
+            )
         case "naive_bayes":
-            return GaussianNB(**{k: v for k, v in common_params.items() if k != "random_state"})
+            return GaussianNB(
+                **{k: v for k, v in common_params.items() if k != "random_state"}
+            )
         case "mlp":
             return MLPClassifier(max_iter=1000, **common_params)
         case "gradient_boosting":
             return GradientBoostingClassifier(**common_params)
         case "adaboost":
-            return AdaBoostClassifier(**{k: v for k, v in common_params.items() if k != "random_state"})
+            return AdaBoostClassifier(
+                **{k: v for k, v in common_params.items() if k != "random_state"}
+            )
         case _:
             raise ValueError(
                 f"Unknown supervised method: {method}. "
@@ -357,28 +373,53 @@ def _get_unsupervised_clusterer(
     match method:
         case "kmeans":
             if n_clusters is None:
-                raise ValueError("n_clusters required for kmeans")
+                raise ValueError(
+                    "Parameter 'n_clusters' is required for method 'kmeans' "
+                    "but was not provided. Pass n_clusters as a keyword argument."
+                )
             return KMeans(n_clusters=n_clusters, **common_params)
         case "dbscan":
-            return DBSCAN(**{k: v for k, v in common_params.items() if k != "random_state"})
+            return DBSCAN(
+                **{k: v for k, v in common_params.items() if k != "random_state"}
+            )
         case "agglomerative":
             if n_clusters is None:
-                raise ValueError("n_clusters required for agglomerative")
-            return AgglomerativeClustering(n_clusters=n_clusters, **{k: v for k, v in common_params.items() if k != "random_state"})
+                raise ValueError(
+                    "Parameter 'n_clusters' is required for method 'agglomerative' "
+                    "but was not provided. Pass n_clusters as a keyword argument."
+                )
+            return AgglomerativeClustering(
+                n_clusters=n_clusters,
+                **{k: v for k, v in common_params.items() if k != "random_state"},
+            )
         case "gaussian_mixture":
             if n_clusters is None:
-                raise ValueError("n_clusters required for gaussian_mixture")
+                raise ValueError(
+                    "Parameter 'n_clusters' is required for method 'gaussian_mixture' "
+                    "but was not provided. Pass n_clusters as a keyword argument."
+                )
             return GaussianMixture(n_components=n_clusters, **common_params)
         case "spectral":
             if n_clusters is None:
-                raise ValueError("n_clusters required for spectral")
+                raise ValueError(
+                    "Parameter 'n_clusters' is required for method 'spectral' "
+                    "but was not provided. Pass n_clusters as a keyword argument."
+                )
             return SpectralClustering(n_clusters=n_clusters, **common_params)
         case "birch":
             if n_clusters is None:
-                raise ValueError("n_clusters required for birch")
-            return Birch(n_clusters=n_clusters, **{k: v for k, v in common_params.items() if k != "random_state"})
+                raise ValueError(
+                    "Parameter 'n_clusters' is required for method 'birch' "
+                    "but was not provided. Pass n_clusters as a keyword argument."
+                )
+            return Birch(
+                n_clusters=n_clusters,
+                **{k: v for k, v in common_params.items() if k != "random_state"},
+            )
         case "mean_shift":
-            return MeanShift(**{k: v for k, v in common_params.items() if k != "random_state"})
+            return MeanShift(
+                **{k: v for k, v in common_params.items() if k != "random_state"}
+            )
         case _:
             raise ValueError(
                 f"Unknown unsupervised method: {method}. "
@@ -523,7 +564,9 @@ def evaluate_classifier(
 
     metrics = {
         "accuracy": float(accuracy_score(y_true, y_pred)),
-        "precision": float(precision_score(y_true, y_pred, average="macro", zero_division=0)),
+        "precision": float(
+            precision_score(y_true, y_pred, average="macro", zero_division=0)
+        ),
         "recall": float(recall_score(y_true, y_pred, average="macro", zero_division=0)),
         "f1": float(f1_score(y_true, y_pred, average="macro", zero_division=0)),
     }
@@ -531,7 +574,9 @@ def evaluate_classifier(
     if return_confusion_matrix:
         metrics["confusion_matrix"] = confusion_matrix(y_true, y_pred)
 
-    metrics["classification_report"] = classification_report(y_true, y_pred, zero_division=0)
+    metrics["classification_report"] = classification_report(
+        y_true, y_pred, zero_division=0
+    )
 
     return metrics
 
@@ -568,24 +613,16 @@ def evaluate_clustering(
 
     # Silhouette score (always computable)
     if len(np.unique(labels)) > 1:
-        metrics["silhouette_score"] = float(
-            silhouette_score(features, labels)
-        )
+        metrics["silhouette_score"] = float(silhouette_score(features, labels))
     else:
         metrics["silhouette_score"] = -1.0
 
     # External validation metrics (if true labels provided)
     if true_labels is not None:
         true_labels = np.asarray(true_labels)
-        metrics["adjusted_rand_score"] = float(
-            adjusted_rand_score(true_labels, labels)
-        )
-        metrics["homogeneity"] = float(
-            homogeneity_score(true_labels, labels)
-        )
-        metrics["completeness"] = float(
-            completeness_score(true_labels, labels)
-        )
+        metrics["adjusted_rand_score"] = float(adjusted_rand_score(true_labels, labels))
+        metrics["homogeneity"] = float(homogeneity_score(true_labels, labels))
+        metrics["completeness"] = float(completeness_score(true_labels, labels))
 
     return metrics
 
@@ -812,4 +849,3 @@ def compare_clusterers(
             results[method] = {"error": str(e)}
 
     return results
-

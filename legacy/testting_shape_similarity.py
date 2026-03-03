@@ -1,4 +1,3 @@
-
 from numpy._typing._array_like import NDArray
 from numpy import int_
 import time
@@ -12,21 +11,22 @@ from typing import Any, Callable, Dict, List, Sequence, Tuple
 import numpy as np
 import numpy.typing as npt
 
+
 def main() -> None:
     np.random.seed(42)
 
-    bins = 10 #256
-    n_samples = bins * bins          # fixed number of samples (columns)
-    neuron_range = (10, 100)     # variable number of neurons (rows)
+    bins = 10  # 256
+    n_samples = bins * bins  # fixed number of samples (columns)
+    neuron_range = (10, 100)  # variable number of neurons (rows)
     n_pairs = 20
     repeats = 10
 
     methods: list[tuple[str, dict[str, Any]]] = [
-        ("procrustes",               {}),
-        ("one-to-one",               {}),
+        ("procrustes", {}),
+        ("one-to-one", {}),
         ("soft-matching-subsampling", {"approx": False}),
-        ("soft-matching-exact",      {"approx": False}),
-        ("soft-matching-approx",     {"approx": True, "reg": 0.1}),
+        ("soft-matching-exact", {"approx": False}),
+        ("soft-matching-approx", {"approx": True, "reg": 0.1}),
     ]
 
     test_cases: list[tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]] = []

@@ -8,17 +8,15 @@ import numpy as np
 import pandas as pd
 import pytest
 
+# Import private functions for testing
 from neural_analysis.utils.io import (
+    _attr_equals,
+    _normalize_attr_value,
     load_array,
     load_hdf5,
     save_array,
     save_hdf5,
     update_array,
-)
-# Import private functions for testing
-from neural_analysis.utils.io import (
-    _normalize_attr_value,
-    _attr_equals,
 )
 
 # ============================================================================
@@ -405,23 +403,27 @@ class TestComparisonBatch:
         empty_summary = get_hdf5_result_summary(tmp_path / "nonexistent.h5")
         assert len(empty_summary) == 0
 
-    def test_get_hdf5_result_summary_exception_handling(self, tmp_path: Any, monkeypatch) -> None:
+    def test_get_hdf5_result_summary_exception_handling(
+        self, tmp_path: Any, monkeypatch
+    ) -> None:
         """Test get_hdf5_result_summary exception handling (covers lines 924-925)."""
-        from neural_analysis.utils.io import get_hdf5_result_summary
         import h5py
 
+        from neural_analysis.utils.io import get_hdf5_result_summary
+
         save_path = tmp_path / "test_exception.h5"
-        
+
         # Create a file that exists but will fail when opened
         save_path.write_bytes(b"not a valid hdf5 file")
-        
+
         # Mock h5py.File.__init__ to raise an exception
         original_init = h5py.File.__init__
+
         def mock_init(self, name, mode="r", **kwargs):
             if "exception" in str(name) or mode == "r":
-                raise IOError("Mocked file read error")
+                raise OSError("Mocked file read error")
             return original_init(self, name, mode, **kwargs)
-        
+
         monkeypatch.setattr(h5py.File, "__init__", mock_init)
 
         # This should catch the exception and return empty DataFrame
@@ -481,5 +483,3 @@ class TestAttrEquals:
         """Test _attr_equals with string conversion (covers line 125-126)."""
         assert _attr_equals(42, "42") is True
         assert _attr_equals(3.14, "3.14") is True
-
-

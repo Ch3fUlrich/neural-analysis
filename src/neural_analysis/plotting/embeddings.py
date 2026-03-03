@@ -173,7 +173,13 @@ def plot_embedding_2d(
 
     # Create plot spec
     data_dict = {"x": embedding[:, 0], "y": embedding[:, 1]}
-    label_str = None if labels is None else str(labels[0]) if hasattr(labels, '__len__') and len(labels) > 0 else None
+    label_str = (
+        None
+        if labels is None
+        else str(labels[0])
+        if hasattr(labels, "__len__") and len(labels) > 0
+        else None
+    )
     spec = PlotSpec(
         plot_type="scatter",
         title=title,
@@ -267,7 +273,13 @@ def plot_embedding_3d(
 
     # Create plot spec
     data_dict = {"x": embedding[:, 0], "y": embedding[:, 1], "z": embedding[:, 2]}
-    label_str = None if labels is None else str(labels[0]) if hasattr(labels, '__len__') and len(labels) > 0 else None
+    label_str = (
+        None
+        if labels is None
+        else str(labels[0])
+        if hasattr(labels, "__len__") and len(labels) > 0
+        else None
+    )
     spec = PlotSpec(
         plot_type="scatter3d",
         title=title,

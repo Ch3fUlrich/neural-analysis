@@ -201,6 +201,10 @@ def format_markdown_registry(registry: dict[str, list[dict[str, Any]]]) -> str:
 
 def main() -> None:
     """Main entry point."""
+    import sys
+
+    check_mode = "--check" in sys.argv
+
     # Get project root
     script_dir = Path(__file__).parent
     project_root = script_dir.parent
@@ -209,7 +213,7 @@ def main() -> None:
 
     if not neural_analysis_dir.exists():
         print(f"Error: neural_analysis directory not found: {neural_analysis_dir}")
-        return
+        sys.exit(1)
 
     print("Scanning neural_analysis package...")
     registry = generate_registry(neural_analysis_dir)
@@ -222,16 +226,30 @@ def main() -> None:
     markdown_path = docs_dir / "function_registry.md"
     markdown_content = format_markdown_registry(registry)
 
-    with open(markdown_path, "w", encoding="utf-8") as f:
-        f.write(markdown_content)
+    if check_mode:
+        if not markdown_path.exists():
+            print(
+                f"FAIL: {markdown_path} does not exist. Run without --check to generate."
+            )
+            sys.exit(1)
+        existing = markdown_path.read_text(encoding="utf-8")
+        if existing == markdown_content:
+            print("OK: function_registry.md is up to date.")
+        else:
+            print(
+                "FAIL: function_registry.md is out of date. Run without --check to regenerate."
+            )
+            sys.exit(1)
+    else:
+        with open(markdown_path, "w", encoding="utf-8") as f:
+            f.write(markdown_content)
 
-    print(f"✓ Markdown registry written to: {markdown_path}")
-    print("  (JSON format removed - only markdown is used by AI assistants)")
+        print(f"Markdown registry written to: {markdown_path}")
 
-    # Print summary by category
-    print("\nFunction Count by Module:")
-    for module_name, functions in sorted(registry.items(), key=lambda x: x[0]):
-        print(f"  {module_name}: {len(functions)} functions")
+        # Print summary by category
+        print("\nFunction Count by Module:")
+        for module_name, functions in sorted(registry.items(), key=lambda x: x[0]):
+            print(f"  {module_name}: {len(functions)} functions")
 
 
 if __name__ == "__main__":

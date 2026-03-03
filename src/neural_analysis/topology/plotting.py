@@ -178,7 +178,7 @@ def _plot_single_result(
         ax1.set_zlabel("Dim 3")  # type: ignore[attr-defined]
     elif data.shape[1] == 2:
         # 2D scatter plot
-        ax1.scatter(
+        scatter = ax1.scatter(
             data[:, 0],
             data[:, 1],
             c=labels,

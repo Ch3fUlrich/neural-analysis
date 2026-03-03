@@ -92,7 +92,8 @@ def embed_mds_pca(
         warnings.warn(
             f"Reducing mds_dim from {mds_dim} to {actual_mds_dim} "
             f"because n_samples={n_samples}",
-            UserWarning, stacklevel=2,
+            UserWarning,
+            stacklevel=2,
         )
 
     Z = embed_mds(distance_matrix, n_components=actual_mds_dim, seed=seed)

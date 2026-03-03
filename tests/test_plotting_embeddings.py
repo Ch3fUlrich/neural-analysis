@@ -226,4 +226,3 @@ class TestGroupPointsByLabels:
         assert len(groups) == 1
         assert 0 in groups
         assert groups[0].shape[0] == 10
-

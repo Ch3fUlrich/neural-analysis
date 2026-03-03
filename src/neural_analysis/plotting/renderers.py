@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 if TYPE_CHECKING:
-
     import plotly.graph_objects as go
     from numpy.typing import NDArray
 
@@ -69,12 +68,16 @@ def extract_xy_from_data(
     elif isinstance(data, np.ndarray) and data.ndim == 2 and data.shape[1] == 2:
         return data[:, 0], data[:, 1]
     else:
-        raise ValueError("data must be dict with 'x','y' keys, (n,2) array, or DataFrame")
+        raise ValueError(
+            "data must be dict with 'x','y' keys, (n,2) array, or DataFrame"
+        )
 
 
 def extract_xyz_from_data(
     data: dict[str, Any] | np.ndarray[Any, Any] | Any,
-) -> tuple[NDArray[np.floating[Any]], NDArray[np.floating[Any]], NDArray[np.floating[Any]]]:
+) -> tuple[
+    NDArray[np.floating[Any]], NDArray[np.floating[Any]], NDArray[np.floating[Any]]
+]:
     """
     Extract x, y, and z coordinates from various data formats.
 
@@ -104,7 +107,9 @@ def extract_xyz_from_data(
     elif isinstance(data, np.ndarray) and data.ndim == 2 and data.shape[1] == 3:
         return data[:, 0], data[:, 1], data[:, 2]
     else:
-        raise ValueError("data must be dict with 'x','y','z' keys, (n,3) array, or DataFrame")
+        raise ValueError(
+            "data must be dict with 'x','y','z' keys, (n,3) array, or DataFrame"
+        )
 
 
 # ==============================================================================
@@ -938,6 +943,7 @@ def render_heatmap_walls_matplotlib(
     vmax = max(vals) if vals else 1.0
 
     from matplotlib.colors import Normalize
+
     norm = Normalize(vmin=vmin, vmax=vmax)
     mapper = cm.ScalarMappable(norm=norm, cmap=cmap)
 
@@ -1000,7 +1006,9 @@ def render_heatmap_walls_matplotlib(
     # Set equal aspect ratio and viewing angle
     try:
         # Get arena size from data ranges
-        assert x_centers is not None and y_centers is not None and z_centers is not None  # Type narrowing
+        assert (
+            x_centers is not None and y_centers is not None and z_centers is not None
+        )  # Type narrowing
         x_range = x_centers[-1] - x_centers[0] if len(x_centers) > 1 else 1.0
         y_range = y_centers[-1] - y_centers[0] if len(y_centers) > 1 else 1.0
         z_range = z_centers[-1] - z_centers[0] if len(z_centers) > 1 else 1.0
@@ -1969,11 +1977,11 @@ def render_trajectory3d_plotly(
         if colorbar_label:
             colorbar_dict["title"] = colorbar_label
         marker_config_dict: dict[str, Any] = {
-                "color": colors,
-                "colorscale": cmap,
-                "showscale": colorbar,
+            "color": colors,
+            "colorscale": cmap,
+            "showscale": colorbar,
             "colorbar": colorbar_dict,
-            }
+        }
         marker_config.update(marker_config_dict)
 
     return go.Scatter3d(

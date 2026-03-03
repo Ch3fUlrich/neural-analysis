@@ -183,7 +183,9 @@ def plot_trajectory_2d(
 
 
 def plot_grouped_scatter_2d(
-    group_data: dict[str, tuple[npt.NDArray[np.floating[Any]], npt.NDArray[np.floating[Any]]]],
+    group_data: dict[
+        str, tuple[npt.NDArray[np.floating[Any]], npt.NDArray[np.floating[Any]]]
+    ],
     config: PlotConfig | None = None,
     show_hulls: bool = True,
     hull_alpha: float = 0.2,

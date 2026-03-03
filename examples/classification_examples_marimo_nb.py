@@ -1,6 +1,5 @@
 import marimo
 
-
 __generated_with = "0.18.3"
 
 app = marimo.App(width="full")
@@ -8,7 +7,6 @@ app = marimo.App(width="full")
 
 @app.cell(hide_code=True)
 def __():
-
     import marimo as mo
 
     return mo
@@ -39,16 +37,15 @@ def _(mo):
 @app.cell
 def _():
     # Imports
+    import warnings
+
     import numpy as np
     import pandas as pd
-    from pathlib import Path
-    import warnings
 
     warnings.filterwarnings("ignore")
 
     # Neural analysis imports
-    from neural_analysis.data.synthetic_data import generate_mixed_population_flexible
-    from neural_analysis.learning.classification import (
+    from neural_analysis import (
         classify_cells,
         cluster_cells,
         compare_classifiers,
@@ -56,14 +53,14 @@ def _():
         evaluate_classifier,
         evaluate_clustering,
         extract_cell_features,
-        fit_clusterer,
+        generate_mixed_population_flexible,
         train_classifier,
     )
     from neural_analysis.plotting import (
-        PlotGrid,
-        PlotSpec,
         GridLayoutConfig,
         PlotConfig,
+        PlotGrid,
+        PlotSpec,
     )
 
     # Set random seed
@@ -136,7 +133,7 @@ def _(activity, extract_cell_features, meta):
         "periodicity",
         "directional_tuning",
     ]
-    print(f"\nFeature types: {feature_names[:features.shape[1]]}")
+    print(f"\nFeature types: {feature_names[: features.shape[1]]}")
     return (features,)
 
 
@@ -512,5 +509,3 @@ def _(mo):
     """
     )
     return
-
-

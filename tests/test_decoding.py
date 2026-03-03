@@ -209,7 +209,8 @@ class TestKNNDecoder:
         errors = np.linalg.norm(decoded - test_pos, axis=1)
         assert errors.mean() < 0.35
 
-    def test_knn_different_k(self) -> None:
+    @pytest.mark.parametrize("k", [3, 5, 10, 20])
+    def test_knn_different_k(self, k: int) -> None:
         """Test k-NN with different k values."""
         activity, meta = generate_place_cells(
             n_cells=40,
@@ -222,12 +223,10 @@ class TestKNNDecoder:
         train_act, test_act = activity[:400], activity[400:]
         train_pos, test_pos = meta["positions"][:400], meta["positions"][400:]
 
-        # Test multiple k values
-        for k in [3, 5, 10, 20]:
-            decoded = knn_decoder(train_act, train_pos, test_act, k=k)
-            assert decoded.shape == test_pos.shape
-            errors = np.linalg.norm(decoded - test_pos, axis=1)
-            assert errors.mean() < 0.4, f"k={k} failed"
+        decoded = knn_decoder(train_act, train_pos, test_act, k=k)
+        assert decoded.shape == test_pos.shape
+        errors = np.linalg.norm(decoded - test_pos, axis=1)
+        assert errors.mean() < 0.4, f"k={k} failed"
 
 
 class TestCrossValidatedKNN:
@@ -293,11 +292,13 @@ class TestCrossValidatedKNN:
             plot=False,
         )
 
-        positions_1d = meta["positions"].flatten() if meta["positions"].ndim > 1 else meta["positions"]
-        
-        metrics = cross_validated_knn_decoder(
-            activity, positions_1d, k=5, n_folds=3
+        positions_1d = (
+            meta["positions"].flatten()
+            if meta["positions"].ndim > 1
+            else meta["positions"]
         )
+
+        metrics = cross_validated_knn_decoder(activity, positions_1d, k=5, n_folds=3)
 
         # Check metrics structure
         assert "mean_r2" in metrics
@@ -445,7 +446,7 @@ class TestEvaluateDecoder:
 
         train_act, test_act = activity[:350], activity[350:]
         train_pos, test_pos = meta["positions"][:350], meta["positions"][350:]
-        
+
         # Ensure positions are 1D
         train_pos_1d = train_pos.flatten() if train_pos.ndim > 1 else train_pos
         test_pos_1d = test_pos.flatten() if test_pos.ndim > 1 else test_pos
@@ -462,20 +463,28 @@ class TestEvaluateDecoder:
     def test_evaluate_decoder_1d_predictions(self) -> None:
         """Test evaluate_decoder with 1D predictions (covers line 444)."""
         from unittest.mock import patch
-        from neural_analysis.learning.decoding import evaluate_decoder, population_vector_decoder
-        
+
+        from neural_analysis.learning.decoding import (
+            evaluate_decoder,
+        )
+
         activity = np.random.rand(100, 20)
         train_act, test_act = activity[:80], activity[80:]
         train_pos_1d = np.random.rand(80)
         test_pos_1d = np.random.rand(20)
         field_centers_1d = np.random.rand(10)  # 1D field centers
-        
+
         # Mock population_vector_decoder to return 1D predictions
-        def mock_population_vector_decoder(activity, field_centers, method="weighted_average"):
+        def mock_population_vector_decoder(
+            activity, field_centers, method="weighted_average"
+        ):
             # Return 1D predictions to trigger line 444
             return np.random.rand(activity.shape[0])  # 1D array
-        
-        with patch("neural_analysis.learning.decoding.population_vector_decoder", mock_population_vector_decoder):
+
+        with patch(
+            "neural_analysis.learning.decoding.population_vector_decoder",
+            mock_population_vector_decoder,
+        ):
             metrics = evaluate_decoder(
                 train_act,
                 train_pos_1d,
@@ -485,7 +494,7 @@ class TestEvaluateDecoder:
                 field_centers=field_centers_1d,
                 method="weighted_average",
             )
-        
+
         assert "r2_score" in metrics
         assert "mse" in metrics
         assert "mean_error" in metrics

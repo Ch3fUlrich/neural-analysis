@@ -44,12 +44,15 @@ DEFAULT_COLORS = [
 
 
 def plot_bar(
-    data: dict[str, npt.NDArray[np.floating[Any]]] | list[npt.NDArray[np.floating[Any]]],
+    data: dict[str, npt.NDArray[np.floating[Any]]]
+    | list[npt.NDArray[np.floating[Any]]],
     labels: Sequence[str] | None = None,
     colors: Sequence[str] | None = None,
     orientation: Literal["v", "h"] = "v",
     config: PlotConfig | None = None,
-    backend: Literal["matplotlib", "plotly"] | None = None, **kwargs: Any) -> Any:
+    backend: Literal["matplotlib", "plotly"] | None = None,
+    **kwargs: Any,
+) -> Any:
     """
     Create a bar plot for comparing multiple groups.
 
@@ -192,13 +195,16 @@ def plot_bar(
 
 
 def plot_violin(
-    data: dict[str, npt.NDArray[np.floating[Any]]] | list[npt.NDArray[np.floating[Any]]],
+    data: dict[str, npt.NDArray[np.floating[Any]]]
+    | list[npt.NDArray[np.floating[Any]]],
     labels: Sequence[str] | None = None,
     colors: Sequence[str] | None = None,
     showmeans: bool = True,
     showmedians: bool = True,
     config: PlotConfig | None = None,
-    backend: Literal["matplotlib", "plotly"] | None = None, **kwargs: Any) -> Any:
+    backend: Literal["matplotlib", "plotly"] | None = None,
+    **kwargs: Any,
+) -> Any:
     """
     Create violin plots for comparing distributions.
 
@@ -280,12 +286,15 @@ def plot_violin(
 
 
 def plot_box(
-    data: dict[str, npt.NDArray[np.floating[Any]]] | list[npt.NDArray[np.floating[Any]]],
+    data: dict[str, npt.NDArray[np.floating[Any]]]
+    | list[npt.NDArray[np.floating[Any]]],
     labels: Sequence[str] | None = None,
     colors: Sequence[str] | None = None,
     notch: bool = False,
     config: PlotConfig | None = None,
-    backend: Literal["matplotlib", "plotly"] | None = None, **kwargs: Any) -> Any:
+    backend: Literal["matplotlib", "plotly"] | None = None,
+    **kwargs: Any,
+) -> Any:
     """
     Create box plots for comparing distributions.
 
@@ -360,7 +369,9 @@ def plot_grouped_distributions(
     colors: Sequence[str] | None = None,
     config: PlotConfig | None = None,
     layout: GridLayoutConfig | None = None,
-    backend: Literal["matplotlib", "plotly"] | None = None, **kwargs: Any) -> Any:
+    backend: Literal["matplotlib", "plotly"] | None = None,
+    **kwargs: Any,
+) -> Any:
     """
     Create multiple distribution plots grouped by category.
 
@@ -445,7 +456,9 @@ def plot_comparison_distributions(
     cols: int | None = None,
     colors: Sequence[str] | None = None,
     config: PlotConfig | None = None,
-    backend: Literal["matplotlib", "plotly"] | None = None, **kwargs: Any) -> Any:
+    backend: Literal["matplotlib", "plotly"] | None = None,
+    **kwargs: Any,
+) -> Any:
     """
     Create separate distribution plots for each group in a grid.
 

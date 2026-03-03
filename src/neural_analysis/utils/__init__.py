@@ -1,6 +1,6 @@
 """Utility subpackage for neural_analysis.
 
-This package provides IO, validation, array, preprocessing utilities, and
+This package provides IO, validation, array utilities, and
 computational functions (trajectories, geometry) used across manifold analysis,
 metrics, and plotting modules.
 """

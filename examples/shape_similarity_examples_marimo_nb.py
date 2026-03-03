@@ -39,22 +39,23 @@ def _(mo):
 @app.cell
 def _():
     # Import required libraries
+    from typing import Any
+
     import numpy as np
     import numpy.typing as npt
-    from typing import Any
 
     from neural_analysis.metrics.distributions import shape_distance
     from neural_analysis.metrics.pairwise_metrics import compare_datasets
-    from neural_analysis.plotting.shape_distance import (
-        plot_shape_distance_mds,
-        embed_mds,
-        embed_mds_pca,
-    )
     from neural_analysis.plotting import (
-        PlotGrid,
-        PlotSpec,
         GridLayoutConfig,
         PlotConfig,
+        PlotGrid,
+        PlotSpec,
+    )
+    from neural_analysis.plotting.shape_distance import (
+        embed_mds,
+        embed_mds_pca,
+        plot_shape_distance_mds,
     )
 
     # Set random seed for reproducibility
@@ -324,7 +325,6 @@ def _(distance_matrices, methods, np):
 @app.cell
 def _(GridLayoutConfig, PlotConfig, PlotGrid, PlotSpec, comparison_data, methods, np):
     # Visualize the comparison as bar plots
-    import matplotlib.pyplot as plt
 
     # Create grouped bar plot
     _x_pos_bar = np.arange(len(comparison_data["pair"]))

@@ -123,7 +123,9 @@ class TestPlotShapeDistanceMDS:
         np.fill_diagonal(distance_matrices["procrustes"], 0)
 
         labels = np.random.randint(0, 3, n_datasets)
-        fig = plot_shape_distance_mds(distance_matrices=distance_matrices, labels=labels)
+        fig = plot_shape_distance_mds(
+            distance_matrices=distance_matrices, labels=labels
+        )
         assert fig is not None
 
     def test_plot_shape_distance_mds_with_datasets(self):
@@ -172,12 +174,14 @@ class TestPlotShapeDistanceMDS:
         distance_matrices["procrustes"] = (D + D.T) / 2
         np.fill_diagonal(distance_matrices["procrustes"], 0)
 
-        fig = plot_shape_distance_mds(distance_matrices=distance_matrices, figsize=(10, 8))
+        fig = plot_shape_distance_mds(
+            distance_matrices=distance_matrices, figsize=(10, 8)
+        )
         assert fig is not None
 
     def test_plot_shape_distance_mds_labels_with_gaps(self):
         """Test plotting with labels that have gaps (covers branches 262->260, 301->299).
-        
+
         This test ensures that even if labels have gaps (e.g., [0, 0, 2, 2] missing label 1),
         the function handles it correctly. The branches 262->260 and 301->299 track the
         False path when idx.sum() == 0, which shouldn't happen with np.unique, but we
@@ -194,6 +198,7 @@ class TestPlotShapeDistanceMDS:
         # Create labels with gaps (e.g., [0, 0, 2, 2, 4, 4] - missing 1 and 3)
         # This ensures unique_labels = [0, 2, 4], and each should have matches
         labels = np.array([0, 0, 2, 2, 4, 4])
-        fig = plot_shape_distance_mds(distance_matrices=distance_matrices, labels=labels)
+        fig = plot_shape_distance_mds(
+            distance_matrices=distance_matrices, labels=labels
+        )
         assert fig is not None
-

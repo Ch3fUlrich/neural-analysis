@@ -38,16 +38,40 @@ Use these patterns for new code; do not call Matplotlib/Plotly directly except f
 
 ## 2. Concept Map
 
-| Concept        | Module / class                | Role                                      |
-|----------------|-------------------------------|-------------------------------------------|
-| Renderers      | `renderers.py`               | Backend‑specific drawing primitives       |
-| Plot specs     | `PlotSpec`                   | Description of a single panel             |
-| Grid layout    | `GridLayoutConfig`           | Rows/cols, sizing, shared axes            |
-| Plot grid      | `PlotGrid`                   | Orchestrates specs + layout               |
-| 1D plots       | `plots_1d.py`                | Histograms, bar plots, line plots         |
-| 2D plots       | `plots_2d.py`                | Scatter, heatmaps, joint plots            |
-| 3D plots       | `plots_3d.py`                | 3D scatter/surfaces (if enabled)          |
-| Helpers        | `plot_bar`, `plot_violin`,…  | Convenience functions over PlotGrid       |
+| Concept          | Module / class                  | Role                                           |
+|------------------|---------------------------------|------------------------------------------------|
+| Renderer facade  | `renderers.py`                  | Re-exports from both renderer implementations  |
+| Matplotlib       | `renderers_matplotlib.py`       | Matplotlib drawing primitives (16 plot types)  |
+| Plotly           | `renderers_plotly.py`           | Plotly drawing primitives (16 plot types)      |
+| Registry         | `grid_dispatch.py`              | `MATPLOTLIB_RENDERERS` / `PLOTLY_RENDERERS` dicts, dispatch logic |
+| Plot specs       | `PlotSpec` in `grid_config.py`  | Description of a single panel                  |
+| Grid layout      | `GridLayoutConfig`              | Rows/cols, sizing, shared axes                 |
+| Plot grid        | `PlotGrid` in `grid_config.py`  | Orchestrates specs + layout                    |
+| 1D plots         | `plots_1d.py`                   | Histograms, bar plots, line plots              |
+| 2D plots         | `plots_2d.py`                   | Scatter, heatmaps, joint plots                 |
+| 3D plots         | `plots_3d.py`                   | 3D scatter/surfaces (if enabled)               |
+| Synthetic plots  | `synthetic_plots_{1d,2d,3d}.py` | Data-type-specific visualizations              |
+| Shape distance   | `shape_distance.py`             | MDS / shape distance visualizations            |
+| Helpers          | `plot_bar`, `plot_violin`, …    | Convenience functions over PlotGrid            |
+
+### Renderer Registry Pattern
+
+Instead of if/elif chains, `grid_dispatch.py` uses dictionaries mapping `plot_type` strings to render functions:
+
+```python
+MATPLOTLIB_RENDERERS: dict[str, Callable] = {
+    "scatter": render_scatter_matplotlib,
+    "line": render_line_matplotlib,
+    ...
+}
+PLOTLY_RENDERERS: dict[str, Callable] = {
+    "scatter": render_scatter_plotly,
+    "line": render_line_plotly,
+    ...
+}
+```
+
+To add a new plot type, register a render function in both dictionaries.
 
 ---
 

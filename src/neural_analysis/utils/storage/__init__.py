@@ -259,6 +259,3 @@ class PersistentBackend(StorageBackend):
             True if save was successful, False otherwise
         """
         pass
-
-
-

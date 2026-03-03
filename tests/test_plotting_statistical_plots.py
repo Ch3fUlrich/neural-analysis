@@ -48,24 +48,27 @@ class TestPlotBar:
 
     def test_plot_bar_horizontal_matplotlib(self):
         """Test horizontal bar plot with matplotlib (covers lines 180-181)."""
-        from unittest.mock import patch, MagicMock
-        from matplotlib.figure import Figure
+        from unittest.mock import MagicMock, patch
+
         import matplotlib.pyplot as plt
-        
+        from matplotlib.figure import Figure
+
         data = {
             "Group A": np.random.randn(100),
             "Group B": np.random.randn(100) + 1,
         }
-        
+
         # Mock PlotGrid.plot() to return a Figure with axes to properly test lines 180-181
         mock_fig = plt.figure()
-        mock_ax = mock_fig.add_subplot(111)
-        
-        with patch("neural_analysis.plotting.statistical_plots.PlotGrid") as mock_grid_class:
+        mock_fig.add_subplot(111)
+
+        with patch(
+            "neural_analysis.plotting.statistical_plots.PlotGrid"
+        ) as mock_grid_class:
             mock_grid = MagicMock()
             mock_grid.plot.return_value = mock_fig  # Return Figure, not tuple
             mock_grid_class.return_value = mock_grid
-            
+
             try:
                 fig = plot_bar(
                     data,
@@ -156,23 +159,25 @@ class TestPlotBar:
 
     def test_plot_bar_plotly_horizontal(self):
         """Test horizontal bar plot with plotly backend (covers lines 127, 165-169)."""
-        from unittest.mock import patch, MagicMock
-        
+        from unittest.mock import MagicMock, patch
+
         data = {
             "Group A": np.random.randn(100),
             "Group B": np.random.randn(100) + 1,
         }
-        
+
         # Mock PlotGrid.plot() to return a plotly figure with update methods
         mock_plotly_fig = MagicMock()
         mock_plotly_fig.update_xaxes = MagicMock()
         mock_plotly_fig.update_yaxes = MagicMock()
-        
-        with patch("neural_analysis.plotting.statistical_plots.PlotGrid") as mock_grid_class:
+
+        with patch(
+            "neural_analysis.plotting.statistical_plots.PlotGrid"
+        ) as mock_grid_class:
             mock_grid = MagicMock()
             mock_grid.plot.return_value = mock_plotly_fig
             mock_grid_class.return_value = mock_grid
-            
+
             # Test horizontal orientation with labels to cover lines 165-169
             # Test with both x_label and y_label to cover all branches (166->168, 168->191)
             fig = plot_bar(
@@ -190,13 +195,13 @@ class TestPlotBar:
             mock_plotly_fig.update_yaxes.assert_called()
             # Verify update_xaxes was called for x_label (covers branch 166->168)
             mock_plotly_fig.update_xaxes.assert_called()
-            
+
             # Also test with only x_label (no y_label) to cover branch 168->191 (False branch)
             mock_plotly_fig2 = MagicMock()
             mock_plotly_fig2.update_xaxes = MagicMock()
             mock_plotly_fig2.update_yaxes = MagicMock()
             mock_grid.plot.return_value = mock_plotly_fig2
-            
+
             fig2 = plot_bar(
                 data,
                 orientation="h",
@@ -209,15 +214,15 @@ class TestPlotBar:
             # Verify update_yaxes was NOT called (y_label is None/False)
             # The first call was for tickvals, so we check it was called at least once
             # but not with title_text for y_label
-            calls = [str(call) for call in mock_plotly_fig2.update_yaxes.call_args_list]
+            [str(call) for call in mock_plotly_fig2.update_yaxes.call_args_list]
             # Should have been called for tickvals but not for title_text (since y_label is None)
-            
+
             # Test with no labels at all to ensure branch 168->191 is fully covered
             mock_plotly_fig3 = MagicMock()
             mock_plotly_fig3.update_xaxes = MagicMock()
             mock_plotly_fig3.update_yaxes = MagicMock()
             mock_grid.plot.return_value = mock_plotly_fig3
-            
+
             fig3 = plot_bar(
                 data,
                 orientation="h",

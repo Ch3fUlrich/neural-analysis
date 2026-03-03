@@ -757,7 +757,11 @@ def distribution_distance(
                 assert isinstance(result_shape, tuple)
                 dist_result, pairs_result, _meta = result_shape
                 # Extract float distance (handle both float and array when subsampling)
-                dist = float(dist_result) if isinstance(dist_result, (float, np.floating)) else float(np.mean(dist_result))
+                dist = (
+                    float(dist_result)
+                    if isinstance(dist_result, (float, np.floating))
+                    else float(np.mean(dist_result))
+                )
                 logger.info(f"Shape distance computed: {dist:.6f}")
                 # Extract pairs dict (handle both single dict and list of dicts)
                 if isinstance(pairs_result, list):
@@ -1760,7 +1764,10 @@ def shape_distance(
     ... )
     """
     if mtx1.ndim != 2 or mtx2.ndim != 2:
-        raise ValueError("Input matrices must be two-dimensional")
+        raise ValueError(
+            f"Input matrices must be two-dimensional. "
+            f"Got: mtx1.ndim={mtx1.ndim}, mtx2.ndim={mtx2.ndim}"
+        )
 
     def core_compute(
         a: npt.NDArray[np.float64],
@@ -1828,9 +1835,15 @@ def shape_distance(
 
     # With subsampling → run_with_subsampling on the distance-only wrapper
     if subsamples is None or subsample_axes is None:
-        raise ValueError("subsamples and subsample_axes must be provided when subsampling is needed")
+        raise ValueError(
+            "subsamples and subsample_axes must be provided when subsampling is needed"
+        )
     if len(subsamples) != len(subsample_axes):
-        raise ValueError("subsamples and subsample_axes must have the same length")
+        raise ValueError(
+            f"subsamples and subsample_axes must have the same length. "
+            f"Got: len(subsamples)={len(subsamples)}, "
+            f"len(subsample_axes)={len(subsample_axes)}"
+        )
 
     def distance_only(a: npt.NDArray[np.float64], b: npt.NDArray[np.float64]) -> float:
         d, _p = core_compute(a, b)

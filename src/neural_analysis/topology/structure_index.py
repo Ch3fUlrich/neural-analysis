@@ -97,6 +97,7 @@ from __future__ import annotations
 import copy
 import logging
 import warnings
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -126,6 +127,41 @@ logger = logging.getLogger(__name__)
 
 # Supported distance metrics
 DISTANCE_OPTIONS = ["euclidean", "geodesic"]
+
+
+@dataclass
+class StructureIndexConfig:
+    """Configuration for structure index computation.
+
+    Collects all keyword parameters accepted by ``compute_structure_index``
+    into a single, reusable object.  Pass an instance as the ``config``
+    argument; any additional ``**kwargs`` will override the corresponding
+    fields.
+    """
+
+    distance_metric: str = "euclidean"
+    n_neighbors: int = 15
+    num_shuffles: int = 100
+    discrete_label: bool | list[bool] = False
+    verbose: bool = False
+    radius: float | None = None
+    use_faiss: bool = True
+    save_path: str | None = None
+    dataset_name: str = "default"
+
+    def to_kwargs(self) -> dict[str, Any]:
+        """Convert config fields to a kwargs dict for ``compute_structure_index``."""
+        d: dict[str, Any] = {
+            "distance_metric": self.distance_metric,
+            "n_neighbors": self.n_neighbors,
+            "num_shuffles": self.num_shuffles,
+            "discrete_label": self.discrete_label,
+            "verbose": self.verbose,
+        }
+        if self.radius is not None:
+            d["radius"] = self.radius
+            d.pop("n_neighbors", None)
+        return d
 
 
 def validate_args_types(**decls: Any) -> Any:
@@ -402,7 +438,10 @@ def _cloud_overlap_neighbors(
         knn = NearestNeighbors(n_neighbors=k, metric="precomputed").fit(dist_mat)
         I = knn.kneighbors(return_distance=False)
     else:
-        raise ValueError(f"Unknown distance metric: {distance_metric}")
+        raise ValueError(
+            f"Unknown distance metric. Expected: {DISTANCE_OPTIONS}. "
+            f"Got: {distance_metric!r}"
+        )
 
     # Compute overlapping: fraction of neighbors belonging to other cloud
     # For cloud1, count how many neighbors belong to cloud2 (indices >= idx_sep)
@@ -463,7 +502,10 @@ def _cloud_overlap_radius(
         model_iso.fit_transform(cloud_all)
         D = model_iso.dist_matrix_
     else:
-        raise ValueError(f"Unknown distance metric: {distance_metric}")
+        raise ValueError(
+            f"Unknown distance metric. Expected: {DISTANCE_OPTIONS}. "
+            f"Got: {distance_metric!r}"
+        )
 
     I = np.argsort(D, axis=1)
     for row in range(I.shape[0]):
@@ -496,6 +538,7 @@ def compute_structure_index(
     label: npt.NDArray[Any],
     n_bins: int | list[int] = 10,
     dims: list[int] | None = None,
+    config: StructureIndexConfig | None = None,
     **kwargs: Any,
 ) -> tuple[float, tuple[Any, ...], npt.NDArray[Any], npt.NDArray[Any]]:
     """Compute structure index main function.
@@ -566,6 +609,12 @@ def compute_structure_index(
             Array containing the structure index computed for each shuffling
             iteration.
     """
+    # Merge config into kwargs (kwargs override config fields)
+    if config is not None:
+        merged = config.to_kwargs()
+        merged.update(kwargs)
+        kwargs = merged
+
     # __________________________________________________________________________
     # |                                                                        |#
     # |                        0. CHECK INPUT VALIDITY                         |#
@@ -603,13 +652,17 @@ def compute_structure_index(
 
     # v) distance_metric
     distance_metric = kwargs.get("distance_metric", "euclidean")
-    assert (
-        distance_metric in DISTANCE_OPTIONS
-    ), f"Invalid distance_metric. Choose from {DISTANCE_OPTIONS}"
+    assert distance_metric in DISTANCE_OPTIONS, (
+        f"Invalid distance_metric. Choose from {DISTANCE_OPTIONS}"
+    )
 
     # ix) n_neighbors input
     if "n_neighbors" in kwargs and "radius" in kwargs:
-        raise ValueError("Specify either n_neighbors or radius, not both")
+        raise ValueError(
+            f"Conflicting neighborhood parameters. Specify either 'n_neighbors' or "
+            f"'radius', not both. Got: n_neighbors={kwargs['n_neighbors']!r}, "
+            f"radius={kwargs['radius']!r}"
+        )
 
     if "radius" in kwargs:
         neighborhood_size = float(kwargs["radius"])
@@ -625,9 +678,9 @@ def compute_structure_index(
     if isinstance(discrete_label, bool):
         discrete_label = [discrete_label for _ in range(label.shape[1])]
     else:
-        assert all(
-            isinstance(d, bool) for d in discrete_label
-        ), "discrete_label must be bool or list of bool"
+        assert all(isinstance(d, bool) for d in discrete_label), (
+            "discrete_label must be bool or list of bool"
+        )
 
     # xi) num_shuffles input
     num_shuffles = kwargs.get("num_shuffles", 100)

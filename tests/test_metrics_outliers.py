@@ -21,37 +21,42 @@ class TestFilterOutlier:
 
     def test_filter_outlier_import_fallback(self, monkeypatch) -> None:
         """Test ImportError fallback for logging (covers lines 19-28)."""
-        import sys
         import importlib
-        
+        import sys
+
         # Save original state
         original_outliers = sys.modules.get("neural_analysis.metrics.outliers")
         original_logging = sys.modules.get("neural_analysis.utils.logging")
-        
+
         # Remove modules
-        for mod in ["neural_analysis.metrics.outliers", "neural_analysis.utils.logging"]:
+        for mod in [
+            "neural_analysis.metrics.outliers",
+            "neural_analysis.utils.logging",
+        ]:
             if mod in sys.modules:
                 del sys.modules[mod]
-        
+
         # Mock import to raise ImportError
         original_import = __import__
+
         def mock_import(name, *args, **kwargs):
             if name == "neural_analysis.utils.logging":
                 raise ImportError("Mocked import error")
             return original_import(name, *args, **kwargs)
-        
+
         monkeypatch.setattr("builtins.__import__", mock_import)
         importlib.invalidate_caches()
-        
+
         # Re-import to trigger fallback
         import neural_analysis.metrics.outliers as outliers_module
+
         importlib.reload(outliers_module)
-        
+
         # Verify fallback works
         assert hasattr(outliers_module, "get_logger")
         logger = outliers_module.get_logger("test")
         assert logger is not None
-        
+
         # Restore
         if original_outliers:
             sys.modules["neural_analysis.metrics.outliers"] = original_outliers
@@ -106,7 +111,7 @@ class TestFilterOutlier:
         assert isinstance(filtered, np.ndarray)
         # Should return all points (all kept) when n <= d
         assert filtered.shape[0] == data.shape[0]
-        
+
         # Also test with n=10, d=15 (n=10, d=15, so n < d but n >= 10)
         # This should NOT hit the n <= d condition (10 <= 15 is False)
         data2 = np.random.randn(10, 15)  # n=10, d=15, so n < d and n >= 10
@@ -141,7 +146,7 @@ class TestFilterOutlier:
     def test_filter_outlier_invalid_method(self) -> None:
         """Test filter_outlier with invalid method (covers lines 115-119)."""
         data = np.random.randn(100, 2)
-        with pytest.raises(ValueError, match="Unknown method"):
+        with pytest.raises(ValueError, match="Unknown outlier detection method"):
             filter_outlier(data, method="invalid")  # type: ignore
 
     def test_filter_outlier_zscore_fallback(self) -> None:
