@@ -28,7 +28,7 @@ except ImportError:
 
 # Test decoding module import
 try:
-    from neural_analysis import decoding
+    from neural_analysis.learning import decoding  # noqa: F401
 
     print("✓ Decoding module imported")
     print(

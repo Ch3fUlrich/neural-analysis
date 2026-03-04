@@ -116,7 +116,7 @@ def fix_notebook(notebook_path: Path) -> bool:
         return False
 
 
-def main():
+def main() -> None:
     """Fix all marimo notebooks in examples directory."""
     examples_dir = Path(__file__).parent.parent / "examples"
     notebooks = list(examples_dir.glob("*_marimo_nb.py"))

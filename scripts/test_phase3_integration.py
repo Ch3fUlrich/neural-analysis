@@ -26,7 +26,7 @@ from neural_analysis.utils import (
 )
 
 
-def test_metric_constants():
+def test_metric_constants() -> None:
     """Test that metric category constants are defined correctly."""
     print("Testing metric constants...")
 
@@ -43,7 +43,7 @@ def test_metric_constants():
     print("✅ Metric constants validated")
 
 
-def test_compute_within_distances():
+def test_compute_within_distances() -> None:
     """Test within-dataset distance computation."""
     print("\nTesting compute_within_distances...")
 
@@ -70,7 +70,7 @@ def test_compute_within_distances():
     print("✅ compute_within_distances working correctly")
 
 
-def test_compute_between_distances():
+def test_compute_between_distances() -> None:
     """Test between-dataset distance computation."""
     print("\nTesting compute_between_distances...")
 
@@ -103,7 +103,7 @@ def test_compute_between_distances():
     print("✅ compute_between_distances working correctly")
 
 
-def test_compute_all_pairs():
+def test_compute_all_pairs() -> None:
     """Test all-pairs comparison."""
     print("\nTesting compute_all_pairs...")
 
@@ -138,7 +138,7 @@ def test_compute_all_pairs():
     print("✅ compute_all_pairs working correctly")
 
 
-def test_hdf5_storage():
+def test_hdf5_storage() -> None:
     """Test HDF5 comparison storage."""
     print("\nTesting HDF5 storage...")
 
@@ -209,8 +209,7 @@ def test_hdf5_storage():
         print("✅ HDF5 storage working correctly")
 
 
-def main():
-    """Run all integration tests."""
+def main() -> None:
     print("=" * 60)
     print("Phase 3 API Integration Tests")
     print("=" * 60)

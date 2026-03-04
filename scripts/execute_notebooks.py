@@ -61,10 +61,10 @@ def execute_notebook(
     try:
         # Read notebook
         with open(notebook_path, encoding="utf-8") as f:
-            nb = nbformat.read(f, as_version=4)
+            nb = nbformat.read(f, as_version=4)  # type: ignore[no-untyped-call]
 
         # Create executor
-        ep = ExecutePreprocessor(
+        ep = ExecutePreprocessor(  # type: ignore[no-untyped-call]
             timeout=timeout,
             kernel_name="python3",
             allow_errors=allow_errors,
@@ -93,7 +93,7 @@ def execute_notebook(
         # Save the executed notebook if requested
         if save_output:
             with open(notebook_path, "w", encoding="utf-8") as f:
-                nbformat.write(nb, f)
+                nbformat.write(nb, f)  # type: ignore[no-untyped-call]
             print(f"{status}: {notebook_path.name} (saved with outputs)")
         else:
             print(f"{status}: {notebook_path.name}")

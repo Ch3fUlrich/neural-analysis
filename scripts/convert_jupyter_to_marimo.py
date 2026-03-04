@@ -433,7 +433,7 @@ def convert_jupyter_to_marimo(
     print("  - Preserved notebook structure")
 
 
-def main():
+def main() -> None:
     """Main entry point for the conversion script."""
     if len(sys.argv) < 2:
         print(
