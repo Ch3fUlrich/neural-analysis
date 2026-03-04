@@ -3,7 +3,6 @@
 Fix all marimo notebooks by removing duplicate mo imports and hidden cells.
 """
 
-import re
 from pathlib import Path
 
 
@@ -12,7 +11,6 @@ def remove_duplicate_mo_imports(content: str) -> str:
     lines = content.split("\n")
     result_lines = []
     i = 0
-    header_found = False
 
     while i < len(lines):
         # Check if this is the header mo import cell (keep this one)
@@ -32,7 +30,6 @@ def remove_duplicate_mo_imports(content: str) -> str:
                 if j < len(lines) and lines[j - 1].strip() == "return mo":
                     break
             i = j
-            header_found = True
         # Check if this is a duplicate mo import cell (remove it)
         elif (
             i + 3 < len(lines)
@@ -97,7 +94,7 @@ def remove_hidden_cells_except_header(content: str) -> str:
 def fix_notebook(notebook_path: Path) -> bool:
     """Fix a single notebook file."""
     try:
-        with open(notebook_path, "r", encoding="utf-8") as f:
+        with open(notebook_path, encoding="utf-8") as f:
             content = f.read()
 
         original_content = content

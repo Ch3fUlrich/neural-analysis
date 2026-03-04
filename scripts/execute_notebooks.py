@@ -60,7 +60,7 @@ def execute_notebook(
 
     try:
         # Read notebook
-        with open(notebook_path, "r", encoding="utf-8") as f:
+        with open(notebook_path, encoding="utf-8") as f:
             nb = nbformat.read(f, as_version=4)
 
         # Create executor

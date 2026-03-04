@@ -27,10 +27,9 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Tuple
 
 
-def extract_markdown_cells(ipynb_path: Path) -> List[Tuple[int, str]]:
+def extract_markdown_cells(ipynb_path: Path) -> list[tuple[int, str]]:
     """
     Extract all markdown cells from Jupyter notebook.
 
@@ -40,7 +39,7 @@ def extract_markdown_cells(ipynb_path: Path) -> List[Tuple[int, str]]:
     Returns:
         List of tuples (cell_index, markdown_content)
     """
-    with open(ipynb_path, "r", encoding="utf-8") as f:
+    with open(ipynb_path, encoding="utf-8") as f:
         nb = json.load(f)
 
     markdown_cells = []
@@ -165,7 +164,7 @@ def _():
 
 
 def replace_empty_cells_with_markdown(
-    content: str, markdown_cells: List[Tuple[int, str]]
+    content: str, markdown_cells: list[tuple[int, str]]
 ) -> str:
     """
     Replace empty cells in marimo notebook with markdown cells.
@@ -226,7 +225,6 @@ def remove_duplicate_mo_imports(content: str) -> str:
     lines = content.split("\n")
     result_lines = []
     i = 0
-    header_found = False
 
     while i < len(lines):
         # Check if this is the header mo import cell (keep this one)
@@ -247,7 +245,6 @@ def remove_duplicate_mo_imports(content: str) -> str:
                 if j < len(lines) and lines[j - 1].strip() == "return mo":
                     break
             i = j
-            header_found = True
         # Check if this is a duplicate mo import cell (remove it)
         elif (
             i + 3 < len(lines)
@@ -385,7 +382,7 @@ def convert_jupyter_to_marimo(
     # Step 2: Use marimo convert to create initial marimo notebook
     print("  Running marimo convert...")
     try:
-        result = subprocess.run(
+        subprocess.run(
             ["marimo", "convert", str(ipynb_path), "-o", str(output_path)],
             capture_output=True,
             text=True,
@@ -396,14 +393,14 @@ def convert_jupyter_to_marimo(
             f"marimo convert failed: {e.stderr}\n"
             "Make sure marimo is installed: pip install marimo"
         ) from e
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         raise RuntimeError(
             "marimo command not found. Install marimo: pip install marimo"
-        )
+        ) from e
 
     # Step 3: Read the converted file
     print("  Reading converted notebook...")
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         content = f.read()
 
     # Step 4: Replace the beginning with the standard structure
@@ -433,7 +430,7 @@ def convert_jupyter_to_marimo(
 
     print(f"✓ Successfully converted {ipynb_path} to {output_path}")
     print(f"  - Added {len(markdown_cells)} markdown cells")
-    print(f"  - Preserved notebook structure")
+    print("  - Preserved notebook structure")
 
 
 def main():

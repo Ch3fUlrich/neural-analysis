@@ -228,9 +228,7 @@ class TestClusterCells:
         )
         features = extract_cell_features(activity, meta)
 
-        labels = cluster_cells(
-            features, method=method, n_clusters=4, random_state=42
-        )
+        labels = cluster_cells(features, method=method, n_clusters=4, random_state=42)
         assert len(labels) == features.shape[0]
 
     @pytest.mark.parametrize(
