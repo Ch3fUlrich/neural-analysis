@@ -1,7 +1,18 @@
 #!/usr/bin/env python3
-"""Benchmark suite for neural_analysis.
+"""Benchmark suite for ``neural_analysis``.
 
-Measures wall-clock performance of key operations and writes results to JSON.
+This script exercises a representative set of core library operations and
+records wall-clock timings across multiple repeats.  Current benchmarks cover:
+
+* synthetic data generation (``generate_data``),
+* pairwise distance computation (``compute_pairwise_matrix``),
+* shape similarity via Procrustes (``shape_distance``),
+* dimensionality reduction (``compute_embedding`` using PCA), and
+* structure index calculation (``compute_structure_index``) when positional
+    metadata is available.
+
+Results are saved as a JSON array which includes mean, std, and minimum times
+for each named test.
 
 Usage:
     uv run python scripts/benchmark.py
