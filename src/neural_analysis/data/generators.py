@@ -261,7 +261,6 @@ def generate_place_cells(
             embedding_methods=["pca", "umap"],
             n_embedding_dims=2,  # Always 2D for embeddings, regardless of spatial dims
         )
-
     return activity, metadata
 
 

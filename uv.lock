@@ -1107,14 +1107,14 @@ wheels = [
 
 [[package]]
 name = "marimo"
-version = "0.18.3"
+version = "0.20.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "docutils" },
     { name = "itsdangerous" },
     { name = "jedi" },
-    { name = "loro", marker = "python_full_version >= '3.11'" },
+    { name = "loro" },
     { name = "markdown" },
     { name = "msgspec" },
     { name = "narwhals" },
@@ -1129,9 +1129,9 @@ dependencies = [
     { name = "uvicorn" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f2/87/7e01a9b61a34ce00e40b5fd1a3458ddbc648d5d9f34d7fdbc1cc19d942ee/marimo-0.18.3.tar.gz", hash = "sha256:588f227dfa04f65149dc866a62b345496fa99ecfc5a59981069faaa953adffc9", size = 37847525, upload-time = "2025-12-05T22:46:10.301Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9c/eb/3c19ce54be3440cece96bffbb2027c57d618ab336d53ef6a962f570ce468/marimo-0.20.4.tar.gz", hash = "sha256:7f46ce837953717504673e33e47fb42a619bf5f9d2000d1a3a3b1663a47c5498", size = 38336283, upload-time = "2026-03-04T01:15:13.641Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/98/bb/ab48a0d75de8c060d787a1f03c1b26d9339047c9c093de5ff7f35acea3dd/marimo-0.18.3-py3-none-any.whl", hash = "sha256:f460779189fbc6b0b1f63c735036f5d8269456d90a398157963f216fd5fd4e89", size = 38368675, upload-time = "2025-12-05T22:46:06.18Z" },
+    { url = "https://files.pythonhosted.org/packages/56/62/bf2c92cc7aab69edfb3907e9bf102c37c1e16b8f4bc6ddd4258ae4c8063c/marimo-0.20.4-py3-none-any.whl", hash = "sha256:3200edd7209f470821b58deb4a45e0577889fab1052748d77088f18bef7d9dd8", size = 38752562, upload-time = "2026-03-04T01:15:09.608Z" },
 ]
 
 [[package]]
@@ -1541,7 +1541,7 @@ requires-dist = [
     { name = "faiss-cpu", specifier = ">=1.8.0" },
     { name = "h5py", specifier = ">=3.10" },
     { name = "ipykernel", specifier = ">=6.29" },
-    { name = "marimo", specifier = ">=0.18.3" },
+    { name = "marimo", specifier = ">=0.20.2" },
     { name = "matplotlib", specifier = ">=3.7" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.18" },
     { name = "nbformat", specifier = ">=5.10" },
