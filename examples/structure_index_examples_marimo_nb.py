@@ -5,14 +5,14 @@ app = marimo.App(width="full", auto_download=["html"])
 
 
 @app.cell(hide_code=True)
-def _():
+def _():  # noqa: N803
     import marimo as mo
 
     return (mo,)
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     # Structure Index Examples
 
@@ -35,7 +35,7 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _():  # noqa: N803
     # Imports
     import warnings
     from pathlib import Path
@@ -92,7 +92,7 @@ def _():
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 1. Generate Synthetic Datasets
 
@@ -105,13 +105,13 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _():  # noqa: N803
     pass
     return
 
 
 @app.cell
-def _(generate_data):
+def _(generate_data):  # noqa: N803
     # Generate Random (control)
     random_data, random_labels = generate_data(
         "random_cells", n_samples=1000, n_features=50, noise=1.0, seed=44
@@ -120,7 +120,7 @@ def _(generate_data):
 
 
 @app.cell
-def _(plot_synthetic_data, random_data, random_labels):
+def _(plot_synthetic_data, random_data, random_labels):  # noqa: N803
     # Quick test: Visualize random cells with autocorrelation diagnostic
     # This tests the refactored _compute_2d_autocorrelation helper function
     print("Testing refactored random cell visualization...")
@@ -132,7 +132,7 @@ def _(plot_synthetic_data, random_data, random_labels):
 
 
 @app.cell
-def _(generate_data):
+def _(generate_data):  # noqa: N803
     # Clear cached modules first
     place_data, place_metadata = generate_data(
         "place_cells", n_samples=1000, n_features=50, noise=0.1, seed=42
@@ -161,7 +161,7 @@ def _(generate_data):
 
 
 @app.cell
-def _(generate_data):
+def _(generate_data):  # noqa: N803
     # Generate Head Direction Cells
     hd_data, hd_metadata = generate_data(
         "head_direction_cells", n_samples=1000, n_features=50, noise=0.1, seed=45
@@ -172,7 +172,7 @@ def _(generate_data):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## Test: Generate Random Cells with New Visualizations
 
@@ -185,7 +185,7 @@ def _(mo):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 3. Extract Position Labels
 
@@ -195,7 +195,7 @@ def _(mo):
 
 
 @app.cell
-def _(grid_metadata, hd_metadata, np, place_metadata, random_labels_1):
+def _(grid_metadata, hd_metadata, np, place_metadata, random_labels_1):  # noqa: N803
     # Extract position labels
     place_position = place_metadata["positions"]
     grid_position = grid_metadata["positions"]
@@ -223,7 +223,7 @@ def _(grid_metadata, hd_metadata, np, place_metadata, random_labels_1):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 4. Compute Structure Index - Single Parameter Set
 
@@ -361,7 +361,7 @@ def _(
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 5. Visualize Overlap Graphs
 
@@ -414,7 +414,7 @@ def _(
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 6. Compare Structure Indices
 
@@ -537,7 +537,7 @@ def _(
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 7. Parameter Sweep
 
@@ -547,7 +547,7 @@ def _(mo):
 
 
 @app.cell
-def _(compute_structure_index_sweep, place_data, place_position):
+def _(compute_structure_index_sweep, place_data, place_position):  # noqa: N803
     # Define parameter ranges
     n_neighbors_list = [10, 15, 20, 25]
     n_bins_list = [8, 10, 12, 15]
@@ -657,7 +657,7 @@ def _(
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 8. Load and Analyze Parameter Sweep Results
     """)
@@ -665,7 +665,7 @@ def _(mo):
 
 
 @app.cell
-def _(get_hdf5_result_summary):
+def _(get_hdf5_result_summary):  # noqa: N803
     # Load summary of all results
     df_summary = get_hdf5_result_summary("output/structure_indices.h5")
 
@@ -678,7 +678,7 @@ def _(get_hdf5_result_summary):
 
 
 @app.cell
-def _(df_summary):
+def _(df_summary):  # noqa: N803
     # Display statistics by dataset
     print("\nStructure Index Statistics by Dataset:")
     print(df_summary.groupby("dataset_name")["SI"].describe())
@@ -692,7 +692,7 @@ def _(df_summary):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 9. Visualize Parameter Effects
     """)
@@ -700,7 +700,7 @@ def _(mo):
 
 
 @app.cell
-def _(df_summary, plt):
+def _(df_summary, plt):  # noqa: N803
     # Create heatmaps for each dataset
     _fig, _axes = plt.subplots(1, 4, figsize=(20, 4))
     for _idx, (_dataset_name, _color) in enumerate(
@@ -748,7 +748,7 @@ def _(df_summary, plt):
 
 
 @app.cell
-def _(df_summary, plt):
+def _(df_summary, plt):  # noqa: N803
     # Line plots showing parameter effects
     _fig, _axes = plt.subplots(2, 2, figsize=(14, 10))
     for _dataset_name, _color, label in [
@@ -870,7 +870,7 @@ def _(df_summary, plt):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 10. Load Specific Results from HDF5
     """)
@@ -878,7 +878,7 @@ def _(mo):
 
 
 @app.cell
-def _(load_results_from_hdf5_dataset):
+def _(load_results_from_hdf5_dataset):  # noqa: N803
     # Load specific parameter combination for place cells
     results_loaded = load_results_from_hdf5_dataset(
         "output/structure_indices.h5",
@@ -903,7 +903,7 @@ def _(load_results_from_hdf5_dataset):
 
 
 @app.cell
-def _(draw_overlap_graph, plt, result_data):
+def _(draw_overlap_graph, plt, result_data):  # noqa: N803
     # Extract and visualize loaded overlap matrix
     loaded_overlap = result_data["arrays"]["overlap_matrix"]
     loaded_si = result_data["attributes"]["structure_index"]
@@ -922,7 +922,7 @@ def _(draw_overlap_graph, plt, result_data):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## Summary
 
@@ -952,7 +952,7 @@ def _(mo):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     # Part 2: Distribution Comparisons and Shape Metrics
 
@@ -962,7 +962,7 @@ def _(mo):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 11. Distribution Comparisons - Activity Distributions
 
@@ -1000,7 +1000,7 @@ def _(
 
 
 @app.cell
-def _(df_dist, metrics, np, plt):
+def _(df_dist, metrics, np, plt):  # noqa: N803
     # Visualize distribution comparisons
     _fig, _axes = plt.subplots(1, 3, figsize=(16, 5))
     for _idx, _metric in enumerate(metrics):
@@ -1050,7 +1050,7 @@ def _(df_dist, metrics, np, plt):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 12. Shape Similarity Metrics
 
@@ -1060,7 +1060,7 @@ def _(mo):
 
 
 @app.cell
-def _(data_dict, pairwise_distribution_comparison_batch):
+def _(data_dict, pairwise_distribution_comparison_batch):  # noqa: N803
     # Shape metrics with parameters
     # All three methods are now enabled and tested
     shape_metrics = {
@@ -1086,7 +1086,7 @@ def _(data_dict, pairwise_distribution_comparison_batch):
 
 
 @app.cell
-def _(df_shape, np, plt):
+def _(df_shape, np, plt):  # noqa: N803
     # Visualize shape metrics
     _fig, _axes = plt.subplots(1, 3, figsize=(16, 5))
     _datasets = ["place_cells", "grid_cells", "random"]
@@ -1147,7 +1147,7 @@ def _(df_shape, np, plt):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 13. Dimensionality Reduction and Embeddings
 
@@ -1157,7 +1157,7 @@ def _(mo):
 
 
 @app.cell
-def _(compute_embedding, data_dict):
+def _(compute_embedding, data_dict):  # noqa: N803
     # Compute embeddings for each dataset
     embeddings = {}
     methods = ["pca", "umap"]
@@ -1228,7 +1228,7 @@ def _(
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 14. Compare Embedding Spaces with Shape Metrics
 
@@ -1238,7 +1238,7 @@ def _(mo):
 
 
 @app.cell
-def _(data_dict, embeddings, pairwise_distribution_comparison_batch):
+def _(data_dict, embeddings, pairwise_distribution_comparison_batch):  # noqa: N803
     # Compare PCA embeddings
     pca_embeddings = {name: embeddings[name]["pca"] for name in data_dict.keys()}
 
@@ -1261,7 +1261,7 @@ def _(data_dict, embeddings, pairwise_distribution_comparison_batch):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 15. Comprehensive Comparison Summary
 
@@ -1271,7 +1271,7 @@ def _(mo):
 
 
 @app.cell
-def _(get_hdf5_result_summary):
+def _(get_hdf5_result_summary):  # noqa: N803
     # Load all comparison results using get_hdf5_result_summary
     df_all_comparisons = get_hdf5_result_summary("output/distribution_comparisons.h5")
 
@@ -1302,7 +1302,7 @@ def _(get_hdf5_result_summary):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 16. Relationship Between Structure Index and Distribution Distances
 
@@ -1312,7 +1312,7 @@ def _(mo):
 
 
 @app.cell
-def _(SI_grid, SI_place, SI_random, df_all_comparisons, np, pd):
+def _(SI_grid, SI_place, SI_random, df_all_comparisons, np, pd):  # noqa: N803
     # Create combined analysis
     dataset_metrics = pd.DataFrame(
         {
@@ -1348,7 +1348,7 @@ def _(SI_grid, SI_place, SI_random, df_all_comparisons, np, pd):
 
 
 @app.cell
-def _(dataset_metrics, np, plt):
+def _(dataset_metrics, np, plt):  # noqa: N803
     # Visualize relationship
     _fig, _axes = plt.subplots(1, 3, figsize=(16, 5))
     metrics_to_plot = ["avg_wasserstein", "avg_euclidean", "avg_procrustes"]
@@ -1402,7 +1402,7 @@ def _(dataset_metrics, np, plt):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## Final Summary
 

@@ -240,7 +240,7 @@ class RedisCache:
 
         try:
             cache_key = self._namespaced_key(key)
-            deleted = cast("int", client.delete(cache_key))
+            deleted = client.delete(cache_key)
             if deleted:
                 logger.debug(f"Deleted from cache: {key}")
             return bool(deleted)
@@ -272,7 +272,7 @@ class RedisCache:
                 return 0
 
             deleted_raw = client.delete(*keys)
-            deleted = cast("int", deleted_raw)
+            deleted = int(deleted_raw)
             logger.info(
                 f"Invalidated {deleted} cache entries matching pattern: {pattern}"
             )

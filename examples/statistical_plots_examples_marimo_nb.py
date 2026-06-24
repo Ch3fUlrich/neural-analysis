@@ -13,7 +13,7 @@ def __():
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     # Statistical Plotting Examples
 
@@ -33,7 +33,7 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _():  # noqa: N803
     # Import packages
     import matplotlib.pyplot as plt
     import numpy as np
@@ -62,7 +62,7 @@ def _():
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 1. Bar Plots with `plot_bar()`
 
@@ -72,7 +72,7 @@ def _(mo):
 
 
 @app.cell
-def _(PlotConfig, np, plot_bar):
+def _(PlotConfig, np, plot_bar):  # noqa: N803
     # Simulate neural firing rates across conditions
     conditions = {
         "Baseline": np.random.randn(30) * 5 + 20,
@@ -109,7 +109,7 @@ def _(PlotConfig, np, plot_bar):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 2. Enhanced Violin Plots with `plot_violin()`
 
@@ -122,7 +122,7 @@ def _(mo):
 
 
 @app.cell
-def _(PlotConfig, np, plot_violin, plt):
+def _(PlotConfig, np, plot_violin, plt):  # noqa: N803
     # Simulate response latencies across different neuron types
     neuron_types = {
         "Pyramidal": np.random.gamma(3, 2, 50),
@@ -166,7 +166,7 @@ def _(PlotConfig, np, plot_violin, plt):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 3. Box Plots with `plot_box()`
 
@@ -176,7 +176,7 @@ def _(mo):
 
 
 @app.cell
-def _(PlotConfig, np, plot_box, plt):
+def _(PlotConfig, np, plot_box, plt):  # noqa: N803
     # Simulate spike counts across different recording sessions
     sessions = {
         "Session 1": np.random.poisson(15, 40),
@@ -214,7 +214,7 @@ def _(PlotConfig, np, plot_box, plt):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 4. Grouped Distributions with `plot_grouped_distributions()`
 
@@ -224,7 +224,7 @@ def _(mo):
 
 
 @app.cell
-def _(PlotConfig, np, plot_grouped_distributions):
+def _(PlotConfig, np, plot_grouped_distributions):  # noqa: N803
     # Simulate neural activity for different brain regions and conditions
     data_grouped = {
         "Visual Cortex": {
@@ -272,7 +272,7 @@ def _(PlotConfig, np, plot_grouped_distributions):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 5. Comparison Grid with `plot_comparison_distributions()`
 
@@ -282,7 +282,7 @@ def _(mo):
 
 
 @app.cell
-def _(PlotConfig, np, plot_comparison_distributions):
+def _(PlotConfig, np, plot_comparison_distributions):  # noqa: N803
     # Simulate trial-by-trial variability for different experimental conditions
     trial_data = {
         "Pre-Training": {
@@ -335,7 +335,7 @@ def _(PlotConfig, np, plot_comparison_distributions):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## 6. Advanced Example: Combined Analysis
 
@@ -345,7 +345,7 @@ def _(mo):
 
 
 @app.cell
-def _(PlotConfig, np):
+def _(PlotConfig, np):  # noqa: N803
     from neural_analysis.plotting import GridLayoutConfig, PlotGrid, PlotSpec
 
     np.random.seed(123)
@@ -420,7 +420,7 @@ def _(PlotConfig, np):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## Summary
 

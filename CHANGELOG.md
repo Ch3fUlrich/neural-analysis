@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Migrated legacy `Manimeasure.py` embedding functions into `src/neural_analysis/embeddings/`
+- Migrated legacy `Manimeasure.py` decoding functions into `src/neural_analysis/decoding/`
+- Added `examples/decoding_demo_marimo_nb.py` for demonstrating decoding usage
+
+### Fixed
+- Fixed bug in decoding logic causing indexing out-of-bounds due to continuous label dimensional casting
+- Resolved mock issues in `test_storage_redis.py` tests
+- Fixed numerous linting issues across Marimo notebooks to pass `make check`
+
+### Added
 - `run_analysis()` pipeline for end-to-end generate → embed → decode → SI workflow
 - `PipelineConfig` and `PipelineResult` dataclasses
 - `StructureIndexConfig` dataclass for structured configuration

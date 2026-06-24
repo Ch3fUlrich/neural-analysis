@@ -13,7 +13,7 @@ def __():
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     # Storage Demo
 
@@ -23,7 +23,7 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _():  # noqa: N803
     import gc
     from pathlib import Path
     from time import perf_counter
@@ -159,7 +159,7 @@ def _(
 
 
 @app.cell
-def _(StorageConfig, bench_configs, output_dir, pd, run_benchmark, set_config):
+def _(StorageConfig, bench_configs, output_dir, pd, run_benchmark, set_config):  # noqa: N803
     BENCHMARK_RUNS = 3
     records = []
     for label, use_cache, use_sql, description in bench_configs:
@@ -211,7 +211,7 @@ def _(StorageConfig, bench_configs, output_dir, pd, run_benchmark, set_config):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ### Recommended configuration
 
@@ -225,14 +225,14 @@ def _(mo):
 
 
 @app.cell
-def _(best_path, get_hdf5_result_summary):
+def _(best_path, get_hdf5_result_summary):  # noqa: N803
     best_summary = get_hdf5_result_summary(best_path)
     best_summary[["dataset_i", "dataset_j", "metric", "value"]].head()
     return
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## Automatic Orchestration & Cache Speedup
 
@@ -242,7 +242,7 @@ def _(mo):
 
 
 @app.cell
-def _(best_path, gc, get_hdf5_result_summary, perf_counter):
+def _(best_path, gc, get_hdf5_result_summary, perf_counter):  # noqa: N803
     _recommended_use_cache = True
     if _recommended_use_cache:
         from neural_analysis.utils.storage.manager import StorageManager
@@ -285,7 +285,7 @@ def _(best_path, gc, get_hdf5_result_summary, perf_counter):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ### Persistence Across Kernel Restarts
 
@@ -304,7 +304,7 @@ def _(mo):
 
 
 @app.cell
-def _(best_path, get_hdf5_result_summary):
+def _(best_path, get_hdf5_result_summary):  # noqa: N803
     summary = get_hdf5_result_summary(best_path)
     summary["value"].describe()
     return

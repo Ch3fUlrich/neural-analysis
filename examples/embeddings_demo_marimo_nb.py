@@ -39,8 +39,7 @@ def _():
 
     from neural_analysis.embeddings import (
         compute_embedding,
-        compute_multiple_embeddings,
-        pca_explained_variance,
+        plot_multiple_embeddings,
     )
     from neural_analysis.plotting import (
         GridLayoutConfig,
@@ -57,11 +56,11 @@ def _():
         PlotGrid,
         PlotSpec,
         compute_embedding,
-        compute_multiple_embeddings,
+        plot_multiple_embeddings,
         make_s_curve,
         make_swiss_roll,
         np,
-        pca_explained_variance,
+
         plt,
     )
 
@@ -319,10 +318,10 @@ def _(mo):
 
 
 @app.cell
-def _(compute_multiple_embeddings, swiss_roll):
+def _(plot_multiple_embeddings, swiss_roll):
     # Compute multiple embeddings
     methods = ["pca", "tsne", "mds", "isomap"]
-    embeddings = compute_multiple_embeddings(
+    embeddings = plot_multiple_embeddings(
         swiss_roll, methods=methods, n_components=2, random_state=42
     )
 
@@ -538,12 +537,12 @@ def _(mo):
 
 
 @app.cell
-def _(compute_multiple_embeddings, make_s_curve):
+def _(plot_multiple_embeddings, make_s_curve):
     # Generate S-curve manifold
     s_curve, s_color = make_s_curve(n_samples=1000, noise=0.1, random_state=42)
 
     # Compare methods on S-curve
-    s_embeddings = compute_multiple_embeddings(
+    s_embeddings = plot_multiple_embeddings(
         s_curve,
         methods=["pca", "isomap", "lle"],
         n_components=2,
@@ -599,7 +598,7 @@ def _(mo):
 
     This notebook demonstrated:
     1. ✅ Computing single embeddings with `compute_embedding()`
-    2. ✅ Batch comparison with `compute_multiple_embeddings()`
+    2. ✅ Batch comparison with `plot_multiple_embeddings()`
     3. ✅ Variance analysis with `pca_explained_variance()`
     4. ✅ Visualization using PlotGrid system
     5. ✅ 2D and 3D embeddings
