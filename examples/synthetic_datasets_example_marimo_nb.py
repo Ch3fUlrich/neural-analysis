@@ -5,14 +5,14 @@ app = marimo.App(width="full")
 
 
 @app.cell(hide_code=True)
-def _():
+def _():  # noqa: N803
     import marimo as mo
 
     return (mo,)
 
 
 @app.cell
-def _():
+def _():  # noqa: N803
     # Imports
     import matplotlib.pyplot as plt
     import numpy as np
@@ -44,7 +44,7 @@ def _():
     print(f"Random seed: {SEED}")
     return (
         GridSpec,
-        Isomap,
+        Isomap, # noqa: N803
         PCA,
         SEED,
         UMAP,
@@ -63,7 +63,7 @@ def _():
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     # Synthetic Dataset Generation for Neural Analysis
 
@@ -82,7 +82,7 @@ def _(mo):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## Part 1: Neural Data - Place Cells in Multiple Dimensions
 
@@ -92,7 +92,7 @@ def _(mo):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ### 1D Place Cells (Linear Track)
 
@@ -102,7 +102,7 @@ def _(mo):
 
 
 @app.cell
-def _(SEED, generate_place_cells):
+def _(SEED, generate_place_cells):  # noqa: N803
     # Generate 1D place cells
     activity_1d, meta_1d = generate_place_cells(
         n_cells=30,
@@ -117,7 +117,7 @@ def _(SEED, generate_place_cells):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ### 2D Place Cells (Open Field)
 
@@ -127,7 +127,7 @@ def _(mo):
 
 
 @app.cell
-def _(SEED, generate_place_cells):
+def _(SEED, generate_place_cells):  # noqa: N803
     # Generate 2D place cells
     activity_2d, meta_2d = generate_place_cells(
         n_cells=50,
@@ -142,7 +142,7 @@ def _(SEED, generate_place_cells):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ### 3D Place Cells (Volumetric Space)
 
@@ -152,7 +152,7 @@ def _(mo):
 
 
 @app.cell
-def _(SEED, generate_place_cells):
+def _(SEED, generate_place_cells):  # noqa: N803
     # Generate 3D place cells
     activity_3d, meta_3d = generate_place_cells(
         n_cells=40,
@@ -167,7 +167,7 @@ def _(SEED, generate_place_cells):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## Part 2: Grid Cells in Multiple Dimensions
 
@@ -177,7 +177,7 @@ def _(mo):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ### 1D Grid Cells
 
@@ -187,7 +187,7 @@ def _(mo):
 
 
 @app.cell
-def _(SEED, generate_grid_cells):
+def _(SEED, generate_grid_cells):  # noqa: N803
     # Generate 1D grid cells
     grid_1d, grid_meta_1d = generate_grid_cells(
         n_cells=20,
@@ -202,7 +202,7 @@ def _(SEED, generate_grid_cells):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ### 2D Grid Cells - Hexagonal Pattern
 
@@ -212,13 +212,13 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _():  # noqa: N803
     pass
     return
 
 
 @app.cell
-def _(np):
+def _(np):  # noqa: N803
     # Imports
     SEED_1 = 42
     np.random.seed(SEED_1)
@@ -230,7 +230,7 @@ def _(np):
 
 
 @app.cell
-def _(SEED_1, generate_grid_cells):
+def _(SEED_1, generate_grid_cells):  # noqa: N803
     # Generate 2D grid cells
     grid_2d, grid_meta_2d = generate_grid_cells(
         n_cells=30,
@@ -253,13 +253,13 @@ def _(SEED_1, generate_grid_cells):
 
 
 @app.cell
-def _():
+def _():  # noqa: N803
     pass
     return
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ### 3D Grid Cells
 
@@ -269,7 +269,7 @@ def _(mo):
 
 
 @app.cell
-def _(SEED_1, generate_grid_cells):
+def _(SEED_1, generate_grid_cells):  # noqa: N803
     # Generate 3D grid cells
     grid_3d, grid_meta_3d = generate_grid_cells(
         n_cells=20,
@@ -288,7 +288,7 @@ def _(SEED_1, generate_grid_cells):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## Part 3: Head Direction Cells
 
@@ -298,7 +298,7 @@ def _(mo):
 
 
 @app.cell
-def _(SEED_1, generate_head_direction_cells, np):
+def _(SEED_1, generate_head_direction_cells, np):  # noqa: N803
     # Generate head direction cells
     hd_activity, hd_meta = generate_head_direction_cells(
         n_cells=40,
@@ -319,7 +319,7 @@ def _(SEED_1, generate_head_direction_cells, np):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## Part 4: Manifold Mappings
 
@@ -331,7 +331,7 @@ def _(mo):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ### Map Place Cells to Ring (1D → 2D Circle)
     """)
@@ -339,7 +339,7 @@ def _(mo):
 
 
 @app.cell
-def _(activity_1d, map_to_ring, meta_1d):
+def _(activity_1d, map_to_ring, meta_1d):  # noqa: N803
     # Map 1D place cells to ring
     ring_coords = map_to_ring(activity_1d, meta_1d["positions"], plot=True)
 
@@ -351,7 +351,7 @@ def _(activity_1d, map_to_ring, meta_1d):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ### Map Head Direction Cells to Ring
     """)
@@ -359,7 +359,7 @@ def _(mo):
 
 
 @app.cell
-def _(hd_activity, hd_meta, map_to_ring):
+def _(hd_activity, hd_meta, map_to_ring):  # noqa: N803
     # Map head direction to ring
     hd_ring = map_to_ring(hd_activity, hd_meta["head_directions"], plot=True)
 
@@ -371,7 +371,7 @@ def _(hd_activity, hd_meta, map_to_ring):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ### Map Grid Cells to Torus (2D → 3D Torus)
     """)
@@ -379,7 +379,7 @@ def _(mo):
 
 
 @app.cell
-def _(grid_2d, grid_meta_2d, map_to_torus):
+def _(grid_2d, grid_meta_2d, map_to_torus):  # noqa: N803
     # Map 2D grid cells to torus
     torus_coords = map_to_torus(
         grid_2d,
@@ -397,7 +397,7 @@ def _(grid_2d, grid_meta_2d, map_to_torus):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## Part 5: Mixed Neural Populations
 
@@ -407,7 +407,7 @@ def _(mo):
 
 
 @app.cell
-def _(SEED_1, generate_mixed_population_flexible, np):
+def _(SEED_1, generate_mixed_population_flexible, np):  # noqa: N803
     # Define cell configuration
     cell_config = {
         "place": {"n_cells": 60, "field_size": 0.18, "noise_level": 0.08},
@@ -427,7 +427,7 @@ def _(SEED_1, generate_mixed_population_flexible, np):
 
 
 @app.cell
-def _(SEED_1, generate_mixed_population_flexible, np):
+def _(SEED_1, generate_mixed_population_flexible, np):  # noqa: N803
     # Test with random cells added to the configuration
     cell_config_with_random = {
         "place": {"n_cells": 30, "field_size": 0.18, "noise_level": 0.08},
@@ -456,7 +456,7 @@ def _(SEED_1, generate_mixed_population_flexible, np):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## Part 6: Embedding Quality - Perfect vs. Noisy vs. Mixed
 
@@ -466,7 +466,7 @@ def _(mo):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ### Perfect Place Cell Embeddings
 
@@ -476,7 +476,7 @@ def _(mo):
 
 
 @app.cell
-def _(SEED_1, UMAP, generate_place_cells):
+def _(SEED_1, UMAP, generate_place_cells):  # noqa: N803
     # Generate perfect (noise-free) place cells for 2D
     perfect_activity, perfect_meta = generate_place_cells(
         n_cells=80,
@@ -496,7 +496,7 @@ def _(SEED_1, UMAP, generate_place_cells):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ### Noisy Place Cell Embeddings
 
@@ -506,7 +506,7 @@ def _(mo):
 
 
 @app.cell
-def _(Isomap, PCA, SEED_1, UMAP, generate_data, np):
+def _(Isomap, PCA, SEED_1, UMAP, generate_data, np):  # noqa: N803
     print("Applying dimensionality reduction to Swiss Roll...")
     swiss_roll, swiss_colors = generate_data("swiss_roll", n_samples=1000, noise=0.1)
     _pca = PCA(n_components=2, random_state=SEED_1)
@@ -597,7 +597,7 @@ def _(Isomap, PCA, SEED_1, UMAP, generate_data, np):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ### Mixed Population Embeddings
 
@@ -795,7 +795,7 @@ def _(
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## Part 7: sklearn Manifold Datasets
 
@@ -932,7 +932,7 @@ def _(
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ### Apply Dimensionality Reduction to sklearn Datasets
 
@@ -942,7 +942,7 @@ def _(mo):
 
 
 @app.cell
-def _(Isomap, PCA, SEED_1, UMAP, plt, swiss_colors_1, swiss_roll_1):
+def _(Isomap, PCA, SEED_1, UMAP, plt, swiss_colors_1, swiss_roll_1):  # noqa: N803
     print("Applying dimensionality reduction to Swiss Roll...")
     _pca = PCA(n_components=2, random_state=SEED_1)
     _swiss_pca = _pca.fit_transform(swiss_roll_1)
@@ -1016,7 +1016,7 @@ def _(Isomap, PCA, SEED_1, UMAP, plt, swiss_colors_1, swiss_roll_1):
 
 
 @app.cell
-def _(mo):
+def _(mo):  # noqa: N803
     mo.md(r"""
     ## Summary and Key Takeaways
 
