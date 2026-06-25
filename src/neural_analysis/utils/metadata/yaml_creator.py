@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 """
 YAML Metadata Creator Module
 
@@ -60,13 +62,13 @@ import copy
 import shutil
 from datetime import datetime
 from openpyxl import load_workbook, Workbook
+from neural_analysis.utils.file_management.paths import get_directories, get_files
 import re
 import numpy as np
 import h5py
 
 module_path = os.path.abspath(os.path.join("../"))
 sys.path.append(module_path)
-from Helper import *
 
 # Filename for manually edited animal summary YAML files
 manually_eddited_animals_yaml_fname = "animal_summary.yaml"
