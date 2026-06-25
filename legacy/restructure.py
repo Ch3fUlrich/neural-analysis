@@ -1,8 +1,3 @@
-import re
-import logging
-logger = logging.getLogger(__name__)
-from neural_analysis.utils.common.datetime_utils import extract_date_from_filename, num_to_date
-from neural_analysis.utils.file_management.paths import init_path_checks, search_filedir, regex_search
 """
 Data Restructuring Module
 
@@ -49,6 +44,7 @@ Dependencies:
     - Helper: Custom helper functions for file operations
 
 Example:
+    >>> from restructure import restructure_animal_dirs
     >>>
     >>> # Restructure all animals in a directory
     >>> restructure_animal_dirs(
@@ -70,6 +66,14 @@ from typing import Union, Dict
 from pathlib import Path
 import numpy as np
 from tqdm import tqdm
+from Helper import (
+    init_path_checks,
+    extract_date_from_filename,
+    num_to_date,
+    global_logger,
+    search_filedir,
+    regex_search,
+)
 import shutil
 
 # Naming patterns for different folder types
@@ -156,7 +160,7 @@ def move_file_to_folder(fname: Union[str, Path], folder: Union[str, Path]) -> No
         folder.mkdir(parents=True, exist_ok=True)
     new_path = folder / fname.name
     fname.rename(new_path)
-    logger.info(f"Moved {fname} to {new_path}")
+    global_logger.info(f"Moved {fname} to {new_path}")
 
 
 def move_task_into_date_folder(task_dir: Union[str, Path], date: str = None) -> None:
@@ -343,7 +347,7 @@ def restructure_animal_dir(
         for date_folder in folders:
             date = num_to_date(date_folder.name)
             if date is None:
-                logger.warning(
+                global_logger.warning(
                     f"Folder {date_folder} in {animal_dir} is not a valid date. Skipping."
                 )
             else:
