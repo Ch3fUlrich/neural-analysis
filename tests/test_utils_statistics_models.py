@@ -1,5 +1,7 @@
 import numpy as np
+
 from neural_analysis.utils.statistics.models import FunctionModel, get_auc, get_best_fit
+
 
 def test_function_model_linear():
     x = np.array([1.0, 2.0, 3.0])

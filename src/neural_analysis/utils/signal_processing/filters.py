@@ -1,6 +1,7 @@
-from typing import Union, List, Optional
+
 import numpy as np
 from scipy.signal import butter, filtfilt
+
 
 def butter_lowpass(cutoff: float, fs: float, order: int = 2):
     """
@@ -24,7 +25,7 @@ def butter_lowpass(cutoff: float, fs: float, order: int = 2):
     return b, a
 
 def butter_lowpass_filter(
-    data: np.ndarray, cutoff: Union[float, List[float]], fs: float, order: int = 2
+    data: np.ndarray, cutoff: float | list[float], fs: float, order: int = 2
 ) -> np.ndarray:
     """
     Apply a lowpass Butterworth filter to the input data.
@@ -48,16 +49,17 @@ def may_butter_lowpass_filter(
     data: np.ndarray,
     smooth: bool = True,
     cutoff_percentage: float = 0.999,
-    cutoff: Union[float, List[float], None] = 2.0,
-    fps: Optional[float] = None,
+    cutoff: float | list[float] | None = 2.0,
+    fps: float | None = None,
     order: int = 2,
 ) -> np.ndarray:
     """
     Conditionally apply a Butterworth lowpass filter.
     If cutoff is None, it can estimate cutoff from PSD (requires `powersspectraldensity` integration).
     """
-    from .spectrum import powersspectraldensity
     import logging
+
+    from .spectrum import powersspectraldensity
 
     logger = logging.getLogger(__name__)
 
@@ -85,10 +87,7 @@ def may_butter_lowpass_filter(
             )
             for i in range(data.shape[1]):
                 if isinstance(cutoff, (list, np.ndarray)):
-                    if len(cutoff) == data.shape[1]:
-                        cf = cutoff[i]
-                    else:
-                        cf = cutoff[0]
+                    cf = cutoff[i] if len(cutoff) == data.shape[1] else cutoff[0]
                 else:
                     cf = cutoff
 

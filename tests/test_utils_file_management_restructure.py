@@ -1,10 +1,10 @@
-import pytest
 from pathlib import Path
+
 from neural_analysis.utils.file_management.restructure import (
     move_file_to_folder,
     move_task_into_date_folder,
-    restructure_task_dir
 )
+
 
 def test_move_file_to_folder(tmp_path: Path):
     source_file = tmp_path / "test.txt"

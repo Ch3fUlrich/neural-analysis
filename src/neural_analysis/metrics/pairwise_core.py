@@ -1246,6 +1246,7 @@ def compare_datasets(
     compute_between_distances : Direct access to between-mode
     compute_all_pairs : Direct access to all-pairs mode
     compare_distribution_groups : Legacy API for group comparisons
+    feature_similarity : Legacy API from todo/Manimeasure.py superseded by mode='all-pairs'
     """
     if mode is None:
         if isinstance(data, dict):

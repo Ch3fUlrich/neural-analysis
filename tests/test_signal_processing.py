@@ -1,5 +1,7 @@
 import numpy as np
+
 from neural_analysis.utils.signal_processing.filters import butter_lowpass_filter
+
 
 def test_butter_lowpass_filter():
     # Simple test for butter_lowpass_filter
@@ -20,7 +22,11 @@ def test_butter_lowpass_filter():
     assert fft_filtered[idx_5hz] > fft_filtered[idx_20hz]
     assert fft_original[idx_20hz] > fft_filtered[idx_20hz]
 
-from neural_analysis.utils.signal_processing.spectrum import fastfouriertransform, powersspectraldensity
+from neural_analysis.utils.signal_processing.spectrum import (
+    fastfouriertransform,
+    powersspectraldensity,
+)
+
 
 def test_fastfouriertransform():
     fs = 100
@@ -52,6 +58,7 @@ def test_powersspectraldensity():
 from neural_analysis.utils.signal_processing.filters import may_butter_lowpass_filter
 from neural_analysis.utils.signal_processing.spectrum import fft_psd
 
+
 def test_may_butter_lowpass_filter():
     fs = 100
     t = np.linspace(0, 1, fs, endpoint=False)
@@ -73,7 +80,9 @@ def test_fft_psd():
     assert len(cutoff_freq) == 1
 
 def test_may_butter_lowpass_filter_with_cutoff_none():
-    from neural_analysis.utils.signal_processing.filters import may_butter_lowpass_filter
+    from neural_analysis.utils.signal_processing.filters import (
+        may_butter_lowpass_filter,
+    )
     fs = 100
     t = np.linspace(0, 1, fs, endpoint=False)
     data = np.sin(2 * np.pi * 5 * t) + np.sin(2 * np.pi * 20 * t)

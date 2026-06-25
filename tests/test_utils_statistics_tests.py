@@ -1,11 +1,13 @@
 import numpy as np
 import pandas as pd
+
 from neural_analysis.utils.statistics.tests import (
-    check_normality,
     _auto_select_test_method,
     apply_multiple_correction,
-    statistical_comparison
+    check_normality,
+    statistical_comparison,
 )
+
 
 def test_check_normality():
     np.random.seed(42)

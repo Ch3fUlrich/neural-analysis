@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger(__name__)
 """
 YAML Metadata Creator Module
@@ -55,17 +56,18 @@ Notes:
     - The manually_eddited_animals_yaml_fname is set to 'animal_summary.yaml'
 """
 
-import yaml
-import os
-import sys
 import copy
-import shutil
-from datetime import datetime
-from openpyxl import load_workbook, Workbook
-from neural_analysis.utils.file_management.paths import get_directories, get_files
+import os
 import re
-import numpy as np
+import shutil
+import sys
+from datetime import datetime
+
 import h5py
+import yaml
+from openpyxl import load_workbook
+
+from neural_analysis.utils.file_management.paths import get_directories, get_files
 
 module_path = os.path.abspath(os.path.join("../"))
 sys.path.append(module_path)
@@ -96,9 +98,9 @@ def row_to_list(sheet, row):
     """
     result = []
     # Iterate over cells in the specified row
-    for num, cell in enumerate(sheet[row][1:10000]):
+    for _num, cell in enumerate(sheet[row][1:10000]):
         value = cell.value
-        if cell.value != None:
+        if cell.value is not None:
             result.append(value)
         else:
             break
@@ -160,16 +162,12 @@ def create_stimulus_dict(sheet, metadata_columns, row, definition=None):
             }
         }
     sequence = (
-        definition[stim_type]["sequence"]
-        if "sequence" in definition[stim_type].keys()
-        else None
+        definition[stim_type].get("sequence", None)
     )
     dimensions = (
-        definition[stim_type]["dimensions"]
-        if "dimensions" in definition[stim_type].keys()
-        else None
+        definition[stim_type].get("dimensions", None)
     )
-    by = definition[stim_type]["by"] if "by" in definition[stim_type].keys() else None
+    by = definition[stim_type].get("by", None)
     metadata = create_dict(
         type=stim_type, sequence=sequence, dimensions=dimensions, by=by
     )
@@ -179,9 +177,9 @@ def create_stimulus_dict(sheet, metadata_columns, row, definition=None):
 def create_behavior_dict(sheet, metadata_columns, row, stimulus_definition=None):
     # Behavior Metadata
     cam_data = sheet.cell(row=row, column=metadata_columns["cam"]).value
-    cam_data = True if cam_data == "yes" else False
+    cam_data = cam_data == "yes"
     movement_data = sheet.cell(row=row, column=metadata_columns["behaviour"]).value
-    movement_data = True if movement_data == "yes" else False
+    movement_data = movement_data == "yes"
     stimulus = create_stimulus_dict(sheet, metadata_columns, row, stimulus_definition)
     behavior_metadata = create_dict(
         cam_data=cam_data, movement_data=movement_data, stimulus=stimulus
@@ -206,17 +204,17 @@ def create_neural_dict(sheet, metadata_columns, row):
     ur_gain = sheet.cell(row=row, column=metadata_columns["UR gain"]).value
     lens = (
         sheet.cell(row=row, column=metadata_columns["lens"]).value
-        if "lens" in metadata_columns.keys()
+        if "lens" in metadata_columns
         else None
     )
     pixels = (
         sheet.cell(row=row, column=metadata_columns["pixels"]).value
-        if "pixels" in metadata_columns.keys()
+        if "pixels" in metadata_columns
         else None
     )
     n_planes = (
         sheet.cell(row=row, column=metadata_columns["n planes"]).value
-        if "n planes" in metadata_columns.keys()
+        if "n planes" in metadata_columns
         else None
     )
 
@@ -342,7 +340,6 @@ def get_animal_dict_from_spreadsheet(
         if len(animals.keys()) > 0:
             if animal_id in animals:
                 animal = animals[animal_id]
-                animal_exists = True
                 if session_date in animal["sessions"]:
                     session = animal["sessions"][session_date]
                     session["tasks_metadata"].update(
@@ -402,13 +399,13 @@ def search_update_dict(dictionary, update_dict):
             Updated dictionary
     """
     for key, value in update_dict.items():
-        if key in dictionary.keys():
+        if key in dictionary:
             dictionary_value = dictionary[key]
             if isinstance(dictionary_value, dict):
                 dictionary_value.update(value)
         else:
             # Recursively search nested dictionaries
-            for dict_key, dict_value in dictionary.items():
+            for _dict_key, dict_value in dictionary.items():
                 if isinstance(dict_value, dict):
                     search_update_dict(dict_value, update_dict)
     return dictionary
@@ -453,7 +450,7 @@ def return_loaded_yaml_if_newer(used_path, may_newer_info_path):
     if os.path.exists(may_newer_info_path):
         yaml_modification_date = os.path.getmtime(may_newer_info_path)
         if yaml_modification_date > root_yaml_modification_date:
-            with open(may_newer_info_path, "r") as yaml_file:
+            with open(may_newer_info_path) as yaml_file:
                 yaml_dict = yaml.safe_load(yaml_file)
     return yaml_dict
 
@@ -463,7 +460,7 @@ def get_animals_from_yaml(directory):
     root_yaml_path = os.path.join(root_dir, manually_eddited_animals_yaml_fname)
     if os.path.exists(root_yaml_path):
 
-        with open(root_yaml_path, "r") as yaml_file:
+        with open(root_yaml_path) as yaml_file:
             animals = yaml.safe_load(yaml_file)
     else:
         animals = {}
@@ -493,18 +490,17 @@ def get_animals_from_yaml(directory):
 
 
 def combine_spreadsheet_and_old_animal_summary_yaml(animals_spreadsheet, animals_yaml):
-    import copy
 
     for yanimal_id, yanimal in animals_yaml.items():
         for date, ysession in yanimal["sessions"].items():
 
-            if date not in animals_spreadsheet[yanimal_id]["sessions"].keys():
+            if date not in animals_spreadsheet[yanimal_id]["sessions"]:
 
                 animals_spreadsheet[yanimal_id]["sessions"][date] = create_dict(
                     date=date, method="2P", setup="femtonics"
                 )
 
-            if "UseMUnits" in ysession.keys():
+            if "UseMUnits" in ysession:
                 usemunits = ysession["UseMUnits"]
                 if not usemunits:
                     continue
@@ -529,9 +525,7 @@ def add_session_animal_folders(animals, animals_spreadsheet, directory=None):
 
             mesc_fnames = get_files(session_path, ending=".mesc")
             mesc_munit_pairs = (
-                animals[animal_id]["UseMUnits"]
-                if "UseMUnits" in animals[animal_id].keys()
-                else []
+                animals[animal_id].get("UseMUnits", [])
             )
             for fname in mesc_fnames:
                 splitted_fname = fname.split("_")
@@ -565,7 +559,7 @@ def add_session_animal_folders(animals, animals_spreadsheet, directory=None):
                 # Get MUnit number list of first Mescfile session MSession_0
                 if len(munits_list) <= len(session_parts):
                     usefull_munits = munits_list
-                    file_naming = session_parts[: len(usefull_munits)]
+                    session_parts[: len(usefull_munits)]
                 else:
                     add_mesc_munit_pair = True
                     if mesc_munit_pairs:
@@ -579,7 +573,7 @@ def add_session_animal_folders(animals, animals_spreadsheet, directory=None):
 
                 functional_channel = (
                     2
-                    if 20210821 < int(session_date)
+                    if int(session_date) > 20210821
                     and int(session_date) < 20220422
                     and number_channels > 1
                     else 1
@@ -589,9 +583,8 @@ def add_session_animal_folders(animals, animals_spreadsheet, directory=None):
             # TODO: integrate functional channels into individual yaml files
             animals[animal_id]["functional_channels"] = functional_channel_list
 
-            if mesc_munit_pairs:
-                if len(mesc_munit_pairs) > 0:
-                    animals[animal_id]["UseMUnits"] = mesc_munit_pairs
+            if mesc_munit_pairs and len(mesc_munit_pairs) > 0:
+                animals[animal_id]["UseMUnits"] = mesc_munit_pairs
     return animals
 
 
@@ -609,7 +602,7 @@ def get_recording_munits(
                 recording_munits.append(int(unit_number))
                 # get number of imaging channels
                 number_channels = 0
-                for key in unit.keys():
+                for key in unit:
                     if "Channel" in key:
                         number_channels += 1
     return recording_munits, number_channels

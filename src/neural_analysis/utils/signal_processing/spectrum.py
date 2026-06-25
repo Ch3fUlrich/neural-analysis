@@ -1,10 +1,10 @@
-from typing import Optional, Tuple
 import numpy as np
 from scipy.signal import welch
 
+
 def fastfouriertransform(
     data: np.ndarray, fps: float
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Computes the Fast Fourier Transform (FFT) of the input data.
 
@@ -27,7 +27,7 @@ def powersspectraldensity(
     data: np.ndarray,
     fps: float,
     cutoff: float = 0.99,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Computes the Power Spectral Density (PSD) of the input freq.
 
@@ -76,7 +76,7 @@ def fft_psd(
     data: np.ndarray,
     fps: float,
     cutoff: float = 0.95,
-) -> Tuple[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+) -> tuple[tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """
     Computes the FFT and PSD of the input data.
 

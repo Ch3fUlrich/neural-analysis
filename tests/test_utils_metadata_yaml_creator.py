@@ -3,6 +3,7 @@ from neural_analysis.utils.metadata.yaml_creator import (
     remove_none_from_dict,
 )
 
+
 def test_create_dict():
     d = create_dict(a="val", b="n/a", c="?", d="")
     assert d == {"a": "val", "b": None, "c": None, "d": None}
