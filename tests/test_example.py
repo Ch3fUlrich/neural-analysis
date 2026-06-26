@@ -1,6 +1,6 @@
 import pytest
 
-from neural_analysis.example import mean, normalize
+from neural_analysis.statistics.example import mean, normalize
 
 
 def test_mean_simple() -> None:

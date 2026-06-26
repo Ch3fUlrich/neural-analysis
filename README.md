@@ -58,6 +58,21 @@ make update        # Update all dependencies
 - CI enforces linting, type-checking, and testing on all PRs
 - See `CONTRIBUTING.md` for detailed development guidelines
 
+## What is possible to analyze
+
+Currently, the `neural-analysis` package supports processing pipelines and standard operations over typical experimental outputs. For instance, utilities are provided for robust operations including:
+- Basic statistical reductions like generating the `mean` of generic lists.
+- Standard data normalizations to bounds `[0, 1]` via `normalize`.
+
+### Dataflow Pipeline
+
+```mermaid
+graph TD;
+    A[Raw Data] --> B(Processing via statistics/example.py);
+    B -->|Calculate mean| C[Statistical Output];
+    B -->|Normalize data| D[Normalized Output];
+```
+
 ## Automatic Setup Script
 
 This repository includes an **interactive setup script** to bootstrap your development environment on Ubuntu/WSL.
