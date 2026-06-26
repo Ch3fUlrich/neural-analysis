@@ -24,6 +24,10 @@ dependencies = [
     "faiss-cpu>=1.8.0", # Efficient similarity search for structure index computation
     "marimo>=0.20.2",
     "debugpy>=1.8.17",
+    "statsmodels>=0.14.6",
+    "redis>=7.0.1",
+    "pytest-mock>=3.15.1",
+    "openpyxl>=3.1.5",
 ]
 
 [project.optional-dependencies]

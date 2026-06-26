@@ -26,6 +26,8 @@ from .decoding import (
     population_vector_decoder,
 )
 
+from .decoders import decode
+from .evaluation import compute_classification_metrics, compute_regression_metrics
 __all__ = [
     # Decoding
     "compare_highd_lowd_decoding",
@@ -45,4 +47,7 @@ __all__ = [
     "extract_cell_features",
     "fit_clusterer",
     "train_classifier",
+    "decode",
+    "compute_regression_metrics",
+    "compute_classification_metrics",
 ]

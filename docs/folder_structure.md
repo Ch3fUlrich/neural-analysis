@@ -19,7 +19,6 @@ neural-analysis/
     hdf5_structure.md           # HDF5 file structure reference
     logging.md                  # Logging configuration guide
     testing_and_ci.md           # Testing, CI/CD guide
-    decoding_module.md          # Decoding functions documentation
     distributions.md            # Distribution comparison module
     structure_index.md          # Structure index documentation
     synthetic_datasets_notebook.md  # Synthetic datasets guide
@@ -79,8 +78,11 @@ neural-analysis/
    
     learning/
        __init__.py
-       decoding.py             # Neural decoders (PV, k-NN, cross-validated)
        classification.py       # 9 supervised + 7 unsupervised classifiers
+       cross_validation.py     # k-fold cross-validation
+       decoders.py             # Core decoding algorithms
+       decoding.py             # Neural decoders (PV, k-NN, cross-validated)
+       evaluation.py           # Decoder evaluation metrics
    
     metrics/
        __init__.py
