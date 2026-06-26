@@ -1,8 +1,16 @@
-import re
 import logging
+
 logger = logging.getLogger(__name__)
-from neural_analysis.utils.common.datetime_utils import extract_date_from_filename, num_to_date
-from neural_analysis.utils.file_management.paths import init_path_checks, search_filedir, regex_search
+from neural_analysis.utils.common.datetime_utils import (
+    extract_date_from_filename,
+    num_to_date,
+)
+from neural_analysis.utils.file_management.paths import (
+    init_path_checks,
+    regex_search,
+    search_filedir,
+)
+
 """
 Data Restructuring Module
 
@@ -66,11 +74,11 @@ Notes:
     - The module creates folders as needed but does not delete existing ones
 """
 
-from typing import Union, Dict
+import shutil
 from pathlib import Path
+
 import numpy as np
 from tqdm import tqdm
-import shutil
 
 # Naming patterns for different folder types
 naming_structure = {
@@ -131,7 +139,7 @@ forbidden_names = (
 )
 
 
-def move_file_to_folder(fname: Union[str, Path], folder: Union[str, Path]) -> None:
+def move_file_to_folder(fname: str | Path, folder: str | Path) -> None:
     """Move a file to a specified folder, creating the folder if needed.
 
     Parameters:
@@ -159,7 +167,7 @@ def move_file_to_folder(fname: Union[str, Path], folder: Union[str, Path]) -> No
     logger.info(f"Moved {fname} to {new_path}")
 
 
-def move_task_into_date_folder(task_dir: Union[str, Path], date: str = None) -> None:
+def move_task_into_date_folder(task_dir: str | Path, date: str = None) -> None:
     """Move a task directory into a date-organized folder structure.
 
     Searches for date information in filenames within the task directory,
@@ -214,8 +222,8 @@ def move_task_into_date_folder(task_dir: Union[str, Path], date: str = None) -> 
 
 
 def restructure_task_dir(
-    task_dir: Union[str, Path],
-    task_data_locations: Dict[str, str],
+    task_dir: str | Path,
+    task_data_locations: dict[str, str],
 ) -> None:
     """Restructure a task directory to match the SERBRA format.
 
@@ -283,8 +291,8 @@ def restructure_task_dir(
 
 
 def restructure_date_dir(
-    date_dir: Union[str, Path],
-    task_data_locations: Dict[str, str],
+    date_dir: str | Path,
+    task_data_locations: dict[str, str],
 ) -> None:
     """Restructure the date directory to match the CEBRA format.
 
@@ -308,8 +316,8 @@ def restructure_date_dir(
 
 
 def restructure_animal_dir(
-    animal_dir: Union[str, Path],
-    task_data_locations: Dict[str, str],
+    animal_dir: str | Path,
+    task_data_locations: dict[str, str],
 ) -> None:
     """Restructure the animal directory to match the CEBRA format.
 
@@ -361,7 +369,7 @@ def restructure_animal_dir(
 
 
 def restructure_animal_dirs(
-    path: Union[str, Path],
+    path: str | Path,
     photon_type: str,
     rec_output: str,
     behavior_rec_type: str,

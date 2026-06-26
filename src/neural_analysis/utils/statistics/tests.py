@@ -1,22 +1,35 @@
+import logging
+from itertools import combinations
+from typing import Literal
+
 import numpy as np
 import pandas as pd
-from typing import List, Dict, Union, Optional, Callable, Tuple, Any
-from typing_extensions import Literal
-import logging
-from scipy.optimize import curve_fit
-from sklearn.metrics import r2_score
-from scipy.stats import shapiro, levene, ttest_rel, ttest_ind, mannwhitneyu, permutation_test, wilcoxon, monte_carlo_test
-from itertools import combinations
-from statsmodels.stats.multitest import multipletests
+from scipy.stats import (
+    levene,
+    mannwhitneyu,
+    monte_carlo_test,
+    permutation_test,
+    shapiro,
+    ttest_ind,
+    ttest_rel,
+    wilcoxon,
+)
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
-from neural_analysis.utils.common.collections import flatten, unique, is_array_like, make_list_ifnot, mean_diff, do_critical
+from statsmodels.stats.multitest import multipletests
+
+from neural_analysis.utils.common.collections import (
+    do_critical,
+    make_list_ifnot,
+    mean_diff,
+)
+
 logger = logging.getLogger(__name__)
 
 
-def _auto_select_test_method(data1: np.ndarray, data2: Optional[np.ndarray]
+def _auto_select_test_method(data1: np.ndarray, data2: np.ndarray | None
     =None, test_type: Literal['paired', 'unpaired']='paired',
-    alpha_normality: float=0.05, min_sample_size_parametric: int=20) ->Tuple[
-    str, Dict[str, float]]:
+    alpha_normality: float=0.05, min_sample_size_parametric: int=20) ->tuple[
+    str, dict[str, float]]:
     """
     Automatically select the appropriate statistical test based on data characteristics.
 
@@ -65,10 +78,9 @@ def _auto_select_test_method(data1: np.ndarray, data2: Optional[np.ndarray]
     TypeError
         If inputs are not numpy arrays.
     """
-    if isinstance(data1, pd.DataFrame) or isinstance(data1, pd.Series):
+    if isinstance(data1, (pd.DataFrame, pd.Series)):
         data1 = data1.to_numpy()
-    if data2 is not None and (isinstance(data2, pd.DataFrame) or isinstance
-        (data2, pd.Series)):
+    if data2 is not None and (isinstance(data2, (pd.DataFrame, pd.Series))):
         data2 = data2.to_numpy()
     if not isinstance(data1, np.ndarray
         ) or data2 is not None and not isinstance(data2, np.ndarray):
@@ -197,9 +209,9 @@ def _auto_select_test_method(data1: np.ndarray, data2: Optional[np.ndarray]
 
 
 def _auto_select_correction_method(num_comparisons: int, test_type: Literal
-    ['paired', 'unpaired']='paired', alpha: float=0.05) ->Tuple[Literal[
+    ['paired', 'unpaired']='paired', alpha: float=0.05) ->tuple[Literal[
     'holm', 'bonferroni', 'fdr_bh', 'sidak', 'holm-sidak', 'simes-hochberg',
-    'hommel', 'fdr_by', 'fdr_tsbh', 'fdr_tsbky', 'none'], Dict[str, any]]:
+    'hommel', 'fdr_by', 'fdr_tsbh', 'fdr_tsbky', 'none'], dict[str, any]]:
     """
     Automatically select the appropriate multiple testing correction method.
 
@@ -330,7 +342,7 @@ def check_normality(data: np.ndarray, min_size: int=3, context: str=''
     return p
 
 
-def apply_multiple_correction(p_values: List[float], method: str, alpha:
+def apply_multiple_correction(p_values: list[float], method: str, alpha:
     float=0.05) ->np.ndarray:
     """
     Apply multiple testing correction to a list of p-values.
@@ -361,8 +373,8 @@ def apply_multiple_correction(p_values: List[float], method: str, alpha:
 
 
 def _compute_paired_pvalue(values1: np.ndarray, values2: np.ndarray, method:
-    str, n_permutations: int=5000, labels: Optional[Tuple[str, str]]=None,
-    group_name: Optional[str]=None, col: Optional[str]=None) ->Tuple[float,
+    str, n_permutations: int=5000, labels: tuple[str, str] | None=None,
+    group_name: str | None=None, col: str | None=None) ->tuple[float,
     float]:
     """
     Compute p-value and normality p-value for paired test data, including method selection and logging.
@@ -450,9 +462,8 @@ def _compute_paired_pvalue(values1: np.ndarray, values2: np.ndarray, method:
 
 
 def _compute_unpaired_pvalue(values1: np.ndarray, values2: np.ndarray,
-    method: str, n_permutations: int=5000, labels: Optional[Tuple[str, str]
-    ]=None, group_name: Optional[str]=None, col: Optional[str]=None,
-    normality: bool=False) ->Tuple[float, Optional[float], Optional[float]]:
+    method: str, n_permutations: int=5000, labels: tuple[str, str] | None=None, group_name: str | None=None, col: str | None=None,
+    normality: bool=False) ->tuple[float, float | None, float | None]:
     """
     Compute p-value and normality p-values for unpaired statistical test, including method selection and logging.
 
@@ -529,8 +540,8 @@ def _compute_unpaired_pvalue(values1: np.ndarray, values2: np.ndarray,
     return p_value, norm_p1, norm_p2
 
 
-def compute_tukey_pvalues(data_list: List[np.ndarray], labels: List[str]
-    ) ->Dict[Tuple[str, str], float]:
+def compute_tukey_pvalues(data_list: list[np.ndarray], labels: list[str]
+    ) ->dict[tuple[str, str], float]:
     """
     Compute p-values using Tukey's HSD test for multiple group comparisons.
 
@@ -557,16 +568,14 @@ def compute_tukey_pvalues(data_list: List[np.ndarray], labels: List[str]
 
 
 def statistical_comparison(df: pd.DataFrame, pair_name_col: str, compare_by:
-    str, value_col: List[str], test_type: Literal['paired', 'unpaired',
-    'both']='both', group_by: Optional[str]=None, groups: List[str]=None,
-    labels: List[str]=None, correction_method: Literal['auto', 'holm',
+    str, value_col: list[str], test_type: Literal['paired', 'unpaired',
+    'both']='both', group_by: str | None=None, groups: list[str]=None,
+    labels: list[str]=None, correction_method: Literal['auto', 'holm',
     'bonferroni', 'fdr_bh', 'sidak', 'holm-sidak', 'simes-hochberg',
     'hommel', 'fdr_by', 'fdr_tsbh', 'fdr_tsbky', 'none']='auto', method:
     Literal['auto', 'wilcoxon', 'ttest', 'mannwhitneyu', 'ttest_ind',
     'permutation', 'monte_carlo_test', 'monte_carlo_test_normal', 'tukey']=
-    'auto', n_permutations: int=5000, normality: bool=True) ->Union[Dict[
-    str, Dict[str, pd.DataFrame]], Dict[str, Dict[str, Dict[str, pd.
-    DataFrame]]]]:
+    'auto', n_permutations: int=5000, normality: bool=True) ->dict[str, dict[str, pd.DataFrame]] | dict[str, dict[str, dict[str, pd.DataFrame]]]:
     """
     Unified statistical comparison function supporting paired and unpaired tests with
     integrated heatmap and violin plot visualizations.
@@ -614,10 +623,7 @@ def statistical_comparison(df: pd.DataFrame, pair_name_col: str, compare_by:
         Results structure depends on test_type and normality.
     """
     value_col = make_list_ifnot(value_col)
-    if isinstance(test_type, str):
-        test_types = [test_type]
-    else:
-        test_types = list(test_type)
+    test_types = [test_type] if isinstance(test_type, str) else list(test_type)
     paired_methods = ['wilcoxon', 'ttest', 'permutation',
         'monte_carlo_test', 'monte_carlo_test_normal', 'tukey']
     unpaired_methods = ['mannwhitneyu', 'ttest_ind', 'tukey']
@@ -670,9 +676,9 @@ def statistical_comparison(df: pd.DataFrame, pair_name_col: str, compare_by:
     return results
 
 
-def _initialize_heatmaps(value_col: List[str], groups: List[str], labels:
-    List[str], normality: bool, paired: bool) ->Tuple[Dict[str, Dict[str,
-    pd.DataFrame]], Optional[Dict[str, Dict[str, pd.DataFrame]]]]:
+def _initialize_heatmaps(value_col: list[str], groups: list[str], labels:
+    list[str], normality: bool, paired: bool) ->tuple[dict[str, dict[str,
+    pd.DataFrame]], dict[str, dict[str, pd.DataFrame]] | None]:
     """
     Initialize heatmaps for statistical tests.
 
@@ -714,11 +720,8 @@ def _initialize_heatmaps(value_col: List[str], groups: List[str], labels:
 
 
 def _run_statistical_tests(df: pd.DataFrame, pair_name_col: str, compare_by:
-    str, value_col: List[str], group_by: Optional[str], groups: Optional[
-    List[str]], labels: Optional[List[str]], method: str, correction_method:
-    str, n_permutations: int, normality: bool, paired: bool) ->Union[Dict[
-    str, Dict[str, pd.DataFrame]], Dict[str, Dict[str, Dict[str, pd.
-    DataFrame]]]]:
+    str, value_col: list[str], group_by: str | None, groups: list[str] | None, labels: list[str] | None, method: str, correction_method:
+    str, n_permutations: int, normality: bool, paired: bool) ->dict[str, dict[str, pd.DataFrame]] | dict[str, dict[str, dict[str, pd.DataFrame]]]:
     """
     Run statistical tests (paired or unpaired) with multiple testing correction.
 
@@ -849,8 +852,8 @@ def _run_statistical_tests(df: pd.DataFrame, pair_name_col: str, compare_by:
 
 
 def mannwhitneyu_cross_df(df: pd.DataFrame, group_by: str, compare_by: str,
-    value_col: List[str], groups: List[str]=None, labels: List[str]=None
-    ) ->Dict[str, pd.DataFrame]:
+    value_col: list[str], groups: list[str]=None, labels: list[str]=None
+    ) ->dict[str, pd.DataFrame]:
     """
     Perform Mann-Whitney U test across specified groups in a DataFrame for multiple value columns.
 
@@ -915,13 +918,12 @@ def mannwhitneyu_cross_df(df: pd.DataFrame, group_by: str, compare_by: str,
 
 
 def sigtest_cross_df(df: pd.DataFrame, pair_name_col: str, compare_by: str,
-    value_col: List[str], group_by: Optional[str]=None, groups: List[str]=
-    None, labels: List[str]=None, correction_method: Literal['holm',
+    value_col: list[str], group_by: str | None=None, groups: list[str]=
+    None, labels: list[str]=None, correction_method: Literal['holm',
     'bonferroni', 'fdr_bh', 'none']='holm', method: Literal['wilcoxon',
     'ttest', 'permutation', 'monte_carlo_test', 'monte_carlo_test_normal',
     'tukey']='wilcoxon', n_permutations: int=5000, normality: bool=True
-    ) ->Union[Dict[str, Dict[str, pd.DataFrame]], Dict[str, Dict[str, Dict[
-    str, pd.DataFrame]]]]:
+    ) ->dict[str, dict[str, pd.DataFrame]] | dict[str, dict[str, dict[str, pd.DataFrame]]]:
     """Performs paired statistical tests across groups and conditions in a DataFrame.
     This function automates running paired statistical tests (e.g., Wilcoxon,
     paired t-test) on long-form data. It can operate on the entire dataset
@@ -1058,14 +1060,14 @@ def sigtest_cross_df(df: pd.DataFrame, pair_name_col: str, compare_by: str,
     treatment   0.093799        NaN
     """
     value_col = make_list_ifnot(value_col)
-    method_name = {'wilcoxon': 'Wilcoxon Signed-Rank', 'ttest': 'Paired t',
+    {'wilcoxon': 'Wilcoxon Signed-Rank', 'ttest': 'Paired t',
         'permutation': 'Permutation', 'monte_carlo_test': 'Monte Carlo',
         'monte_carlo_test_normal': 'Monte Carlo Normal', 'tukey': 'Tukey HSD'}[
         method]
     labels = df[compare_by].unique() if labels is None else labels
     groups = ['all'] if group_by is None else df[group_by].unique(
         ) if groups is None else groups
-    test_heatmaps = {col: {group_name: None for group_name in groups} for
+    test_heatmaps = {col: dict.fromkeys(groups) for
         col in value_col}
     if normality:
         normality_heatmaps = {col: {group_name: pd.DataFrame(np.nan, index=

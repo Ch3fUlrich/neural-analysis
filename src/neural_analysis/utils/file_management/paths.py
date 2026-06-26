@@ -1,9 +1,9 @@
 import os
 import re
 from pathlib import Path
-from typing import Union, List
 
-def init_path_checks(path: Union[str, Path], check: str = "dir") -> Path:
+
+def init_path_checks(path: str | Path, check: str = "dir") -> Path:
     p = Path(path)
     if check == "dir" and not p.exists():
         p.mkdir(parents=True, exist_ok=True)
@@ -11,7 +11,7 @@ def init_path_checks(path: Union[str, Path], check: str = "dir") -> Path:
         raise ValueError(f"{path} is not a valid file.")
     return p
 
-def search_filedir(path: Union[str, Path], type: str = "file", include_regex: str = None, exclude_regex: tuple = None) -> list:
+def search_filedir(path: str | Path, type: str = "file", include_regex: str = None, exclude_regex: tuple = None) -> list:
     p = Path(path)
     if not p.exists():
         return []
@@ -33,7 +33,7 @@ def search_filedir(path: Union[str, Path], type: str = "file", include_regex: st
 def regex_search(paths: list, pattern: str) -> list:
     return [p for p in paths if re.search(pattern, p.name)]
 
-def get_directories(path: str, regex_search: str = None) -> List[str]:
+def get_directories(path: str, regex_search: str = None) -> list[str]:
     if not os.path.exists(path):
         return []
     dirs = [d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))]
@@ -41,7 +41,7 @@ def get_directories(path: str, regex_search: str = None) -> List[str]:
         dirs = [d for d in dirs if re.search(regex_search, d)]
     return dirs
 
-def get_files(path: str, ending: str = None, regex_search: str = None) -> List[str]:
+def get_files(path: str, ending: str = None, regex_search: str = None) -> list[str]:
     if not os.path.exists(path):
         return []
     files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]

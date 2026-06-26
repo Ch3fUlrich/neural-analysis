@@ -1,15 +1,18 @@
+from collections.abc import Callable
+from typing import Any
+
 import numpy as np
-import pandas as pd
-from typing import List, Dict, Union, Optional, Callable, Tuple, Any
-FunctionType = Callable[[np.ndarray, float, Optional[float], Optional[float
-    ]], np.ndarray]
-from typing_extensions import Literal
+
+FunctionType = Callable[[np.ndarray, float, float | None, float | None], np.ndarray]
 import logging
+from typing import Literal
+
 from scipy.optimize import curve_fit
-from sklearn.metrics import r2_score
-from scipy.stats import shapiro, levene, ttest_rel, ttest_ind, mannwhitneyu, permutation_test, wilcoxon
-from itertools import combinations
-from neural_analysis.utils.common.collections import flatten, unique, is_array_like, make_list_ifnot
+
+from neural_analysis.utils.common.collections import (
+    make_list_ifnot,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -32,7 +35,7 @@ class FunctionModel:
         return 1.0 / y if inverse else y
 
     @classmethod
-    def linear(cls, x: np.ndarray, m: float, c: float, config: Dict[str, Any]
+    def linear(cls, x: np.ndarray, m: float, c: float, config: dict[str, Any]
         ) ->np.ndarray:
         """Linear function: y = m*(x - x_shift) + c or its inverse."""
         x_shifted = cls.shift_x(x, config.get('x_shift', 0.0))
@@ -41,7 +44,7 @@ class FunctionModel:
         return cls.apply_inverse(y_shifted, config.get('inverse', False))
 
     @classmethod
-    def exponential(cls, x: np.ndarray, k: float, a: float, config: Dict[
+    def exponential(cls, x: np.ndarray, k: float, a: float, config: dict[
         str, Any]) ->np.ndarray:
         """Exponential function: y = a*exp(-k*(x - x_shift)) or its inverse."""
         x_shifted = cls.shift_x(x, config.get('x_shift', 0.0))
@@ -50,7 +53,7 @@ class FunctionModel:
         return cls.apply_inverse(y_shifted, config.get('inverse', False))
 
     @classmethod
-    def gaussian(cls, x: np.ndarray, k: float, a: float, config: Dict[str, Any]
+    def gaussian(cls, x: np.ndarray, k: float, a: float, config: dict[str, Any]
         ) ->np.ndarray:
         """Gaussian function: y = a*exp(-k*(x - x_shift)^2) or its inverse."""
         x_shifted = cls.shift_x(x, config.get('x_shift', 0.0))
@@ -59,7 +62,7 @@ class FunctionModel:
         return cls.apply_inverse(y_shifted, config.get('inverse', False))
 
     @classmethod
-    def hyperbolic(cls, x: np.ndarray, k: float, a: float, config: Dict[str,
+    def hyperbolic(cls, x: np.ndarray, k: float, a: float, config: dict[str,
         Any]) ->np.ndarray:
         """Hyperbolic function: y = a/(1 + k*(x - x_shift)) or its inverse."""
         x_shifted = cls.shift_x(x, config.get('x_shift', 0.0))
@@ -69,7 +72,7 @@ class FunctionModel:
 
     @classmethod
     def power(cls, x: np.ndarray, k: float, n: float, a: float, config:
-        Dict[str, Any]) ->np.ndarray:
+        dict[str, Any]) ->np.ndarray:
         """Power function: y = a/(1 + k*(x - x_shift))^n or its inverse."""
         x_shifted = cls.shift_x(x, config.get('x_shift', 0.0))
         y = a / (1 + k * x_shifted) ** n
@@ -77,9 +80,7 @@ class FunctionModel:
         return cls.apply_inverse(y_shifted, config.get('inverse', False))
 
 
-def get_auc(x: List[float], y: List[float], functions: Union[str, List[
-    Literal['auto', 'linear', 'exponential', 'gaussian', 'hyperbolic',
-    'power']]]='auto', method: Literal['best', 'fast']='best', return_fit:
+def get_auc(x: list[float], y: list[float], functions: str | list[Literal['auto', 'linear', 'exponential', 'gaussian', 'hyperbolic', 'power']]='auto', method: Literal['best', 'fast']='best', return_fit:
     bool=False) ->float:
     """Calculate area under the curve based on the best fit of given functions or using trapezoidal rule.
 
@@ -120,11 +121,8 @@ def get_auc(x: List[float], y: List[float], functions: Union[str, List[
     return auc
 
 
-def get_best_fit(x: List[float], y: List[float], functions: Union[str, List
-    [Literal['auto', 'linear', 'exponential', 'gaussian', 'hyperbolic',
-    'power']]]='auto', x_shift: float=0.0, y_shift: float=0.0, inverse:
-    bool=False, maxfev: int=10000) ->Dict[str, Union[float, List[float], np
-    .ndarray, str]]:
+def get_best_fit(x: list[float], y: list[float], functions: str | list[Literal['auto', 'linear', 'exponential', 'gaussian', 'hyperbolic', 'power']]='auto', x_shift: float=0.0, y_shift: float=0.0, inverse:
+    bool=False, maxfev: int=10000) ->dict[str, float | list[float] | np.ndarray | str]:
     """
     Fit multiple mathematical models to (x, y) data points and determine the best-fitting model
     based on Mean Squared Error (MSE). Supports horizontal and vertical shifts and inverse function options.
@@ -166,10 +164,10 @@ def get_best_fit(x: List[float], y: List[float], functions: Union[str, List
     x = np.array(x)
     y = np.array(y)
     x_dense = np.linspace(min(x), max(x), 100)
-    fits: Dict[str, Dict] = {}
+    fits: dict[str, dict] = {}
     implemented_functions = ['linear', 'exponential', 'gaussian',
         'hyperbolic', 'power']
-    function_map: Dict[str, FunctionType] = {'linear': FunctionModel.linear,
+    function_map: dict[str, FunctionType] = {'linear': FunctionModel.linear,
         'exponential': FunctionModel.exponential, 'gaussian': FunctionModel
         .gaussian, 'hyperbolic': FunctionModel.hyperbolic, 'power':
         FunctionModel.power}
@@ -182,7 +180,7 @@ def get_best_fit(x: List[float], y: List[float], functions: Union[str, List
                 raise ValueError(
                     f"Function '{func}' is not implemented. Choose from {implemented_functions} or use 'auto'."
                     )
-    config: Dict[str, Any] = {'x_shift': x_shift, 'y_shift': y_shift,
+    config: dict[str, Any] = {'x_shift': x_shift, 'y_shift': y_shift,
         'inverse': inverse}
     initial_guesses = {'positive': [0.1, 2.0, 1.0], 'negative': [-0.1, -2.0,
         1.0]}
