@@ -108,6 +108,44 @@ This registry helps developers and AI agents:
 
 ## Decoding
 
+### `decoding.cross_validation`
+
+#### `create_folds(labels, n_folds, stratify, ...)`
+
+**Returns:** `Iterator[tuple[npt.NDArray[np.int_], npt.NDArray[np.int_]]]`
+
+**Purpose:** Creates cross-validation folds.
+
+**Location:** `decoding.cross_validation.py` (line 12)
+
+### `decoding.decoders`
+
+#### `decode(embedding_train, embedding_test, labels_train, ...)`
+
+**Returns:** `dict[str, Any]`
+
+**Purpose:** Decodes neural embeddings using k-Nearest Neighbors with automatic k selection.
+
+**Location:** `decoding.decoders.py` (line 14)
+
+### `decoding.evaluation`
+
+#### `compute_classification_metrics(labels_test, test_predictions, cv_results, ...)`
+
+**Returns:** `dict[str, Any]`
+
+**Purpose:** Compute classification performance metrics.
+
+**Location:** `decoding.evaluation.py` (line 60)
+
+#### `compute_regression_metrics(labels_test, test_predictions, cv_results, ...)`
+
+**Returns:** `dict[str, Any]`
+
+**Purpose:** Compute regression performance metrics.
+
+**Location:** `decoding.evaluation.py` (line 15)
+
 ### `learning.decoding`
 
 #### `compare_highd_lowd_decoding(activity, embedding, labels, ...)`
