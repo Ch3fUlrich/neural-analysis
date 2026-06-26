@@ -19,8 +19,8 @@ Neural recordings frequently involve hundreds or thousands of neurons. The `embe
 - **Linear Methods**: Apply PCA or MDS to find global, linear structures in the variance.
 - **Non-Linear Manifold Learning**: Apply algorithms like UMAP, t-SNE, Isomap, or Spectral Embedding to unfold complex non-linear structures (like the "ring" of head direction cells or the "torus" of grid cells).
 
-## 4. Decoding and Machine Learning
-You can "read the mind" of the network using the `learning` and `decoding` modules, mapping neural activity back to the variables it represents.
+## 4. Learning (Decoding and Classification)
+You can "read the mind" of the network using the `learning` module, mapping neural activity back to the variables it represents.
 - **Position Decoding**: Use K-Nearest Neighbors (KNN) or Population Vector decoders to predict an animal's location based purely on the firing rates of place cells.
 - **Classification**: Train classifiers (Random Forest, SVM) to categorize specific stimuli, brain states, or trial types.
 - **Clustering**: Discover unannotated states within the data using unsupervised clustering.

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `neural_analysis.learning.decoding` module provides functions for decoding behavioral variables (position, head direction, etc.) from neural activity or low-dimensional embeddings.
+The `neural_analysis.learning` module provides functions for decoding behavioral variables (position, head direction, etc.) from neural activity or low-dimensional embeddings.
 
 **Key Features:**
 - Population vector decoder (weighted average, peak methods)
