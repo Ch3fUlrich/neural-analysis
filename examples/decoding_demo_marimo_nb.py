@@ -12,7 +12,7 @@ def _():
     from sklearn.datasets import make_classification, make_regression
     from sklearn.model_selection import train_test_split
 
-    from neural_analysis.decoding import decode
+    from neural_analysis.learning import decode
     return decode, make_classification, make_regression, mo, np, pprint, train_test_split
 
 @app.cell

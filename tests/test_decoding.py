@@ -1,6 +1,6 @@
 import numpy as np
 
-from neural_analysis.decoding import decode
+from neural_analysis.learning import decode
 
 
 def test_decode_classification():
