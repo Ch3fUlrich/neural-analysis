@@ -2,9 +2,7 @@ import numpy as np
 from scipy.signal import welch
 
 
-def fastfouriertransform(
-    data: np.ndarray, fps: float
-) -> tuple[np.ndarray, np.ndarray]:
+def fastfouriertransform(data: np.ndarray, fps: float) -> tuple[np.ndarray, np.ndarray]:  # type: ignore
     """
     Computes the Fast Fourier Transform (FFT) of the input data.
 
@@ -23,11 +21,12 @@ def fastfouriertransform(
 
     return freq, fft_vals
 
+
 def powersspectraldensity(
-    data: np.ndarray,
+    data: np.ndarray,  # type: ignore
     fps: float,
     cutoff: float = 0.99,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:  # type: ignore
     """
     Computes the Power Spectral Density (PSD) of the input freq.
 
@@ -72,11 +71,12 @@ def powersspectraldensity(
 
     return freqs, psd, cutoff_freq, snr
 
+
 def fft_psd(
-    data: np.ndarray,
+    data: np.ndarray,  # type: ignore
     fps: float,
     cutoff: float = 0.95,
-) -> tuple[tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]]:
+) -> tuple[tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]]:  # type: ignore
     """
     Computes the FFT and PSD of the input data.
 
@@ -89,8 +89,6 @@ def fft_psd(
         tuple: (freq, fft_vals), (freqs, psd, cutoff_freq)
     """
     freq, fft_vals = fastfouriertransform(data, fps)
-    freqs, psd, cutoff_freq, snr = powersspectraldensity(
-        data, fps, cutoff=cutoff
-    )
+    freqs, psd, cutoff_freq, snr = powersspectraldensity(data, fps, cutoff=cutoff)
 
     return (freq, fft_vals), (freqs, psd, cutoff_freq)

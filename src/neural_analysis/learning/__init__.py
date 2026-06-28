@@ -18,6 +18,7 @@ from .classification import (
     fit_clusterer,
     train_classifier,
 )
+from .decoders import decode
 from .decoding import (
     compare_highd_lowd_decoding,
     cross_validated_knn_decoder,
@@ -25,9 +26,8 @@ from .decoding import (
     knn_decoder,
     population_vector_decoder,
 )
-
-from .decoders import decode
 from .evaluation import compute_classification_metrics, compute_regression_metrics
+
 __all__ = [
     # Decoding
     "compare_highd_lowd_decoding",

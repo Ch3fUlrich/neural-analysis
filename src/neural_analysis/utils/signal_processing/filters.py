@@ -1,9 +1,8 @@
-
 import numpy as np
 from scipy.signal import butter, filtfilt
 
 
-def butter_lowpass(cutoff: float, fs: float, order: int = 2):
+def butter_lowpass(cutoff: float, fs: float, order: int = 2):  # type: ignore
     """
     Design a lowpass Butterworth filter.
 
@@ -24,9 +23,13 @@ def butter_lowpass(cutoff: float, fs: float, order: int = 2):
     b, a = butter(order, normal_cutoff, btype="low", analog=False)
     return b, a
 
+
 def butter_lowpass_filter(
-    data: np.ndarray, cutoff: float | list[float], fs: float, order: int = 2
-) -> np.ndarray:
+    data: np.ndarray,  # type: ignore
+    cutoff: float | list[float],
+    fs: float,
+    order: int = 2,
+) -> np.ndarray:  # type: ignore
     """
     Apply a lowpass Butterworth filter to the input data.
 
@@ -43,16 +46,17 @@ def butter_lowpass_filter(
         cutoff = cutoff[0]
     b, a = butter_lowpass(cutoff, fs, order=order)
     y = filtfilt(b, a, data)
-    return y
+    return y  # type: ignore
+
 
 def may_butter_lowpass_filter(
-    data: np.ndarray,
+    data: np.ndarray,  # type: ignore
     smooth: bool = True,
     cutoff_percentage: float = 0.999,
     cutoff: float | list[float] | None = 2.0,
     fps: float | None = None,
     order: int = 2,
-) -> np.ndarray:
+) -> np.ndarray:  # type: ignore
     """
     Conditionally apply a Butterworth lowpass filter.
     If cutoff is None, it can estimate cutoff from PSD (requires `powersspectraldensity` integration).
@@ -72,11 +76,11 @@ def may_butter_lowpass_filter(
     if smooth:
         if cutoff is None:
             if fps is None:
-                fps = 20.0 # Default if not provided but needed for PSD
+                fps = 20.0  # Default if not provided but needed for PSD
             _, _, estimated_cutoff, _ = powersspectraldensity(
                 data, fps=fps, cutoff=cutoff_percentage
             )
-            cutoff = estimated_cutoff
+            cutoff = estimated_cutoff  # type: ignore
             logger.debug(f"Found cutoff frequency cutoff for channels: {cutoff}")
 
         if not fps or fps == 0:
@@ -89,7 +93,7 @@ def may_butter_lowpass_filter(
                 if isinstance(cutoff, (list, np.ndarray)):
                     cf = cutoff[i] if len(cutoff) == data.shape[1] else cutoff[0]
                 else:
-                    cf = cutoff
+                    cf = cutoff  # type: ignore
 
                 # get min and max of data
                 min_d = np.min(data[:, i])

@@ -69,10 +69,16 @@ def compute_classification_metrics(
 
     if detailed_metrics:
         # Multi-class considerations
-        avg_type = 'weighted' if len(np.unique(labels_test)) > 2 else 'binary'
-        metrics["f1"] = f1_score(labels_test, test_predictions, average=avg_type, zero_division=0)
-        metrics["precision"] = precision_score(labels_test, test_predictions, average=avg_type, zero_division=0)
-        metrics["recall"] = recall_score(labels_test, test_predictions, average=avg_type, zero_division=0)
+        avg_type = "weighted" if len(np.unique(labels_test)) > 2 else "binary"
+        metrics["f1"] = f1_score(
+            labels_test, test_predictions, average=avg_type, zero_division=0
+        )
+        metrics["precision"] = precision_score(
+            labels_test, test_predictions, average=avg_type, zero_division=0
+        )
+        metrics["recall"] = recall_score(
+            labels_test, test_predictions, average=avg_type, zero_division=0
+        )
 
     if cv_results:
         cv_acc = []

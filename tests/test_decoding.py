@@ -16,11 +16,12 @@ def test_decode_classification():
         embedding_test=embedding_test,
         labels_train=labels_train,
         labels_test=labels_test,
-        test_outlier_removal=False
+        test_outlier_removal=False,
     )
 
     assert isinstance(results, dict)
-    assert 'accuracy' in results
+    assert "accuracy" in results
+
 
 def test_decode_regression():
     np.random.seed(42)
@@ -35,10 +36,9 @@ def test_decode_regression():
         embedding_test=embedding_test,
         labels_train=labels_train,
         labels_test=labels_test,
-        test_outlier_removal=False
+        test_outlier_removal=False,
     )
 
     assert isinstance(results, dict)
-    assert 'rmse' in results
-    assert 'r2' in results
-
+    assert "rmse" in results
+    assert "r2" in results

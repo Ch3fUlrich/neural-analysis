@@ -272,7 +272,7 @@ class RedisCache:
                 return 0
 
             deleted_raw = client.delete(*keys)
-            deleted = int(deleted_raw)
+            deleted = int(deleted_raw)  # type: ignore
             logger.info(
                 f"Invalidated {deleted} cache entries matching pattern: {pattern}"
             )

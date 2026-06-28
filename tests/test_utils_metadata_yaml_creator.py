@@ -8,6 +8,7 @@ def test_create_dict():
     d = create_dict(a="val", b="n/a", c="?", d="")
     assert d == {"a": "val", "b": None, "c": None, "d": None}
 
+
 def test_remove_none_from_dict():
     d = {"a": 1, "b": None, "c": {"d": None, "e": 2}}
 

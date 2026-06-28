@@ -1,9 +1,13 @@
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from neural_analysis.utils.file_management.restructure import (
     move_file_to_folder,
     move_task_into_date_folder,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_move_file_to_folder(tmp_path: Path):
@@ -15,6 +19,7 @@ def test_move_file_to_folder(tmp_path: Path):
 
     assert (target_dir / "test.txt").exists()
     assert not source_file.exists()
+
 
 def test_move_task_into_date_folder(tmp_path: Path):
     # Setup /animal/task/file_with_date

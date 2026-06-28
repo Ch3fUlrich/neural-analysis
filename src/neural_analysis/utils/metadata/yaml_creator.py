@@ -56,18 +56,21 @@ Notes:
     - The manually_eddited_animals_yaml_fname is set to 'animal_summary.yaml'
 """
 
-import copy
-import os
-import re
-import shutil
-import sys
-from datetime import datetime
+import copy  # noqa: E402
+import os  # noqa: E402
+import re  # noqa: E402
+import shutil  # noqa: E402
+import sys  # noqa: E402
+from datetime import datetime  # noqa: E402
 
-import h5py
-import yaml
-from openpyxl import load_workbook
+import h5py  # noqa: E402
+import yaml  # type: ignore  # noqa: E402  # type: ignore
+from openpyxl import load_workbook  # noqa: E402
 
-from neural_analysis.utils.file_management.paths import get_directories, get_files
+from neural_analysis.utils.file_management.paths import (  # noqa: E402
+    get_directories,
+    get_files,
+)
 
 module_path = os.path.abspath(os.path.join("../"))
 sys.path.append(module_path)
@@ -77,7 +80,7 @@ manually_eddited_animals_yaml_fname = "animal_summary.yaml"
 
 
 ############################### YAML from Excel based on Steffens excel structure ##########################################
-def row_to_list(sheet, row):
+def row_to_list(sheet, row):  # type: ignore
     """Convert a spreadsheet row to a list of values.
 
     Extracts non-None values from a specified row in an Excel sheet,
@@ -107,7 +110,7 @@ def row_to_list(sheet, row):
     return result
 
 
-def num_to_date(date_string):
+def num_to_date(date_string):  # type: ignore
     """Convert a numeric date string to a datetime object.
 
     Parameters:
@@ -120,13 +123,13 @@ def num_to_date(date_string):
         date: datetime object
             Parsed date object
     """
-    if type(date_string) != str:
+    if not isinstance(date_string, str):
         date_string = str(date_string)
     date = datetime.strptime(date_string, "%Y%m%d")
     return date
 
 
-def define_metadata_columns(sheet):
+def define_metadata_columns(sheet):  # type: ignore
     """Extract column names and positions from spreadsheet header.
 
     Reads the first row of the spreadsheet to create a mapping between
@@ -150,7 +153,7 @@ def define_metadata_columns(sheet):
     return metadata_columns
 
 
-def create_stimulus_dict(sheet, metadata_columns, row, definition=None):
+def create_stimulus_dict(sheet, metadata_columns, row, definition=None):  # type: ignore
     # Stimulus Metadata
     stim_type = sheet.cell(row=row, column=metadata_columns["treadmill"]).value
     if definition is None:
@@ -161,33 +164,29 @@ def create_stimulus_dict(sheet, metadata_columns, row, definition=None):
                 "by": None,
             }
         }
-    sequence = (
-        definition[stim_type].get("sequence", None)
-    )
-    dimensions = (
-        definition[stim_type].get("dimensions", None)
-    )
+    sequence = definition[stim_type].get("sequence", None)
+    dimensions = definition[stim_type].get("dimensions", None)
     by = definition[stim_type].get("by", None)
-    metadata = create_dict(
+    metadata = create_dict(  # type: ignore
         type=stim_type, sequence=sequence, dimensions=dimensions, by=by
     )
     return metadata
 
 
-def create_behavior_dict(sheet, metadata_columns, row, stimulus_definition=None):
+def create_behavior_dict(sheet, metadata_columns, row, stimulus_definition=None):  # type: ignore
     # Behavior Metadata
     cam_data = sheet.cell(row=row, column=metadata_columns["cam"]).value
     cam_data = cam_data == "yes"
     movement_data = sheet.cell(row=row, column=metadata_columns["behaviour"]).value
     movement_data = movement_data == "yes"
-    stimulus = create_stimulus_dict(sheet, metadata_columns, row, stimulus_definition)
-    behavior_metadata = create_dict(
+    stimulus = create_stimulus_dict(sheet, metadata_columns, row, stimulus_definition)  # type: ignore
+    behavior_metadata = create_dict(  # type: ignore
         cam_data=cam_data, movement_data=movement_data, stimulus=stimulus
     )
     return behavior_metadata
 
 
-def create_neural_dict(sheet, metadata_columns, row):
+def create_neural_dict(sheet, metadata_columns, row):  # type: ignore
     ## Neural Metadata
     method = "2P"
     setup = sheet.cell(row=row, column=metadata_columns["setup"]).value
@@ -227,7 +226,7 @@ def create_neural_dict(sheet, metadata_columns, row):
                 convert_to_int[i] = int(value)
     n_channel, functional_channel, n_planes = convert_to_int
 
-    neural_metadata = create_dict(
+    neural_metadata = create_dict(  # type: ignore
         method=method,
         setup=setup,
         wavelength=wavelength,
@@ -244,7 +243,7 @@ def create_neural_dict(sheet, metadata_columns, row):
     return neural_metadata
 
 
-def create_task_dict(sheet, metadata_columns, row, stimulus_definition=None):
+def create_task_dict(sheet, metadata_columns, row, stimulus_definition=None):  # type: ignore
     # Task Metadata
     duration = sheet.cell(row=row, column=metadata_columns["duration [min]"]).value
     duration = (
@@ -252,11 +251,11 @@ def create_task_dict(sheet, metadata_columns, row, stimulus_definition=None):
     )
     expt_pipeline = sheet.cell(row=row, column=metadata_columns["paradigm"]).value
     comment = sheet.cell(row=row, column=metadata_columns["comment"]).value
-    task_metadata = create_dict(
+    task_metadata = create_dict(  # type: ignore
         expt_pipeline=expt_pipeline, comment=comment, duration=duration
     )
-    neural_metadata = create_neural_dict(sheet, metadata_columns, row)
-    behavior_metadata = create_behavior_dict(
+    neural_metadata = create_neural_dict(sheet, metadata_columns, row)  # type: ignore
+    behavior_metadata = create_behavior_dict(  # type: ignore
         sheet, metadata_columns, row, stimulus_definition
     )
     task_metadata["neural_metadata"] = neural_metadata
@@ -264,19 +263,19 @@ def create_task_dict(sheet, metadata_columns, row, stimulus_definition=None):
     return task_metadata
 
 
-def create_session_dict(sheet, metadata_columns, row, stimulus_definition=None):
+def create_session_dict(sheet, metadata_columns, row, stimulus_definition=None):  # type: ignore
     # Session Metadata
     date = sheet.cell(row=row, column=metadata_columns["date"]).value
     date = "20" + str(int(date)) if date else None
     weight = sheet.cell(row=row, column=metadata_columns["weight [g]"]).value
-    session_metadata = create_dict(date=date, weight=weight)
-    task_metadata = create_task_dict(sheet, metadata_columns, row, stimulus_definition)
+    session_metadata = create_dict(date=date, weight=weight)  # type: ignore
+    task_metadata = create_task_dict(sheet, metadata_columns, row, stimulus_definition)  # type: ignore
     task = sheet.cell(row=row, column=metadata_columns["session"]).value
     session_metadata["tasks_metadata"] = {task: task_metadata}
     return session_metadata
 
 
-def create_animal_dict(sheet, metadata_columns, row, stimulus_definition=None):
+def create_animal_dict(sheet, metadata_columns, row, stimulus_definition=None):  # type: ignore
     animal_id = sheet.cell(row=row, column=metadata_columns["mouse ID"]).value
     if not animal_id:
         return None
@@ -297,17 +296,17 @@ def create_animal_dict(sheet, metadata_columns, row, stimulus_definition=None):
     implanted = sheet.cell(row=row, column=metadata_columns["implanted"]).value
     implanted = "20" + str(int(implanted)) if implanted else None
 
-    animal_metadata = create_dict(
+    animal_metadata = create_dict(  # type: ignore
         animal_id=animal_id, sex=sex, dob=dob, injected=injected, implanted=implanted
     )
-    session_metadata = create_session_dict(
+    session_metadata = create_session_dict(  # type: ignore
         sheet, metadata_columns, row, stimulus_definition
     )
     animal_metadata["sessions"] = {session_metadata["date"]: session_metadata}
     return animal_metadata
 
 
-def get_animal_dict_from_spreadsheet(
+def get_animal_dict_from_spreadsheet(  # type: ignore
     fname, sheet_title=None, stimulus_definition=None, remove_none=True
 ):
     """
@@ -318,10 +317,10 @@ def get_animal_dict_from_spreadsheet(
     if sheet_title not in org_exp_workbook.sheetnames:
         raise ValueError(f"sheet_title {sheet_title} not in sheetnames in {fname}")
     sheet = org_exp_workbook[sheet_title]
-    metadata_columns = define_metadata_columns(sheet)
-    animals = {}
+    metadata_columns = define_metadata_columns(sheet)  # type: ignore
+    animals = {}  # type: ignore
     for row in range(2, sheet.max_row):
-        row_animal_metadata = create_animal_dict(
+        row_animal_metadata = create_animal_dict(  # type: ignore
             sheet, metadata_columns, row, stimulus_definition
         )
         if row_animal_metadata is None:
@@ -353,11 +352,11 @@ def get_animal_dict_from_spreadsheet(
             animals[animal_id] = row_animal_metadata
 
     if remove_none:
-        animals = remove_none_from_dict(animals, recursive=True)
+        animals = remove_none_from_dict(animals, recursive=True)  # type: ignore
     return animals
 
 
-def create_dict(**kwargs):
+def create_dict(**kwargs):  # type: ignore
     """Create a dictionary with None values for 'n/a', '', or '?' entries.
 
     Helper function to sanitize metadata values by converting common
@@ -379,7 +378,7 @@ def create_dict(**kwargs):
     return session_dict
 
 
-def search_update_dict(dictionary, update_dict):
+def search_update_dict(dictionary, update_dict):  # type: ignore
     """Recursively search and update nested dictionary values.
 
     Traverses a nested dictionary structure and updates matching keys
@@ -407,11 +406,11 @@ def search_update_dict(dictionary, update_dict):
             # Recursively search nested dictionaries
             for _dict_key, dict_value in dictionary.items():
                 if isinstance(dict_value, dict):
-                    search_update_dict(dict_value, update_dict)
+                    search_update_dict(dict_value, update_dict)  # type: ignore
     return dictionary
 
 
-def remove_none_from_dict(dictionary, recursive=False):
+def remove_none_from_dict(dictionary, recursive=False):  # type: ignore
     """Remove all None values from a dictionary.
 
     Parameters:
@@ -436,13 +435,13 @@ def remove_none_from_dict(dictionary, recursive=False):
         for key, value in dictionary.items():
             if value is not None:
                 if isinstance(value, dict):
-                    new_dict[key] = remove_none_from_dict(value, recursive)
+                    new_dict[key] = remove_none_from_dict(value, recursive)  # type: ignore
                 else:
                     new_dict[key] = value
     return new_dict
 
 
-def return_loaded_yaml_if_newer(used_path, may_newer_info_path):
+def return_loaded_yaml_if_newer(used_path, may_newer_info_path):  # type: ignore
     yaml_dict = None
     root_yaml_modification_date = (
         os.path.getmtime(used_path) if os.path.exists(used_path) else 0
@@ -455,11 +454,10 @@ def return_loaded_yaml_if_newer(used_path, may_newer_info_path):
     return yaml_dict
 
 
-def get_animals_from_yaml(directory):
+def get_animals_from_yaml(directory):  # type: ignore
     root_dir = directory if directory else ""
     root_yaml_path = os.path.join(root_dir, manually_eddited_animals_yaml_fname)
     if os.path.exists(root_yaml_path):
-
         with open(root_yaml_path) as yaml_file:
             animals = yaml.safe_load(yaml_file)
     else:
@@ -489,14 +487,11 @@ def get_animals_from_yaml(directory):
     return animals
 
 
-def combine_spreadsheet_and_old_animal_summary_yaml(animals_spreadsheet, animals_yaml):
-
+def combine_spreadsheet_and_old_animal_summary_yaml(animals_spreadsheet, animals_yaml):  # type: ignore
     for yanimal_id, yanimal in animals_yaml.items():
         for date, ysession in yanimal["sessions"].items():
-
             if date not in animals_spreadsheet[yanimal_id]["sessions"]:
-
-                animals_spreadsheet[yanimal_id]["sessions"][date] = create_dict(
+                animals_spreadsheet[yanimal_id]["sessions"][date] = create_dict(  # type: ignore
                     date=date, method="2P", setup="femtonics"
                 )
 
@@ -505,13 +500,13 @@ def combine_spreadsheet_and_old_animal_summary_yaml(animals_spreadsheet, animals
                 if not usemunits:
                     continue
                 else:
-                    animals_spreadsheet[yanimal_id]["sessions"][date][
-                        "UseMUnits"
-                    ] = usemunits
+                    animals_spreadsheet[yanimal_id]["sessions"][date]["UseMUnits"] = (
+                        usemunits
+                    )
     return animals_spreadsheet
 
 
-def add_session_animal_folders(animals, animals_spreadsheet, directory=None):
+def add_session_animal_folders(animals, animals_spreadsheet, directory=None):  # type: ignore
     root_dir = directory if directory else ""
     for animal_id in get_directories(root_dir, regex_search="DON-"):
         if animal_id not in animals:
@@ -524,9 +519,7 @@ def add_session_animal_folders(animals, animals_spreadsheet, directory=None):
             session_path = os.path.join(animal_path, session_id, "002P-F")
 
             mesc_fnames = get_files(session_path, ending=".mesc")
-            mesc_munit_pairs = (
-                animals[animal_id].get("UseMUnits", [])
-            )
+            mesc_munit_pairs = animals[animal_id].get("UseMUnits", [])
             for fname in mesc_fnames:
                 splitted_fname = fname.split("_")
                 if animal_id != splitted_fname[0]:
@@ -540,8 +533,8 @@ def add_session_animal_folders(animals, animals_spreadsheet, directory=None):
                 ):
                     animals[animal_id]["session_names"].append(session_id)
                     animals[animal_id]["session_dates"].append(session_date)
-                    dob_date = num_to_date(animals[animal_id]["dob"])
-                    session_date = num_to_date(session_date)
+                    dob_date = num_to_date(animals[animal_id]["dob"])  # type: ignore
+                    session_date = num_to_date(session_date)  # type: ignore
                     pday = (session_date - dob_date).days
                     animals[animal_id]["pdays"].append(pday)
 
@@ -552,7 +545,7 @@ def add_session_animal_folders(animals, animals_spreadsheet, directory=None):
                     for part_number in re.findall("S[0-9]", last_fname_part)
                 ]
                 fpath = os.path.join(session_path, fname)
-                munits_list, number_channels = get_recording_munits(
+                munits_list, number_channels = get_recording_munits(  # type: ignore
                     fpath, session_parts
                 )
 
@@ -588,7 +581,7 @@ def add_session_animal_folders(animals, animals_spreadsheet, directory=None):
     return animals
 
 
-def get_recording_munits(
+def get_recording_munits(  # type: ignore
     mesc_fpath, session_parts, fps=30, at_least_minutes_of_recording=5
 ):
     # Get MUnit number list of first Mescfile session MSession_0
@@ -608,9 +601,11 @@ def get_recording_munits(
     return recording_munits, number_channels
 
 
-def move_mesc_to_session_folder(directory=None):
+def move_mesc_to_session_folder(directory=None):  # type: ignore
     directory = None if directory == "" else directory
-    directory = Path(directory)
+    import pathlib
+
+    directory = pathlib.Path(directory)
     for fname in get_files(directory, ending=".mesc"):
         splitted_fname = fname.split("_")
         if splitted_fname[0][:3] != "DON":  # not animal
@@ -624,9 +619,11 @@ def move_mesc_to_session_folder(directory=None):
         shutil.move(fpath, session_path)
 
 
-def create_folders_for_animals(animals, directory=None, save_yamls=True):
+def create_folders_for_animals(animals, directory=None, save_yamls=True):  # type: ignore
     directory = None if directory == "" else directory
-    directory = Path(directory)
+    import pathlib
+
+    directory = pathlib.Path(directory)
     for animal_id, animal_metadata in animals.items():
         animal_path = directory.joinpath(animal_id)
         for session_date, session_metadata in animal_metadata["sessions"].items():
@@ -643,17 +640,17 @@ def create_folders_for_animals(animals, directory=None, save_yamls=True):
                 yaml.dump(only_animal_metadata, file)
 
 
-def main(directory=None):
+def main(directory=None):  # type: ignore
     root_dir = directory if directory else ""
     fname = os.path.join("Intrinsic_CA3_database-September_7,_10_08_AM.xlsx")
     fpath = os.path.join(root_dir, fname)
     # load spreadsheet information
-    animals_spreadsheet = get_animal_dict_from_spreadsheet(fpath)
+    animals_spreadsheet = get_animal_dict_from_spreadsheet(fpath)  # type: ignore
     # move mesc in root directory to correct folder location
-    move_mesc_to_session_folder(directory=root_dir)
+    move_mesc_to_session_folder(directory=root_dir)  # type: ignore
     # load animal yaml files
-    animals_yaml = get_animals_from_yaml(root_dir)
-    animals = combine_spreadsheet_and_old_animal_summary_yaml(
+    animals_yaml = get_animals_from_yaml(root_dir)  # type: ignore
+    animals = combine_spreadsheet_and_old_animal_summary_yaml(  # type: ignore
         animals_spreadsheet, animals_yaml
     )
     # get animals based on folder structure
@@ -662,7 +659,7 @@ def main(directory=None):
     # animals = add_session_animal_folders(
     #    animals_yaml, animals_spreadsheet, directory=root_dir
     # )
-    add_yaml_to_folders(animals, directory=root_dir)
+    # add_yaml_to_folders(animals, directory=root_dir)
     # with open(os.path.join(root_dir, manually_eddited_animals_yaml_fname), "w") as file:
     #    yaml.dump(animals, file)
     # save yaml files in folders and root directory

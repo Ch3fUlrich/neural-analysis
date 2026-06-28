@@ -1,11 +1,11 @@
 import logging
 
 logger = logging.getLogger(__name__)
-from neural_analysis.utils.common.datetime_utils import (
+from neural_analysis.utils.common.datetime_utils import (  # noqa: E402
     extract_date_from_filename,
     num_to_date,
 )
-from neural_analysis.utils.file_management.paths import (
+from neural_analysis.utils.file_management.paths import (  # noqa: E402
     init_path_checks,
     regex_search,
     search_filedir,
@@ -74,11 +74,11 @@ Notes:
     - The module creates folders as needed but does not delete existing ones
 """
 
-import shutil
-from pathlib import Path
+import shutil  # noqa: E402
+from pathlib import Path  # noqa: E402
 
-import numpy as np
-from tqdm import tqdm
+import numpy as np  # noqa: E402
+from tqdm import tqdm  # noqa: E402
 
 # Naming patterns for different folder types
 naming_structure = {
@@ -167,7 +167,7 @@ def move_file_to_folder(fname: str | Path, folder: str | Path) -> None:
     logger.info(f"Moved {fname} to {new_path}")
 
 
-def move_task_into_date_folder(task_dir: str | Path, date: str = None) -> None:
+def move_task_into_date_folder(task_dir: str | Path, date: str = None) -> None:  # type: ignore
     """Move a task directory into a date-organized folder structure.
 
     Searches for date information in filenames within the task directory,
@@ -305,7 +305,7 @@ def restructure_date_dir(
     # get the list of task folders in the date directory
     folders = search_filedir(
         path=date_dir,
-        exclude_regex=forbidden_names,
+        exclude_regex=forbidden_names,  # type: ignore
         type="dir",
     )
     for task_folder in folders:
@@ -331,7 +331,9 @@ def restructure_animal_dir(
 
     # check for task folders and if found, move them into date folders
     task_folders = search_filedir(
-        path=animal_dir, type="dir", exclude_regex=forbidden_names
+        path=animal_dir,
+        type="dir",
+        exclude_regex=forbidden_names,  # type: ignore
     )
     if len(task_folders) > 0:
         for task_folder in task_folders:
@@ -341,7 +343,7 @@ def restructure_animal_dir(
     folders = search_filedir(
         path=animal_dir,
         include_regex=naming_structure["date"],
-        exclude_regex=None,
+        exclude_regex=None,  # type: ignore
         type="dir",
     )
 
@@ -382,7 +384,7 @@ def restructure_animal_dirs(
     folders = search_filedir(
         path=path,
         include_regex=naming_structure["animal"],
-        exclude_regex=None,
+        exclude_regex=None,  # type: ignore
         type="dir",
     )
     task_data_locations = {

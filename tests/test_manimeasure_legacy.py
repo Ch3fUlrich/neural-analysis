@@ -14,10 +14,7 @@ def test_feature_similarity_migration():
     group1 = np.random.rand(10, 5)
     group2 = np.random.rand(10, 5)
 
-    data_dict = {
-        "group1": group1,
-        "group2": group2
-    }
+    data_dict = {"group1": group1, "group2": group2}
 
     # In legacy feature_similarity, mode='between' or 'inside' was handled by compare_distribution_groups
     # Now handled by compare_datasets mode='all-pairs', but metric must return scalar
@@ -28,6 +25,7 @@ def test_feature_similarity_migration():
     assert "group1" in result
     assert "group2" in result["group1"]
     assert isinstance(result["group1"]["group2"], float)
+
 
 def test_shape_distance_migration():
     """
@@ -46,6 +44,7 @@ def test_shape_distance_migration():
     # pairs could be a list of tuples, or dict, let's just check length
     assert len(pairs) == 20
 
+
 def test_structure_index_migration():
     """
     Test that the new `compute_structure_index` replaces the legacy `structure_index` function.
@@ -62,7 +61,7 @@ def test_structure_index_migration():
         n_neighbors=5,
         num_shuffles=0,
         discrete_label=False,
-        verbose=False
+        verbose=False,
     )
 
     assert isinstance(si, float)
