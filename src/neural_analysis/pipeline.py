@@ -32,9 +32,7 @@ class PipelineConfig:
     n_samples: int = 5000
     n_features: int = 100
     noise: float = 0.0
-    embedding_methods: list[str] = field(
-        default_factory=lambda: ["pca", "umap"]
-    )
+    embedding_methods: list[str] = field(default_factory=lambda: ["pca", "umap"])
     n_components: int = 3
     compute_si: bool = True
     si_n_bins: int = 20
@@ -101,7 +99,7 @@ def run_analysis(
     for method in config.embedding_methods:
         emb = compute_embedding(
             activity,
-            method=method, # type: ignore
+            method=method,  # type: ignore
             n_components=config.n_components,
             random_state=config.random_seed,
         )

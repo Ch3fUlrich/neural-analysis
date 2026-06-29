@@ -11,7 +11,13 @@ def init_path_checks(path: str | Path, check: str = "dir") -> Path:
         raise ValueError(f"{path} is not a valid file.")
     return p
 
-def search_filedir(path: str | Path, type: str = "file", include_regex: str = None, exclude_regex: tuple = None) -> list:
+
+def search_filedir(
+    path: str | Path,
+    type: str = "file",
+    include_regex: str = None,  # type: ignore
+    exclude_regex: tuple = None,  # type: ignore
+) -> list:  # type: ignore
     p = Path(path)
     if not p.exists():
         return []
@@ -30,10 +36,12 @@ def search_filedir(path: str | Path, type: str = "file", include_regex: str = No
                 results.append(item)
     return results
 
-def regex_search(paths: list, pattern: str) -> list:
+
+def regex_search(paths: list, pattern: str) -> list:  # type: ignore
     return [p for p in paths if re.search(pattern, p.name)]
 
-def get_directories(path: str, regex_search: str = None) -> list[str]:
+
+def get_directories(path: str, regex_search: str = None) -> list[str]:  # type: ignore
     if not os.path.exists(path):
         return []
     dirs = [d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))]
@@ -41,7 +49,8 @@ def get_directories(path: str, regex_search: str = None) -> list[str]:
         dirs = [d for d in dirs if re.search(regex_search, d)]
     return dirs
 
-def get_files(path: str, ending: str = None, regex_search: str = None) -> list[str]:
+
+def get_files(path: str, ending: str = None, regex_search: str = None) -> list[str]:  # type: ignore
     if not os.path.exists(path):
         return []
     files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]

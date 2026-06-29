@@ -11,6 +11,7 @@ from .evaluation import compute_classification_metrics, compute_regression_metri
 
 logger = logging.getLogger(__name__)
 
+
 def decode(
     embedding_train: npt.NDArray[np.floating],
     embedding_test: npt.NDArray[np.floating],
@@ -66,14 +67,29 @@ def decode(
     Dict[str, Any]
         Dictionary containing decoding performance metrics
     """
-    if not all(isinstance(x, np.ndarray) for x in [embedding_train, embedding_test, labels_train, labels_test]):
+    if not all(
+        isinstance(x, np.ndarray)
+        for x in [embedding_train, embedding_test, labels_train, labels_test]
+    ):
         raise ValueError("All input arrays must be numpy arrays")
 
     # Ensure labels are 1D arrays if they have 1 column or are flattened to work well with indexing
-    labels_train = labels_train.ravel() if labels_train.ndim == 2 and labels_train.shape[1] == 1 else labels_train
-    labels_test = labels_test.ravel() if labels_test.ndim == 2 and labels_test.shape[1] == 1 else labels_test
+    labels_train = (
+        labels_train.ravel()
+        if labels_train.ndim == 2 and labels_train.shape[1] == 1
+        else labels_train
+    )
+    labels_test = (
+        labels_test.ravel()
+        if labels_test.ndim == 2 and labels_test.shape[1] == 1
+        else labels_test
+    )
 
-    is_regression = np.issubdtype(labels_train.dtype, np.floating) if not labels_describe_space else True
+    is_regression = (
+        np.issubdtype(labels_train.dtype, np.floating)
+        if not labels_describe_space
+        else True
+    )
     knn_class = KNeighborsRegressor if is_regression else KNeighborsClassifier
 
     # Outlier removal logic
@@ -85,13 +101,19 @@ def decode(
             ranges = maxs - mins
             if labels_describe_space:
                 area = np.prod(ranges) if hasattr(ranges, "__iter__") else ranges
-                min_acceptable_value = np.sqrt(area * regression_outlier_removal_threshold)
+                min_acceptable_value = np.sqrt(
+                    area * regression_outlier_removal_threshold
+                )
             else:
                 min_acceptable_value = ranges * regression_outlier_removal_threshold
 
             for k, loc in enumerate(labels_test):
                 diff = loc - labels_train
-                dist = np.linalg.norm(loc - labels_train, axis=1) if labels_describe_space else np.abs(diff)
+                dist = (
+                    np.linalg.norm(loc - labels_train, axis=1)
+                    if labels_describe_space
+                    else np.abs(diff)
+                )
                 cl = np.min(dist)
                 if cl > min_acceptable_value:
                     idx_remove.append(k)
@@ -99,7 +121,10 @@ def decode(
             unique_classes, test_counts = np.unique(labels_test, return_counts=True)
             for cl, num_test_samples in zip(unique_classes, test_counts):
                 num_train_samples = np.sum(labels_train == cl)
-                if num_train_samples < min_train_class_samples or num_test_samples < min_test_class_samples:
+                if (
+                    num_train_samples < min_train_class_samples
+                    or num_test_samples < min_test_class_samples
+                ):
                     idx_remove.extend(np.where(labels_test == cl)[0])
 
         if len(idx_remove) > 0:
@@ -108,7 +133,9 @@ def decode(
 
     if n_neighbors is None:
         max_k = min(embedding_train.shape[0] - 1, 50)
-        k_range = np.unique(np.logspace(0, np.log10(max_k), num=10, base=10).astype(int))
+        k_range = np.unique(
+            np.logspace(0, np.log10(max_k), num=10, base=10).astype(int)
+        )
         kf = KFold(n_splits=n_folds, shuffle=True, random_state=42)
         k_scores = []
 
@@ -118,7 +145,11 @@ def decode(
             for train_idx, val_idx in kf.split(embedding_train):
                 knn_model.fit(embedding_train[train_idx], labels_train[train_idx])
                 preds = knn_model.predict(embedding_train[val_idx])
-                score = r2_score(labels_train[val_idx], preds) if is_regression else accuracy_score(labels_train[val_idx], preds)
+                score = (
+                    r2_score(labels_train[val_idx], preds)
+                    if is_regression
+                    else accuracy_score(labels_train[val_idx], preds)
+                )
                 fold_scores.append(score)
             k_scores.append(np.mean(fold_scores))
         best_k = k_range[np.argmax(k_scores)]
@@ -139,9 +170,19 @@ def decode(
     test_predictions = knn_model.predict(embedding_test)
 
     if is_regression:
-        results = compute_regression_metrics(labels_test, test_predictions, cv_results if include_cv_stats else None, labels_describe_space)
+        results = compute_regression_metrics(
+            labels_test,
+            test_predictions,
+            cv_results if include_cv_stats else None,
+            labels_describe_space,
+        )
     else:
-        results = compute_classification_metrics(labels_test, test_predictions, cv_results if include_cv_stats else None, detailed_metrics)
+        results = compute_classification_metrics(
+            labels_test,
+            test_predictions,
+            cv_results if include_cv_stats else None,
+            detailed_metrics,
+        )
 
     results["k"] = best_k
     return results

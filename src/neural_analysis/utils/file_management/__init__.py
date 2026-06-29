@@ -1,1 +1,1 @@
-from .restructure import *
+from .restructure import *  # noqa: F403
