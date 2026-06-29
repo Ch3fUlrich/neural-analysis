@@ -350,7 +350,7 @@ class SQLMetadata:
                     lambda x: json.loads(x) if x else {}
                 )
 
-            return result  # type: ignore
+            return result  # type: ignore[no-any-return]
         except Exception as e:
             logger.warning(f"Error querying datasets: {e}")
             return pd.DataFrame()
@@ -398,7 +398,7 @@ class SQLMetadata:
                     lambda x: json.loads(x) if x else {}
                 )
 
-            return result  # type: ignore
+            return result  # type: ignore[no-any-return]
         except Exception as e:
             logger.warning(f"Error querying comparisons: {e}")
             return pd.DataFrame()
