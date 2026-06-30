@@ -72,3 +72,6 @@ docs/api/generated/
 # Tooling/auxiliary directories not tracked
 bin/
 **/.ipynb_checkpoints/
+
+# Claude Code (personal/local overrides; .mcp.json IS committed)
+.claude/settings.local.json
