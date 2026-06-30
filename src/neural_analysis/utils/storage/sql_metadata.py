@@ -342,7 +342,7 @@ class SQLMetadata:
             if limit:
                 query += f" LIMIT {limit}"
 
-            result = conn.execute(query, params).df()
+            result: pd.DataFrame = conn.execute(query, params).df()
 
             # Parse metadata_json if present
             if "metadata_json" in result.columns:
@@ -350,7 +350,7 @@ class SQLMetadata:
                     lambda x: json.loads(x) if x else {}
                 )
 
-            return result  # type: ignore[no-any-return]
+            return result
         except Exception as e:
             logger.warning(f"Error querying datasets: {e}")
             return pd.DataFrame()
@@ -390,7 +390,7 @@ class SQLMetadata:
             if limit:
                 query += f" LIMIT {limit}"
 
-            result = conn.execute(query, params).df()
+            result: pd.DataFrame = conn.execute(query, params).df()
 
             # Parse metadata_json if present
             if "metadata_json" in result.columns:
@@ -398,7 +398,7 @@ class SQLMetadata:
                     lambda x: json.loads(x) if x else {}
                 )
 
-            return result  # type: ignore[no-any-return]
+            return result
         except Exception as e:
             logger.warning(f"Error querying comparisons: {e}")
             return pd.DataFrame()

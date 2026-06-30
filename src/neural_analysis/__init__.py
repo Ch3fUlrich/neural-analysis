@@ -27,7 +27,7 @@ from neural_analysis.data.synthetic_data import (
 # Embeddings
 from neural_analysis.embeddings.dimensionality_reduction import (
     compute_embedding,
-    # compute_multiple_embeddings
+    compute_multiple_embeddings,
 )
 
 # Learning

@@ -28,8 +28,11 @@ variables in a structured manner.
 
 References
 ----------
-.. [1] Bernardi et al. (2020). "The Geometry of Abstraction in the Hippocampus
-       and Prefrontal Cortex." Cell, 183(4), 954-967.
+The Structure Index method follows the approach of the PridaLab
+``structure_index`` package (https://github.com/PridaLab/structure_index):
+the label space is binned into bin-groups, pairwise k-NN "overlap" between
+bin-groups is measured on a weighted directed graph, and the resulting score
+is compared against a shuffled null distribution.
 
 Examples
 --------
@@ -102,7 +105,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import matplotlib
-import matplotlib.cm as cm
 import networkx as nx
 import numpy as np
 import numpy.typing as npt
@@ -630,9 +632,13 @@ def compute_structure_index(
     assert label.ndim == 2, "label must be 1D or 2D array"
 
     if features > samples:
-        print(
-            f"WARNING: data has more features ({features}) than samples ({samples})."
-            f"Transposing data to have more samples than features. Data shape: {data.shape} -> {data.T.shape}"
+        logger.warning(
+            "data has more features (%d) than samples (%d); transposing to have "
+            "more samples than features: %s -> %s",
+            features,
+            samples,
+            data.shape,
+            data.T.shape,
         )
         data = data.T
 
@@ -817,12 +823,16 @@ def compute_structure_index(
     shuf_SI = np.zeros(num_shuffles) * np.nan
     shuf_overlap_mat = np.zeros(overlap_mat.shape)
 
+    # Reproducible shuffling when a ``seed`` is supplied via kwargs; defaults to
+    # non-deterministic behaviour (matching the previous implementation).
+    rng = np.random.default_rng(kwargs.get("seed"))
+
     if verbose:
         bar = tqdm(total=num_shuffles, desc="Computing shuffles")
 
     for s_idx in range(num_shuffles):
         shuf_bin_label = copy.deepcopy(bin_label)
-        np.random.shuffle(shuf_bin_label)
+        rng.shuffle(shuf_bin_label)
         shuf_overlap_mat *= np.nan
 
         for a in range(shuf_overlap_mat.shape[0]):
@@ -895,14 +905,11 @@ def draw_overlap_graph(
     >>> plt.show()
     """
     if node_cmap is None:
-        node_cmap = cm.get_cmap("tab10")
+        node_cmap = matplotlib.colormaps["tab10"]
     if edge_cmap is None:
-        edge_cmap = cm.get_cmap("Greys")
+        edge_cmap = matplotlib.colormaps["Greys"]
 
-    if int(nx.__version__[0]) < 3:
-        g = nx.from_numpy_matrix(overlap_mat, create_using=nx.DiGraph)
-    else:
-        g = nx.from_numpy_array(overlap_mat, create_using=nx.DiGraph)
+    g = nx.from_numpy_array(overlap_mat, create_using=nx.DiGraph)
 
     number_nodes = g.number_of_nodes()
     node_size = kwargs.get("node_size", 800)

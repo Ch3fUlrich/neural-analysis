@@ -1,6 +1,6 @@
 [project]
 name = "neural-analysis"
-version = "0.0.0"
+version = "0.1.0"
 description = "Automated pipeline for building and testing neural analysis methods with reproducible environments"
 readme = "README.md"
 license = {text = "MIT"}
@@ -28,6 +28,7 @@ dependencies = [
     "redis>=7.0.1",
     "pytest-mock>=3.15.1",
     "openpyxl>=3.1.5",
+    "decorator>=5.0", # used by topology.structure_index (validate_args_types)
 ]
 
 [project.optional-dependencies]
@@ -62,9 +63,8 @@ build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 88
-target-version = "py314"
+target-version = "py312"
 exclude = [
-    "todo",
     "*.egg-info",
     ".git",
     ".venv",
@@ -136,7 +136,6 @@ warn_unused_ignores = true
 warn_no_return = true
 strict_equality = true
 exclude = [
-    "^todo/.*\\.py$",
     ".*\\.ipynb$",
     "^examples/.*\\.ipynb$",
 ]

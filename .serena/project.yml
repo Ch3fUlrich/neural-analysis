@@ -31,21 +31,16 @@ project_name: "neural-analysis"
 # When using multiple languages, the first language server that supports a given file will be used for that file.
 # The first language is the default language and the respective language server will be used as a fallback.
 # Note that when using the JetBrains backend, language servers are not used and this list is correspondingly ignored.
+# Trimmed to languages actually used by this repo. Removed go/csharp (their
+# language servers fail to start without Go / .NET 10 installed) and other
+# unused toolchains (cpp, rust, typescript, html, scss) so MCP startup stays
+# clean. Python is the primary language; add others back here if needed.
 languages:
 - python
-- html
-- typescript
 - markdown
-- scss
 - yaml
-- csharp
-- bash
-- powershell
-- json
 - toml
-- rust
-- cpp
-- go
+- json
 
 # the encoding used by text files in the project
 # For a list of possible encodings, see https://docs.python.org/3.11/library/codecs.html#standard-encodings

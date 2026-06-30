@@ -45,6 +45,7 @@ DatasetType = Literal[
     "regression",
     "place_cells",
     "grid_cells",
+    "random_cells",
     "head_direction_cells",
     "mixed_cells",
     "position_trajectory",

@@ -45,13 +45,17 @@ jobs:
       run: uv run mypy src/neural_analysis tests scripts --ignore-missing-imports
     
     - name: Run tests with coverage
+      env:
+        # xdist (-n auto) isolates workers so the full instrumented suite does not OOM;
+        # NUMBA_DISABLE_JIT lets coverage trace numba @njit function bodies.
+        NUMBA_DISABLE_JIT: "1"
       run: |
         uv run pytest tests/ \
+          -n auto \
           --cov=src/neural_analysis \
           --cov-report=term-missing \
           --cov-report=xml \
           --cov-report=html \
-          -v \
           --tb=short \
           --maxfail=5
     

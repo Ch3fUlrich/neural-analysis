@@ -1162,13 +1162,14 @@ def render_bar_matplotlib(
     bar_color = colors if colors is not None else color
 
     if orientation == "h":
+        y_pos = kwargs.pop("y", x)
         bars = ax.barh(
-            x, data, color=bar_color, alpha=alpha, label=label, xerr=error_x, **kwargs
+            y_pos, data, color=bar_color, alpha=alpha, label=label, xerr=error_x, **kwargs
         )
 
         # Add value labels if requested
         if show_values:
-            for i, (pos, val) in enumerate(zip(x, data)):
+            for i, (pos, val) in enumerate(zip(y_pos, data)):
                 offset = (
                     max(data) * 0.02
                     if error_x is None
@@ -1186,7 +1187,7 @@ def render_bar_matplotlib(
 
         # Set custom y-axis labels if provided
         if x_labels is not None:
-            ax.set_yticks(x)
+            ax.set_yticks(y_pos)
             ax.set_yticklabels(x_labels)
     else:
         bars = ax.bar(

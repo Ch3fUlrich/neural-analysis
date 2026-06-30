@@ -15,8 +15,8 @@ install-dev: ## Install with dev dependencies
 test: ## Run tests
 	uv run pytest -v
 
-test-cov: ## Run tests with coverage
-	uv run pytest --cov=src --cov-report=term-missing --cov-report=html -v
+test-cov: ## Run tests with coverage (xdist avoids OOM; NUMBA_DISABLE_JIT traces JIT bodies)
+	NUMBA_DISABLE_JIT=1 uv run pytest -n auto --cov=src --cov-report=term-missing --cov-report=html
 
 test-fast: ## Run tests in parallel
 	uv run pytest -n auto -v
