@@ -12,7 +12,7 @@ from neural_analysis.data import generate_data
 def place_cells_2d() -> tuple[np.ndarray, dict]:
     """Session-scoped place cell dataset (50 cells, 2000 timesteps)."""
     activity, metadata = generate_data(
-        "place_cells_2d", n_cells=50, n_timesteps=2000, seed=42
+        "place_cells", n_features=50, n_samples=2000, seed=42, plot=False
     )
     return activity, metadata
 

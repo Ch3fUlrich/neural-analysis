@@ -128,9 +128,6 @@ class TestPlotBar:
         fig = plot_bar(data, error_y=error_y, backend="matplotlib")
         assert fig is not None
 
-    @pytest.mark.skip(
-        reason="Horizontal bar plot has bug in renderer - x/y parameter conflict"
-    )
     def test_plot_bar_horizontal_with_error_x(self):
         """Test horizontal bar plot with error_x."""
         data = {"Group A": np.random.randn(100)}
